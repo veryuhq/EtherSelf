@@ -1,0 +1,15 @@
+# Node modules
+node_modules/
+package-lock.json
+
+# Env variables
+.env
+
+# Selfbot data
+data/
+
+# Logs
+*.log
+
+# TODO
+TODO.md

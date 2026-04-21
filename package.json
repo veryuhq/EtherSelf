@@ -1,0 +1,14 @@
+{
+  "name": "sb-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/bot-controller",
+    "packages/sb-uhq"
+  ],
+  "scripts": {
+    "start:controller": "npm --workspace=packages/bot-controller start",
+    "start:selfbot": "npm --workspace=packages/sb-uhq start",
+    "deploy": "npm --workspace=packages/bot-controller run deploy"
+  }
+}

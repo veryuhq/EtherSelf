@@ -1,0 +1,15 @@
+{
+  "name": "bot-controller",
+  "version": "1.0.0",
+  "description": "Bot contrôleur pour sb-uhq — Components V2",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.0.0",
+    "node-fetch": "^3.3.2"
+  }
+}
