@@ -29,7 +29,17 @@ async function fetchAndBuild(panelKey) {
     afk:          () => sendAction("afk.getState"),
     snipe:        () => sendAction("snipe.getWhitelist"),
     stalk:        () => sendAction("stalk.getList"),
-    tags:         () => sendAction("tag.list"),
+    tags:         async () => {
+      // On récupère les tags ET le préfixe en parallèle
+      const [tagsRes, prefixRes] = await Promise.all([
+        sendAction("tag.list"),
+        sendAction("prefix.get"),
+      ]);
+      return {
+        tags:   tagsRes?.data?.tags   ?? {},
+        prefix: prefixRes?.data?.prefix ?? ".",
+      };
+    },
     bookmarks:    () => sendAction("bookmark.list"),
     msgbookmarks: () => sendAction("msgbm.list"),
     antigroup:    () => sendAction("antigroup.getState"),
@@ -71,7 +81,13 @@ async function fetchAndBuild(panelKey) {
   let data = {};
   if (fetchers[panelKey]) {
     const res = await fetchers[panelKey]();
-    data = res?.data ?? {};
+    // Le fetcher tags retourne déjà un objet plat {tags, prefix}
+    // Les autres retournent une réponse bridge {success, data}
+    if (panelKey === "tags") {
+      data = res ?? {};
+    } else {
+      data = res?.data ?? {};
+    }
   }
 
   return builders[panelKey](data);

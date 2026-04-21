@@ -4,7 +4,7 @@ const { ButtonStyle } = require("discord.js");
 const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
-  const { tags = {} } = data;
+  const { tags = {}, prefix = "." } = data;
   const keys = Object.keys(tags);
   const list = keys.length
     ? keys.map((k, i) => `\`${i + 1}.\` **${k}** — *Clique sur "Voir un tag" pour voir son contenu*`).join("\n")
@@ -12,7 +12,11 @@ function build(data = {}) {
 
   return replyV2(
     container([
-      textDisplay(`# 🏷️ Tags\n**Tags disponibles (${keys.length}) :**\n${list}`),
+      textDisplay(
+        `# 🏷️ Tags\n` +
+        `**Tags disponibles (${keys.length}) :**\n${list}\n\n` +
+        `-# 💡 Pour envoyer un tag dans un salon, tape \`${prefix}tag <nom>\` dans n'importe quel salon.`
+      ),
       separator(),
       actionRow([
         btn("➕  Créer",    "tags:add",    ButtonStyle.Success),
