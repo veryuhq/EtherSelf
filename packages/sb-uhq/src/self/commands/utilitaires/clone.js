@@ -25,7 +25,6 @@ function sleep(ms) {
 
 function getEmojiLimit(guild) {
   const tier = guild.premiumTier ?? 0;
-  // premiumTier peut être un number (0/1/2/3) ou une string ("NONE"/"TIER_1"/"TIER_2"/"TIER_3")
   const tierNum = typeof tier === "string"
     ? ({ NONE: 0, TIER_1: 1, TIER_2: 2, TIER_3: 3 }[tier] ?? 0)
     : tier;
@@ -40,7 +39,7 @@ function getEmojiLimit(guild) {
 
 // ── Registre des jobs actifs (pour annulation) ────────────────────────────────
 
-const activeJobs = new Map(); // jobId -> { cancelled: boolean }
+const activeJobs = new Map();
 
 function registerJob(jobId) {
   activeJobs.set(jobId, { cancelled: false });
@@ -182,7 +181,7 @@ async function clearEmojis(targetGuild, pushLog, jobId) {
 
 // ── Clonage des rôles ─────────────────────────────────────────────────────────
 
-async function cloneRoles(sourceGuild, targetGuild, jobId, pushLog) {
+async function cloneRoles(sourceGuild, targetGuild, jobId, pushLog, ctx) {
   const roleMap = new Map();
 
   await targetGuild.roles.fetch().catch(() => {});
@@ -196,6 +195,8 @@ async function cloneRoles(sourceGuild, targetGuild, jobId, pushLog) {
   await notifyProgress(jobId, {
     step: "roles", current: 0, total: roles.length,
     label: "Clonage des rôles…", done: false,
+    sourceGuild: ctx.sourceGuildName,
+    targetGuild: ctx.targetGuildName,
   });
 
   for (let i = 0; i < roles.length; i++) {
@@ -219,6 +220,8 @@ async function cloneRoles(sourceGuild, targetGuild, jobId, pushLog) {
     await notifyProgress(jobId, {
       step: "roles", current: i + 1, total: roles.length,
       label: `Rôle : ${r.name}`, done: false,
+      sourceGuild: ctx.sourceGuildName,
+      targetGuild: ctx.targetGuildName,
     });
 
     await sleep(DELAY.role);
@@ -231,7 +234,7 @@ async function cloneRoles(sourceGuild, targetGuild, jobId, pushLog) {
 
 // ── Clonage des catégories et salons ─────────────────────────────────────────
 
-async function cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog) {
+async function cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog, ctx) {
   const channelMap = new Map();
 
   await sourceGuild.channels.fetch().catch(() => {});
@@ -256,6 +259,8 @@ async function cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog) 
   await notifyProgress(jobId, {
     step: "channels", current: 0, total: allChannels.length,
     label: "Clonage des salons…", done: false,
+    sourceGuild: ctx.sourceGuildName,
+    targetGuild: ctx.targetGuildName,
   });
 
   const categories = allChannels.filter(c => c.type === "GUILD_CATEGORY");
@@ -279,6 +284,8 @@ async function cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog) 
     await notifyProgress(jobId, {
       step: "channels", current: i + 1, total: allChannels.length,
       label: `Catégorie : ${cat.name}`, done: false,
+      sourceGuild: ctx.sourceGuildName,
+      targetGuild: ctx.targetGuildName,
     });
 
     await sleep(DELAY.channel);
@@ -329,6 +336,8 @@ async function cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog) 
     await notifyProgress(jobId, {
       step: "channels", current: categories.length + i + 1, total: allChannels.length,
       label: `Salon : ${ch.name}`, done: false,
+      sourceGuild: ctx.sourceGuildName,
+      targetGuild: ctx.targetGuildName,
     });
 
     await sleep(DELAY.channel);
@@ -339,14 +348,13 @@ async function cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog) 
 
 // ── Clonage des emojis ────────────────────────────────────────────────────────
 
-async function cloneEmojis(sourceGuild, targetGuild, jobId, pushLog) {
+async function cloneEmojis(sourceGuild, targetGuild, jobId, pushLog, ctx) {
   await targetGuild.emojis.fetch().catch(() => {});
   await clearEmojis(targetGuild, pushLog, jobId);
 
   const emojis = [...sourceGuild.emojis.cache.values()];
   if (!emojis.length) return 0;
 
-  // Détecter la limite du serveur cible selon son niveau de boost
   const emojiLimit  = getEmojiLimit(targetGuild);
   const tierNum     = typeof targetGuild.premiumTier === "string"
     ? ({ NONE: 0, TIER_1: 1, TIER_2: 2, TIER_3: 3 }[targetGuild.premiumTier] ?? 0)
@@ -366,6 +374,8 @@ async function cloneEmojis(sourceGuild, targetGuild, jobId, pushLog) {
   await notifyProgress(jobId, {
     step: "emojis", current: 0, total: toClone,
     label: `Clonage des emojis… (limite ${emojiLimit})`, done: false,
+    sourceGuild: ctx.sourceGuildName,
+    targetGuild: ctx.targetGuildName,
   });
 
   let cloned = 0;
@@ -373,7 +383,6 @@ async function cloneEmojis(sourceGuild, targetGuild, jobId, pushLog) {
   for (let i = 0; i < emojis.length; i++) {
     checkCancelled(jobId);
 
-    // Arrêt propre dès qu'on atteint la limite connue, sans même essayer
     if (cloned >= emojiLimit) {
       const remaining = emojis.length - i;
       pushLog(`🚫 Limite atteinte (${emojiLimit}) — ${remaining} emoji(s) restant(s) ignorés.`);
@@ -398,6 +407,8 @@ async function cloneEmojis(sourceGuild, targetGuild, jobId, pushLog) {
         await notifyProgress(jobId, {
           step: "emojis", current: cloned, total: toClone,
           label: `Limite atteinte après ${cloned} emoji(s)`, done: false,
+          sourceGuild: ctx.sourceGuildName,
+          targetGuild: ctx.targetGuildName,
         });
         break;
       }
@@ -407,6 +418,8 @@ async function cloneEmojis(sourceGuild, targetGuild, jobId, pushLog) {
     await notifyProgress(jobId, {
       step: "emojis", current: cloned, total: toClone,
       label: `Emoji : ${emoji.name}`, done: false,
+      sourceGuild: ctx.sourceGuildName,
+      targetGuild: ctx.targetGuildName,
     });
 
     await sleep(DELAY.emoji);
@@ -494,6 +507,12 @@ async function runClone(client, sourceGuildId, targetGuildId, options, jobId) {
     throw new Error(`Serveur cible ${targetGuildId} introuvable ou inaccessible.`);
   }
 
+  // Contexte partagé avec les sous-fonctions pour les notifications
+  const ctx = {
+    sourceGuildName: sourceGuild.name,
+    targetGuildName: targetGuild.name,
+  };
+
   pushLog(`🚀 "${sourceGuild.name}" → "${targetGuild.name}"`);
   await notifyProgress(jobId, {
     step:        "start",
@@ -517,21 +536,30 @@ async function runClone(client, sourceGuildId, targetGuildId, options, jobId) {
 
   try {
     if (cloneRolesEnabled) {
-      roleMap = await cloneRoles(sourceGuild, targetGuild, jobId, pushLog);
+      roleMap = await cloneRoles(sourceGuild, targetGuild, jobId, pushLog, ctx);
     } else {
       roleMap.set(sourceGuild.id, targetGuild.roles.everyone);
     }
-    await flushLogs({ step: "roles_done", label: "Rôles terminés", done: false });
+    await flushLogs({
+      step: "roles_done", label: "Rôles terminés", done: false,
+      sourceGuild: ctx.sourceGuildName, targetGuild: ctx.targetGuildName,
+    });
 
     if (cloneChannelsEnabled) {
-      channelMap = await cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog);
+      channelMap = await cloneChannels(sourceGuild, targetGuild, roleMap, jobId, pushLog, ctx);
     }
-    await flushLogs({ step: "channels_done", label: "Salons terminés", done: false });
+    await flushLogs({
+      step: "channels_done", label: "Salons terminés", done: false,
+      sourceGuild: ctx.sourceGuildName, targetGuild: ctx.targetGuildName,
+    });
 
     if (cloneEmojisEnabled) {
-      emojisCloned = await cloneEmojis(sourceGuild, targetGuild, jobId, pushLog);
+      emojisCloned = await cloneEmojis(sourceGuild, targetGuild, jobId, pushLog, ctx);
     }
-    await flushLogs({ step: "emojis_done", label: "Emojis terminés", done: false });
+    await flushLogs({
+      step: "emojis_done", label: "Emojis terminés", done: false,
+      sourceGuild: ctx.sourceGuildName, targetGuild: ctx.targetGuildName,
+    });
 
     if (cloneSettingsEnabled && cloneChannelsEnabled) {
       await cloneSettings(sourceGuild, targetGuild, channelMap, pushLog);
@@ -556,6 +584,8 @@ async function runClone(client, sourceGuildId, targetGuildId, options, jobId) {
         label: "Clonage annulé.",
         logs:  logBuffer.join("\n"),
         done:  true,
+        sourceGuild: ctx.sourceGuildName,
+        targetGuild: ctx.targetGuildName,
         summary: {
           ...cancelledEntry,
           rolesCloned:    0,
@@ -595,6 +625,8 @@ async function runClone(client, sourceGuildId, targetGuildId, options, jobId) {
     label: `Clonage terminé en ${duration}s`,
     logs:  logBuffer.join("\n"),
     done:  true,
+    sourceGuild: ctx.sourceGuildName,
+    targetGuild: ctx.targetGuildName,
     summary,
   });
 
