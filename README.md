@@ -127,7 +127,7 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 ### 1️⃣ Cloner le repo
 
 ```bash
-git clone https://github.com/ton-pseudo/etherself.git
+git clone https://github.com/veryuhq/etherself.git
 cd etherself
 npm install
 ```
