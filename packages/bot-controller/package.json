@@ -1,7 +1,7 @@
 {
-  "name": "bot-controller",
-  "version": "1.0.0",
-  "description": "Bot contrôleur pour sb-uhq — Components V2",
+  "name": "etherself-bot",
+  "version": "2026.4.1",
+  "description": "Bot contrôleur pour EtherSelf, avec Components V2",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

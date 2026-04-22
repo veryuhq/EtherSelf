@@ -1,6 +1,6 @@
 {
-  "name": "sb-monorepo",
-  "version": "1.0.0",
+  "name": "etherself",
+  "version": "2026.4.1",
   "private": true,
   "workspaces": [
     "packages/bot-controller",
@@ -9,6 +9,7 @@
   "scripts": {
     "start:controller": "npm --workspace=packages/bot-controller start",
     "start:selfbot": "npm --workspace=packages/sb-uhq start",
+    "lines:count": "node scripts/lines_count.js",
     "deploy": "npm --workspace=packages/bot-controller run deploy"
   }
 }
