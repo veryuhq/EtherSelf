@@ -64,6 +64,7 @@ async function handle(interaction) {
     "panel:nitro":        "nitro",
     "panel:rpc":          "rpc",
     "panel:rpc_cs":       "rpc_cs",
+    "panel:rpc_spotify":  "rpc_spotify",
     "panel:rpc_hub":      "rpc_hub",
     "panel:quests":       "quests",
     // Backups
@@ -447,6 +448,22 @@ async function handle(interaction) {
       { id: "smallText",  label: "Small Image Text (tooltip au survol)",  placeholder: "En ligne",                              required: false, maxLength: 128 },
     ]));
   }
+  if (id === "rpc:editTimestamps") {
+    const state = await sendAction("rpc.getState");
+    const activities = state?.data?.activities ?? [];
+    const first = activities[0]?.timestamps ?? {};
+    const now = Date.now();
+    const startOffsetSec = first.start ? Math.max(0, Math.round((first.start - now) / 1000)) : 0;
+    const durationSec = (first.start && first.end && first.end > first.start)
+      ? Math.round((first.end - first.start) / 1000)
+      : "";
+
+    return interaction.showModal(modal("modal:rpc_editTimestamps", "Configurer le temps d'une activité", [
+      { id: "index", label: activities.length === 1 ? "Numéro de l'activité" : `Numéro (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
+      { id: "startOffsetSec", label: "Début dans combien de sec", placeholder: "0", value: activities.length === 1 ? String(startOffsetSec) : "0", required: false, maxLength: 10 },
+      { id: "durationSec", label: "Durée en sec", placeholder: "210", value: activities.length === 1 && durationSec !== "" ? String(durationSec) : "", required: false, maxLength: 10 },
+    ]));
+  }
   if (id === "rpc:removeActivity") {
     return interaction.showModal(modal("modal:rpc_removeActivity", "Supprimer une activité", [
       { id: "index", label: "Numéro de l'activité à supprimer", placeholder: "1" },
@@ -494,6 +511,50 @@ async function handle(interaction) {
     const res = await sendAction("rpc.getState");
     return interaction.showModal(modal("modal:rpc_setAppId", "Définir l'Application ID", [
       { id: "applicationId", label: "Application ID (Discord Developer Portal)", placeholder: "123456789012345678", value: res?.data?.applicationId ?? "", required: false },
+    ]));
+  }
+  if (id === "rpc:spotify") {
+    const res = await sendAction("rpc.getState");
+    const spotify = res?.data?.spotify ?? {};
+    const displayValue = [spotify.details ?? "", spotify.state ?? ""].filter(Boolean).join(" | ");
+    return interaction.showModal(modal("modal:rpc_spotify", "Configurer Spotify RPC", [
+      { id: "enabled",   label: "Activer ? (on/off)", placeholder: "off", value: spotify.enabled ? "on" : "off", maxLength: 3 },
+      { id: "songId",    label: "Track ID / URI / URL Spotify", placeholder: "https://open.spotify.com/track/...", value: spotify.songId ?? "", required: false, maxLength: 128 },
+      { id: "albumId",   label: "Album ID / URI / URL (optionnel)", placeholder: "spotify:album:...", value: spotify.albumId ?? "", required: false, maxLength: 128 },
+      { id: "artistIds", label: "Artist IDs Spotify (virgules)", placeholder: "artist1, artist2", value: (spotify.artistIds ?? []).join(", "), required: false, maxLength: 400 },
+      { id: "display",   label: "Affichage (titre | artiste, optionnel)", placeholder: "Nom du morceau | Nom de l'artiste", value: displayValue, required: false, maxLength: 128 },
+    ]));
+  }
+  if (id === "rpc:spotifyAssets") {
+    const res = await sendAction("rpc.getState");
+    const assets = res?.data?.spotify?.assets ?? {};
+    return interaction.showModal(modal("modal:rpc_spotifyAssets", "Configurer les assets Spotify", [
+      { id: "largeImage", label: "Large image", placeholder: "spotify:image_id / mp:... / asset id", value: assets.largeImage ?? "", required: false, maxLength: 256 },
+      { id: "largeText", label: "Large text", placeholder: "Tooltip image large", value: assets.largeText ?? "", required: false, maxLength: 128 },
+      { id: "smallImage", label: "Small image", placeholder: "spotify:image_id / mp:... / asset id", value: assets.smallImage ?? "", required: false, maxLength: 256 },
+      { id: "smallText", label: "Small text", placeholder: "Tooltip image small", value: assets.smallText ?? "", required: false, maxLength: 128 },
+    ]));
+  }
+  if (id === "rpc:spotifyTimestamps") {
+    const res = await sendAction("rpc.getState");
+    const timestamps = res?.data?.spotify?.timestamps ?? {};
+    const now = Date.now();
+    const startOffsetSec = timestamps.start ? Math.max(0, Math.round((timestamps.start - now) / 1000)) : 0;
+    const durationSec = (timestamps.start && timestamps.end && timestamps.end > timestamps.start)
+      ? Math.round((timestamps.end - timestamps.start) / 1000)
+      : "";
+    return interaction.showModal(modal("modal:rpc_spotifyTimestamps", "Configurer le temps Spotify", [
+      { id: "startOffsetSec", label: "Début dans combien de sec", placeholder: "0", value: String(startOffsetSec), required: false, maxLength: 10 },
+      { id: "durationSec", label: "Durée en sec", placeholder: "210", value: durationSec === "" ? "" : String(durationSec), required: false, maxLength: 10 },
+    ]));
+  }
+  if (id === "rpc:spotifyExtras") {
+    const res = await sendAction("rpc.getState");
+    const spotify = res?.data?.spotify ?? {};
+    return interaction.showModal(modal("modal:rpc_spotifyExtras", "Configurer les extras Spotify", [
+      { id: "applicationId", label: "Application ID (optionnel)", placeholder: "123456789012345678", value: spotify.applicationId ?? "", required: false, maxLength: 20 },
+      { id: "platform", label: "Plateforme (optionnel)", placeholder: "desktop / ios / android / xbox", value: spotify.platform ?? "", required: false, maxLength: 16 },
+      { id: "url", label: "URL (optionnel)", placeholder: "https://open.spotify.com/track/...", value: spotify.url ?? "", required: false, maxLength: 256 },
     ]));
   }
 

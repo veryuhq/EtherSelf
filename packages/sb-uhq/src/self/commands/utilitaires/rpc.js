@@ -2,7 +2,7 @@
 
 const fs   = require("fs");
 const path = require("path");
-const { CustomStatus, RichPresence } = require("discord.js-selfbot-v13");
+const { CustomStatus, RichPresence, SpotifyRPC } = require("discord.js-selfbot-v13");
 const { dataPath } = require("../../func/data-path");
 
 const RPC_FILE = dataPath("config", "rpc.json");
@@ -26,12 +26,58 @@ const DEFAULTS = {
   csEnabled:      false,
   csCurrentIdx:   0,
   csIntervalSec:  15,
+  spotify: {
+    enabled:   false,
+    songId:    null,
+    albumId:   null,
+    artistIds: [],
+    details:   null,
+    state:     null,
+    applicationId: null,
+    platform: null,
+    url: null,
+    assets: {
+      largeImage: null,
+      largeText: null,
+      smallImage: null,
+      smallText: null,
+    },
+    timestamps: {
+      start: null,
+      end: null,
+    },
+  },
 };
+
+function normalizeSpotifyConfig(rawSpotify = {}) {
+  return {
+    enabled:   !!rawSpotify.enabled,
+    songId:    rawSpotify.songId ?? null,
+    albumId:   rawSpotify.albumId ?? null,
+    artistIds: Array.isArray(rawSpotify.artistIds) ? rawSpotify.artistIds.filter(Boolean) : [],
+    details:   rawSpotify.details ?? null,
+    state:     rawSpotify.state ?? null,
+    applicationId: rawSpotify.applicationId ?? null,
+    platform: rawSpotify.platform ?? null,
+    url: rawSpotify.url ?? null,
+    assets: {
+      largeImage: rawSpotify.assets?.largeImage ?? null,
+      largeText: rawSpotify.assets?.largeText ?? null,
+      smallImage: rawSpotify.assets?.smallImage ?? null,
+      smallText: rawSpotify.assets?.smallText ?? null,
+    },
+    timestamps: {
+      start: rawSpotify.timestamps?.start ?? null,
+      end: rawSpotify.timestamps?.end ?? null,
+    },
+  };
+}
 
 function load() {
   try {
     const raw = JSON.parse(fs.readFileSync(RPC_FILE, "utf-8"));
     const config = { ...DEFAULTS, ...raw };
+    config.spotify = normalizeSpotifyConfig(raw.spotify);
     // Nettoyer les tableaux buttons vides laissés par d'anciennes versions
     config.activities = config.activities.map(act => {
       if (Array.isArray(act.buttons) && act.buttons.length === 0) {
@@ -42,7 +88,7 @@ function load() {
     });
     return config;
   } catch {
-    return { ...DEFAULTS };
+    return { ...DEFAULTS, spotify: normalizeSpotifyConfig(DEFAULTS.spotify) };
   }
 }
 
@@ -110,6 +156,8 @@ function buildRichPresence(client, act, applicationId) {
     if (act.assets?.largeText)  rpc.setAssetsLargeText(act.assets.largeText);
     if (act.assets?.smallImage) rpc.setAssetsSmallImage(act.assets.smallImage);
     if (act.assets?.smallText)  rpc.setAssetsSmallText(act.assets.smallText);
+    if (act.timestamps?.start) rpc.setStartTimestamp(act.timestamps.start);
+    if (act.timestamps?.end) rpc.setEndTimestamp(act.timestamps.end);
 
     // Boutons — ne fonctionnent que si applicationId est défini
     if (act.type !== "streaming" && Array.isArray(act.buttons) && act.buttons.length > 0) {
@@ -132,6 +180,84 @@ function buildRichPresence(client, act, applicationId) {
   }
 }
 
+function buildSpotifyPresence(client, spotifyConfig) {
+  try {
+    const rpc = new SpotifyRPC(client);
+
+    if (spotifyConfig.songId) rpc.setSongId(spotifyConfig.songId);
+    if (spotifyConfig.albumId) rpc.setAlbumId(spotifyConfig.albumId);
+    if (spotifyConfig.artistIds?.length) rpc.setArtistIds(spotifyConfig.artistIds);
+    if (spotifyConfig.applicationId) rpc.setApplicationId(spotifyConfig.applicationId);
+    if (spotifyConfig.platform) rpc.setPlatform(spotifyConfig.platform);
+    if (spotifyConfig.url) rpc.setURL(spotifyConfig.url);
+    if (spotifyConfig.details) rpc.setDetails(spotifyConfig.details);
+    if (spotifyConfig.state) rpc.setState(spotifyConfig.state);
+    if (spotifyConfig.assets?.largeImage) rpc.setAssetsLargeImage(spotifyConfig.assets.largeImage);
+    if (spotifyConfig.assets?.largeText) rpc.setAssetsLargeText(spotifyConfig.assets.largeText);
+    if (spotifyConfig.assets?.smallImage) rpc.setAssetsSmallImage(spotifyConfig.assets.smallImage);
+    if (spotifyConfig.assets?.smallText) rpc.setAssetsSmallText(spotifyConfig.assets.smallText);
+    if (spotifyConfig.timestamps?.start) rpc.setStartTimestamp(spotifyConfig.timestamps.start);
+    if (spotifyConfig.timestamps?.end) rpc.setEndTimestamp(spotifyConfig.timestamps.end);
+
+    return rpc;
+  } catch (e) {
+    console.error("[RPC] Erreur buildSpotifyPresence :", e.message);
+    return new SpotifyRPC(client);
+  }
+}
+
+function extractSpotifyId(raw, kind) {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+
+  const directMatch = value.match(/^[A-Za-z0-9]{22}$/);
+  if (directMatch) return value;
+
+  const uriMatch = value.match(/^spotify:(track|album|artist):([A-Za-z0-9]{22})$/i);
+  if (uriMatch) {
+    if (uriMatch[1].toLowerCase() !== kind) {
+      throw new Error(`L'entrée Spotify fournie n'est pas un ${kind}.`);
+    }
+    return uriMatch[2];
+  }
+
+  const urlMatch = value.match(/spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|artist)\/([A-Za-z0-9]{22})/i);
+  if (urlMatch) {
+    if (urlMatch[1].toLowerCase() !== kind) {
+      throw new Error(`L'URL Spotify fournie n'est pas un ${kind}.`);
+    }
+    return urlMatch[2];
+  }
+
+  throw new Error(`Format Spotify invalide pour ${kind}. Utilise un ID, une URI spotify:${kind}:... ou une URL Spotify.`);
+}
+
+function extractSpotifyIds(raw, kind) {
+  const value = String(raw ?? "").trim();
+  if (!value) return [];
+  return value
+    .split(/[\n,]+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => extractSpotifyId(part, kind));
+}
+
+function parseTimestamp(raw) {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+
+  if (/^\d{10,13}$/.test(value)) {
+    const num = Number(value);
+    return value.length === 10 ? num * 1000 : num;
+  }
+
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    throw new Error("Timestamp invalide. Utilise un UNIX timestamp (secondes/ms) ou une date ISO.");
+  }
+  return parsed;
+}
+
 // ── Constructeur de présence centralisé ───────────────────────────────────────
 
 function buildPresencePayload(client, config) {
@@ -150,7 +276,12 @@ function buildPresencePayload(client, config) {
     }
   }
 
-  // 2) Activité RPC
+  // 2) Spotify RPC
+  if (config.spotify?.enabled && config.spotify.songId) {
+    activities.push(buildSpotifyPresence(client, config.spotify));
+  }
+
+  // 3) Rich Presence classique
   if (config.enabled && config.activities.length) {
     const act = config.activities[config.currentIdx % config.activities.length];
     activities.push(buildRichPresence(client, act, config.applicationId));
@@ -196,7 +327,7 @@ function startRotators(client, config) {
 
 function onReady(client) {
   const config = load();
-  const hasActivity = config.enabled && config.activities.length;
+  const hasActivity = (config.spotify?.enabled && config.spotify.songId) || (config.enabled && config.activities.length);
   const hasCs       = config.csEnabled && config.customStatuses.length;
   if (hasActivity || hasCs) {
     startRotators(client, config);
@@ -235,6 +366,91 @@ async function execute(client, payload) {
       throw new Error("Application ID invalide. Doit être un snowflake Discord (17–20 chiffres).");
     }
     config.applicationId = id || null;
+    save(config);
+    startRotators(client, config);
+    return config;
+  }
+
+  // ── Configurer Spotify RPC ───────────────────────────────────────────────
+  if (action === "setSpotifyConfig") {
+    const enabled = !!payload.enabled;
+    const songId = extractSpotifyId(payload.songId, "track");
+    const albumId = extractSpotifyId(payload.albumId, "album");
+    const artistIds = extractSpotifyIds(payload.artistIds, "artist");
+    const details = payload.details?.trim() || null;
+    const state = payload.state?.trim() || null;
+
+    if (enabled && !songId) {
+      throw new Error("Le Song ID Spotify est requis pour activer Spotify RPC.");
+    }
+
+    config.spotify = {
+      ...normalizeSpotifyConfig(config.spotify),
+      enabled,
+      songId,
+      albumId,
+      artistIds,
+      details: details ? details.slice(0, 128) : null,
+      state: state ? state.slice(0, 128) : null,
+    };
+
+    save(config);
+    startRotators(client, config);
+    return config;
+  }
+
+  if (action === "setSpotifyAssets") {
+    config.spotify = {
+      ...normalizeSpotifyConfig(config.spotify),
+      assets: {
+        largeImage: payload.assets?.largeImage?.trim() || null,
+        largeText: payload.assets?.largeText?.trim() || null,
+        smallImage: payload.assets?.smallImage?.trim() || null,
+        smallText: payload.assets?.smallText?.trim() || null,
+      },
+    };
+
+    save(config);
+    startRotators(client, config);
+    return config;
+  }
+
+  if (action === "setSpotifyTimestamps") {
+    const start = parseTimestamp(payload.start);
+    const end = parseTimestamp(payload.end);
+    if (start && end && end <= start) {
+      throw new Error("Le timestamp de fin doit être supérieur au timestamp de début.");
+    }
+
+    config.spotify = {
+      ...normalizeSpotifyConfig(config.spotify),
+      timestamps: { start, end },
+    };
+
+    save(config);
+    startRotators(client, config);
+    return config;
+  }
+
+  if (action === "setSpotifyExtras") {
+    const applicationId = payload.applicationId?.trim() || null;
+    const platform = payload.platform?.trim().toLowerCase() || null;
+    const url = payload.url?.trim() || null;
+
+    if (applicationId && !/^\d{17,20}$/.test(applicationId)) {
+      throw new Error("Application ID Spotify invalide. Doit être un snowflake Discord.");
+    }
+    if (url && !/^https?:\/\//.test(url)) {
+      throw new Error("L'URL Spotify RPC doit commencer par http:// ou https://");
+    }
+
+    config.spotify = {
+      ...normalizeSpotifyConfig(config.spotify),
+      applicationId,
+      platform,
+      url,
+    };
+
     save(config);
     startRotators(client, config);
     return config;
@@ -297,6 +513,10 @@ async function execute(client, payload) {
         largeText:  null,
         smallImage: null,
         smallText:  null,
+      },
+      timestamps: {
+        start: null,
+        end: null,
       },
     };
 
@@ -418,6 +638,23 @@ async function execute(client, payload) {
       smallText:  payload.assets?.smallText  ?? null,
     };
 
+    save(config);
+    startRotators(client, config);
+    return config;
+  }
+
+  if (action === "setActivityTimestamps") {
+    const idx = (payload.index ?? 1) - 1;
+    if (idx < 0 || idx >= config.activities.length)
+      throw new Error(`Index invalide (1–${config.activities.length}).`);
+
+    const start = parseTimestamp(payload.start);
+    const end = parseTimestamp(payload.end);
+    if (start && end && end <= start) {
+      throw new Error("Le timestamp de fin doit être supérieur au timestamp de début.");
+    }
+
+    config.activities[idx].timestamps = { start, end };
     save(config);
     startRotators(client, config);
     return config;

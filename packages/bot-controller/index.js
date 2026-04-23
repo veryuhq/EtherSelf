@@ -245,7 +245,8 @@ const logServer = http.createServer(async (req, res) => {
           // le fichier arrive dans le message /file séparé).
           const panelPayload = backups.buildGifsResult(
             { totalGifs, zipOk, zipFail, zipFilename, sent, error },
-            null // pas d'attachment ici, il arrive via /file
+            null, // pas d'attachment ici, il arrive via /file
+            { showActions: true }
           );
           try { await job.interaction.editReply(panelPayload); } catch {}
           cleanBackupGifsJob(jobId);

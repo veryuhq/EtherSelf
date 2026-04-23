@@ -257,9 +257,11 @@ function buildGifsRunning() {
  *
  * @param {{ totalGifs: number, zipOk: number, zipFail: number, zipFilename: string, sent: boolean, error?: string }} meta
  * @param {import("discord.js").AttachmentBuilder|null} attachment
+ * @param {{ showActions?: boolean }} options
  */
-function buildGifsResult(meta = {}, attachment = null) {
+function buildGifsResult(meta = {}, attachment = null, options = {}) {
   const { totalGifs = 0, zipOk = 0, zipFail = 0, zipFilename = null, sent = false, error = null } = meta;
+  const { showActions = false } = options;
 
   let statusLine, accentColor;
 
@@ -277,17 +279,19 @@ function buildGifsResult(meta = {}, attachment = null) {
   }
 
   // Composants de base
-  const components = [
-    container([
-      textDisplay(`# 🎞️ Backup GIFs — Résultat\n\n${statusLine}`),
+  const content = [textDisplay(`# 🎞️ Backup GIFs — Résultat\n\n${statusLine}`)];
+  if (showActions) {
+    content.push(
       separator(),
       actionRow([
         btn("🔄  Nouveau backup",   "backupgifs:backup", ButtonStyle.Success),
         btn("◀️  Retour GIFs",      "panel:backupgifs",  ButtonStyle.Secondary),
         btn("🏠  Accueil",          "panel:home",        ButtonStyle.Secondary),
-      ]),
-    ], accentColor),
-  ];
+      ])
+    );
+  }
+
+  const components = [container(content, accentColor)];
 
   // Attacher le ZIP via FileBuilder si disponible
   if (attachment && zipFilename) {

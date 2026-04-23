@@ -383,6 +383,30 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.build(res?.data ?? {}));
   }
+  if (id === "modal:rpc_editTimestamps") {
+    const index = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
+    const startOffsetRaw = interaction.fields.getTextInputValue("startOffsetSec").trim();
+    const durationRaw = interaction.fields.getTextInputValue("durationSec").trim();
+    const startOffsetSec = startOffsetRaw ? parseInt(startOffsetRaw, 10) : 0;
+    const durationSec = durationRaw ? parseInt(durationRaw, 10) : null;
+
+    if (Number.isNaN(index) || index < 1) {
+      return _error(interaction, "Le numéro d'activité est invalide.");
+    }
+    if (Number.isNaN(startOffsetSec) || startOffsetSec < 0) {
+      return _error(interaction, "Le début doit être un nombre de secondes positif ou nul.");
+    }
+    if (durationRaw && (Number.isNaN(durationSec) || durationSec <= 0)) {
+      return _error(interaction, "La durée doit être un nombre de secondes positif.");
+    }
+
+    const start = Date.now() + (startOffsetSec * 1000);
+    const end = durationSec ? start + (durationSec * 1000) : null;
+
+    const res = await sendAction("rpc.setActivityTimestamps", { index, start, end });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(rpc.build(res?.data ?? {}));
+  }
   if (id === "modal:rpc_removeActivity") {
     const index = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
     const res   = await sendAction("rpc.removeActivity", { index });
@@ -418,6 +442,66 @@ async function handle(interaction) {
     const res = await sendAction("rpc.setApplicationId", { applicationId });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.build(res?.data ?? {}));
+  }
+  if (id === "modal:rpc_spotify") {
+    const enabledRaw = interaction.fields.getTextInputValue("enabled").trim().toLowerCase();
+    const displayRaw = interaction.fields.getTextInputValue("display").trim();
+    const [detailsRaw = "", stateRaw = ""] = displayRaw.split("|", 2).map(part => part.trim());
+
+    const res = await sendAction("rpc.setSpotifyConfig", {
+      enabled: ["on", "true", "1", "yes", "oui"].includes(enabledRaw),
+      songId: interaction.fields.getTextInputValue("songId").trim() || null,
+      albumId: interaction.fields.getTextInputValue("albumId").trim() || null,
+      artistIds: interaction.fields.getTextInputValue("artistIds").trim() || null,
+      details: detailsRaw || null,
+      state: stateRaw || null,
+    });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(rpc.buildSpotify(res?.data ?? {}));
+  }
+  if (id === "modal:rpc_spotifyAssets") {
+    const res = await sendAction("rpc.setSpotifyAssets", {
+      assets: {
+        largeImage: interaction.fields.getTextInputValue("largeImage").trim() || null,
+        largeText: interaction.fields.getTextInputValue("largeText").trim() || null,
+        smallImage: interaction.fields.getTextInputValue("smallImage").trim() || null,
+        smallText: interaction.fields.getTextInputValue("smallText").trim() || null,
+      },
+    });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(rpc.buildSpotify(res?.data ?? {}));
+  }
+  if (id === "modal:rpc_spotifyTimestamps") {
+    const startOffsetRaw = interaction.fields.getTextInputValue("startOffsetSec").trim();
+    const durationRaw = interaction.fields.getTextInputValue("durationSec").trim();
+    const startOffsetSec = startOffsetRaw ? parseInt(startOffsetRaw, 10) : 0;
+    const durationSec = durationRaw ? parseInt(durationRaw, 10) : null;
+
+    if (Number.isNaN(startOffsetSec) || startOffsetSec < 0) {
+      return _error(interaction, "Le début doit être un nombre de secondes positif ou nul.");
+    }
+    if (durationRaw && (Number.isNaN(durationSec) || durationSec <= 0)) {
+      return _error(interaction, "La durée doit être un nombre de secondes positif.");
+    }
+
+    const start = Date.now() + (startOffsetSec * 1000);
+    const end = durationSec ? start + (durationSec * 1000) : null;
+
+    const res = await sendAction("rpc.setSpotifyTimestamps", {
+      start,
+      end,
+    });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(rpc.buildSpotify(res?.data ?? {}));
+  }
+  if (id === "modal:rpc_spotifyExtras") {
+    const res = await sendAction("rpc.setSpotifyExtras", {
+      applicationId: interaction.fields.getTextInputValue("applicationId").trim() || null,
+      platform: interaction.fields.getTextInputValue("platform").trim() || null,
+      url: interaction.fields.getTextInputValue("url").trim() || null,
+    });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(rpc.buildSpotify(res?.data ?? {}));
   }
 
   // ── RPC — Custom Status ───────────────────────────────────────────────────
