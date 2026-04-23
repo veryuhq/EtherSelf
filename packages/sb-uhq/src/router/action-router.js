@@ -13,6 +13,7 @@ const rpc       = require("../self/commands/utilitaires/rpc");
 const quests    = require("../self/commands/utilitaires/quests");
 const snapshot  = require("../self/commands/utilitaires/snapshot");
 const clone     = require("../self/commands/utilitaires/clone");
+const backupgifs = require("../self/commands/utilitaires/backupgifs");
 const prefix    = require("../self/commands/gestion/prefix");
 const antigroup = require("../self/commands/gestion/antigroup");
 const msglog    = require("../self/commands/gestion/msglog");
@@ -163,6 +164,11 @@ const ACTIONS = {
   "clone.getHistory":   (c, p) => clone.execute(c, { action: "getHistory" }),
   "clone.clearHistory": (c, p) => clone.execute(c, { action: "clearHistory" }),
 
+  // ── BACKUP GIFs ───────────────────────────────────────────────────────────
+  "backupgifs.getState": (c, p) => backupgifs.execute(c, { action: "getState" }),
+  "backupgifs.backup":   (c, p) => backupgifs.execute(c, { action: "backup" }),
+  "backupgifs.clear":    (c, p) => backupgifs.execute(c, { action: "clear" }),
+
   // ── FUN ───────────────────────────────────────────────────────────────────
   "fun.mock":           (c, p) => mock.execute(c,    { channelId: p.channelId, text: p.text }),
   "fun.spoiler":        (c, p) => spoiler.execute(c, { channelId: p.channelId, text: p.text }),
@@ -179,15 +185,10 @@ const ACTIONS = {
   "voice.getState":     (c, p) => joinvc.execute(c, { action: "getState" }),
 
   // ── PURGE ─────────────────────────────────────────────────────────────────
-  // Purge salon unique
   "purge.channel":      (c, p) => purge.execute(c, { scope: "channel", channelId: p.channelId, amount: p.amount, jobId: p.jobId }),
-  // Purge un serveur spécifique (nouveau)
   "purge.guild":        (c, p) => purge.execute(c, { scope: "guild",   guildId:   p.guildId,                    jobId: p.jobId }),
-  // Purge tous les DMs
   "purge.dms":          (c, p) => purge.execute(c, { scope: "dms",                                              jobId: p.jobId }),
-  // Purge tous les serveurs
   "purge.guilds":       (c, p) => purge.execute(c, { scope: "guilds",                                           jobId: p.jobId }),
-  // Annulation d'un job de purge en cours
   "purge.cancel":       (c, p) => purge.execute(c, { scope: "cancel",  jobId: p.jobId }),
 };
 

@@ -23,7 +23,7 @@ const sysinfo   = require("../panels/sysinfo");
 const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
-const clone     = require("../panels/clone");
+const backups   = require("../panels/backups");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -66,6 +66,9 @@ async function handle(interaction) {
     "panel:rpc_cs":       "rpc_cs",
     "panel:rpc_hub":      "rpc_hub",
     "panel:quests":       "quests",
+    // Backups
+    "panel:backups":      "backups",
+    "panel:backupgifs":   "backupgifs",
     "panel:clone":        "clone",
   };
   if (NAV_MAP[id]) {
@@ -270,7 +273,6 @@ async function handle(interaction) {
     return interaction.update(antigroup.buildConfirmLeaveAll());
   }
   if (id === "antigroup:leaveAll") {
-    // Afficher un état intermédiaire pendant le traitement
     await interaction.update(antigroup.buildLeaveAllResult({ left: 0, failed: 0, total: null }));
     const res = await sendAction("antigroup.leaveAll");
     if (!res?.success) return interaction.editReply({ content: `❌ ${res?.error ?? "Erreur inconnue."}` }).catch(() => {});
@@ -530,10 +532,8 @@ async function handle(interaction) {
     ]));
   }
 
-  // ── PURGE — Étape 1 : boutons du panel principal → confirmation ───────────
-  // Format : purge:confirm:<scope>
+  // ── PURGE ─────────────────────────────────────────────────────────────────
   if (id === "purge:confirm:channel") {
-    // Demander l'ID du salon via modal avant d'afficher la confirmation
     return interaction.showModal(modal("modal:purge_ask_channel", "Purger un salon", [
       { id: "channelId", label: "ID du salon", placeholder: "123456789012345678" },
       { id: "amount",    label: "Nombre de messages (vide = tous)", placeholder: "Laisser vide pour tout supprimer", required: false },
@@ -551,14 +551,6 @@ async function handle(interaction) {
     return interaction.update(purge.buildConfirm({ scope: "guilds" }));
   }
 
-  // ── PURGE — Étape 2 : "ask" → confirmation avec paramètres encodés ────────
-  // Ces IDs sont générés dynamiquement depuis buildConfirm mais ne peuvent pas
-  // apparaître ici car ils passent d'abord par des modals. Les vraies confirmations
-  // arrivent via purge:run:* ci-dessous.
-
-  // ── PURGE — Étape 3 : lancement effectif après confirmation ──────────────
-
-  // purge:run:channel:<channelId>:<amount>
   if (id.startsWith("purge:run:channel:")) {
     const parts     = id.split(":");
     const channelId = parts[3];
@@ -584,7 +576,6 @@ async function handle(interaction) {
     return;
   }
 
-  // purge:run:guild:<guildId>
   if (id.startsWith("purge:run:guild:")) {
     const guildId = id.split(":")[3];
     const jobId   = makeJobId("purge");
@@ -608,7 +599,6 @@ async function handle(interaction) {
     return;
   }
 
-  // purge:run:dms
   if (id === "purge:run:dms") {
     const jobId = makeJobId("purge");
 
@@ -631,7 +621,6 @@ async function handle(interaction) {
     return;
   }
 
-  // purge:run:guilds
   if (id === "purge:run:guilds") {
     const jobId = makeJobId("purge");
 
@@ -654,15 +643,10 @@ async function handle(interaction) {
     return;
   }
 
-  // ── PURGE — Annulation ────────────────────────────────────────────────────
-  // Format : purge:cancel:<jobId>
   if (id.startsWith("purge:cancel:")) {
     const jobId = id.slice("purge:cancel:".length);
     const res   = await sendAction("purge.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler la purge.");
-    // Le panel sera mis à jour automatiquement via /progress quand le selfbot
-    // détectera l'annulation et enverra done: true, cancelled: true
-    // On met juste à jour le bouton pour indiquer que c'est en cours d'arrêt
     return interaction.update(purge.buildProgress({
       scope:       "dms",
       queue:       [],
@@ -748,7 +732,7 @@ async function handle(interaction) {
     return interaction.update(quests.buildHistory(res?.data ?? {}));
   }
 
-  // ── CLONE ─────────────────────────────────────────────────────────────────
+  // ── CLONE (via panel backups) ─────────────────────────────────────────────
   if (id === "clone:setSource") {
     return interaction.showModal(modal("modal:clone_source", "Serveur source", [
       { id: "guildId", label: "ID du serveur SOURCE (à copier)", placeholder: "123456789012345678" },
@@ -762,28 +746,28 @@ async function handle(interaction) {
   if (id === "clone:toggleRoles") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneRoles = !cfg.cloneRoles;
-    return interaction.update(clone.build(cfg));
+    return interaction.update(backups.buildClone(cfg));
   }
   if (id === "clone:toggleChannels") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneChannels = !cfg.cloneChannels;
-    return interaction.update(clone.build(cfg));
+    return interaction.update(backups.buildClone(cfg));
   }
   if (id === "clone:toggleEmojis") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneEmojis = !cfg.cloneEmojis;
-    return interaction.update(clone.build(cfg));
+    return interaction.update(backups.buildClone(cfg));
   }
   if (id === "clone:toggleSettings") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneSettings = !cfg.cloneSettings;
-    return interaction.update(clone.build(cfg));
+    return interaction.update(backups.buildClone(cfg));
   }
   if (id === "clone:run") {
     const cfg   = getCloneConfig(interaction.user.id);
     const jobId = makeJobId("clone");
 
-    await interaction.update(clone.buildRunning({
+    await interaction.update(backups.buildCloneRunning({
       sourceGuild: cfg.sourceGuildName ?? cfg.sourceGuildId ?? "?",
       targetGuild: cfg.targetGuildName ?? cfg.targetGuildId ?? "?",
       jobId,
@@ -808,7 +792,7 @@ async function handle(interaction) {
     const res   = await sendAction("clone.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler le job.");
     return interaction.update(
-      clone.buildRunning({
+      backups.buildCloneRunning({
         step:  "start",
         label: "Annulation en cours…",
         logs:  "🛑 Demande d'annulation envoyée…",
@@ -817,19 +801,43 @@ async function handle(interaction) {
     );
   }
   if (id === "clone:cancel") {
-    return interaction.update(clone.buildResult({ success: false, cancelled: true }));
+    return interaction.update(backups.buildCloneResult({ success: false, cancelled: true }));
   }
   if (id === "clone:history") {
     const res = await sendAction("clone.getHistory");
-    return interaction.update(clone.buildHistory(res?.data ?? {}));
+    return interaction.update(backups.buildCloneHistory(res?.data ?? {}));
   }
   if (id === "clone:clearHistory") {
     const res = await sendAction("clone.clearHistory");
-    return interaction.update(clone.buildHistory(res?.data ?? {}));
+    return interaction.update(backups.buildCloneHistory(res?.data ?? {}));
   }
   if (id === "clone:listGuilds") {
     const res = await sendAction("clone.listGuilds");
-    return interaction.update(clone.buildGuildList(res?.data ?? {}));
+    return interaction.update(backups.buildCloneGuildList(res?.data ?? {}));
+  }
+
+  // ── BACKUP GIFs ───────────────────────────────────────────────────────────
+  if (id === "backupgifs:backup") {
+    await interaction.update(backups.buildGifsRunning());
+    const res = await sendAction("backupgifs.backup");
+    if (!res?.success) {
+      const stateRes = await sendAction("backupgifs.getState");
+      return interaction.editReply(backups.buildGifs({ ...(stateRes?.data ?? {}), _error: res?.error })).catch(() => {});
+    }
+    return interaction.editReply(backups.buildGifs(res?.data ?? {})).catch(() => {});
+  }
+  if (id === "backupgifs:clear") {
+    const res = await sendAction("backupgifs.clear");
+    return interaction.update(backups.buildGifs(res?.data ?? {}));
+  }
+  if (id === "backupgifs:list") {
+    const res = await sendAction("backupgifs.getState");
+    return interaction.update(backups.buildGifsList(res?.data ?? {}, 0));
+  }
+  if (id.startsWith("backupgifs:page:")) {
+    const page = parseInt(id.split(":")[2], 10);
+    const res  = await sendAction("backupgifs.getState");
+    return interaction.update(backups.buildGifsList(res?.data ?? {}, page));
   }
 }
 

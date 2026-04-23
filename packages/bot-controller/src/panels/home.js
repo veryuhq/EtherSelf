@@ -18,7 +18,7 @@ function build(data = {}) {
       selectMenu("panel:nav", "📂 Sélectionne un module...", [
         { label: "⚙️  Préfixe",                       value: "prefix",       description: "Changer le préfixe des commandes" },
         { label: "😴  AFK",                            value: "afk",          description: "Configurer le mode AFK" },
-        { label: "🔍  Snipe / MessageLogger / Snapshots",           value: "snipe",        description: "Whitelist, consultation des messages et snapshots de salon" },
+        { label: "🔍  Snipe / MessageLogger / Snapshots", value: "snipe",     description: "Whitelist, consultation des messages et snapshots de salon" },
         { label: "👁️  Stalk",                         value: "stalk",        description: "Surveiller des utilisateurs en vocal" },
         { label: "🏷️  Tags",                          value: "tags",         description: "Gérer tes messages prédéfinis" },
         { label: "📌  Bookmarks salons",               value: "bookmarks",    description: "Salons favoris" },
@@ -31,7 +31,7 @@ function build(data = {}) {
         { label: "🔊  Salon vocal",                    value: "joinvc",       description: "Rejoindre ou quitter un salon vocal" },
         { label: "🗑️  Purge",                         value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                 value: "quests",       description: "Complétion automatique des quêtes Discord" },
-        { label: "🔁  Clone de serveur",               value: "clone",        description: "Copier la structure d'un serveur Discord" },
+        { label: "💾  Backups",                        value: "backups",      description: "Clone de serveur et sauvegarde des GIFs favoris" },
         { label: "📊  Informations système",           value: "sysinfo",      description: "Ping, uptime, hostinfo" },
       ]),
     ], 0x5865F2)

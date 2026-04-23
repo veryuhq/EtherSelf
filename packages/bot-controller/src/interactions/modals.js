@@ -20,7 +20,7 @@ const purge     = require("../panels/purge");
 const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
-const clone     = require("../panels/clone");
+const backups   = require("../panels/backups");
 
 function getProgressHelpers() {
   return require("../../index.js");
@@ -29,6 +29,8 @@ function getProgressHelpers() {
 function makeJobId(prefix = "job") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
+
+const snipe_panel = require("../panels/snipe");
 
 /**
  * Résout le nom d'un guild depuis la liste fetchée côté selfbot.
@@ -88,12 +90,12 @@ async function handle(interaction) {
   if (id === "modal:snipe_add") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
     const res = await sendAction("snipe.addGuild", { guildId });
-    return interaction.update(snipe.build(res?.data ?? {}));
+    return interaction.update(snipe_panel.build(res?.data ?? {}));
   }
   if (id === "modal:snipe_remove") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
     const res = await sendAction("snipe.removeGuild", { guildId });
-    return interaction.update(snipe.build(res?.data ?? {}));
+    return interaction.update(snipe_panel.build(res?.data ?? {}));
   }
   if (id.startsWith("modal:snipe_view:")) {
     const type  = id.split(":")[2];
@@ -110,7 +112,7 @@ async function handle(interaction) {
     }
 
     if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(snipe.buildResults({ ...(res?.data ?? {}), page: 0 }));
+    return interaction.update(snipe_panel.buildResults({ ...(res?.data ?? {}), page: 0 }));
   }
 
   // ── SNIPE : SNAPSHOT ──────────────────────────────────────────────────────
@@ -122,13 +124,13 @@ async function handle(interaction) {
 
     const jobId = makeJobId("snapshot");
 
-    await interaction.update(snipe.buildSnapshotRunning({ channelId }));
+    await interaction.update(snipe_panel.buildSnapshotRunning({ channelId }));
 
     const { registerSnapshotJob } = getProgressHelpers();
     registerSnapshotJob(jobId, interaction);
 
     sendAction("snapshot.run", { channelId, limit, sendToChannelId, jobId }).catch(() => {
-      interaction.editReply(snipe.buildSnapshotResult({
+      interaction.editReply(snipe_panel.buildSnapshotResult({
         channelName:  channelId,
         messageCount: 0,
         sent:         false,
@@ -236,9 +238,7 @@ async function handle(interaction) {
     return interaction.update(autobump.build(res?.data ?? {}));
   }
 
-  // ── PURGE — modals de collecte des paramètres ─────────────────────────────
-
-  // Modal : saisie channelId → affiche l'écran de confirmation
+  // ── PURGE ────────────────────────────────────────────────────────────────
   if (id === "modal:purge_ask_channel") {
     const channelId = interaction.fields.getTextInputValue("channelId").trim();
     const amountRaw = interaction.fields.getTextInputValue("amount").trim();
@@ -251,11 +251,9 @@ async function handle(interaction) {
     }));
   }
 
-  // Modal : saisie guildId → résolution du nom → confirmation
   if (id === "modal:purge_ask_guild") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
 
-    // Tentative de résolution du nom du serveur
     let guildName = null;
     try {
       const res = await sendAction("clone.listGuilds");
@@ -466,14 +464,14 @@ async function handle(interaction) {
     const cfg     = getCloneConfig(interaction.user.id);
     cfg.sourceGuildId   = guildId;
     cfg.sourceGuildName = await resolveGuildName(guildId);
-    return interaction.update(clone.build(cfg));
+    return interaction.update(backups.buildClone(cfg));
   }
   if (id === "modal:clone_target") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
     const cfg     = getCloneConfig(interaction.user.id);
     cfg.targetGuildId   = guildId;
     cfg.targetGuildName = await resolveGuildName(guildId);
-    return interaction.update(clone.build(cfg));
+    return interaction.update(backups.buildClone(cfg));
   }
 }
 

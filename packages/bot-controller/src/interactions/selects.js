@@ -20,7 +20,7 @@ const sysinfo     = require("../panels/sysinfo");
 const nitro       = require("../panels/nitro");
 const rpc         = require("../panels/rpc");
 const quests      = require("../panels/quests");
-const clone       = require("../panels/clone");
+const backups     = require("../panels/backups");
 
 async function fetchAndBuild(panelKey) {
   const fetchers = {
@@ -30,7 +30,6 @@ async function fetchAndBuild(panelKey) {
     snipe:        () => sendAction("snipe.getWhitelist"),
     stalk:        () => sendAction("stalk.getList"),
     tags:         async () => {
-      // On récupère les tags ET le préfixe en parallèle
       const [tagsRes, prefixRes] = await Promise.all([
         sendAction("tag.list"),
         sendAction("prefix.get"),
@@ -50,7 +49,8 @@ async function fetchAndBuild(panelKey) {
     rpc:          () => sendAction("rpc.getState"),
     rpc_cs:       () => sendAction("rpc.getState"),
     quests:       () => sendAction("quests.list"),
-    // clone, rpc_hub, purge, sysinfo n'ont pas besoin de fetch initial
+    backupgifs:   () => sendAction("backupgifs.getState"),
+    clone:        () => null, // données gérées via cloneConfig store
   };
 
   const builders = {
@@ -73,7 +73,11 @@ async function fetchAndBuild(panelKey) {
     rpc_cs:       (d) => rpc.buildCs(d),
     rpc_hub:      ()  => rpc.buildHub(),
     quests:       (d) => quests.build(d),
-    clone:        (d) => clone.build(d),
+    // Backups hub
+    backups:      ()  => backups.buildHub(),
+    // Sous-panels backups
+    backupgifs:   (d) => backups.buildGifs(d),
+    clone:        (d) => backups.buildClone(d ?? {}),
   };
 
   if (!builders[panelKey]) return null;
@@ -81,10 +85,10 @@ async function fetchAndBuild(panelKey) {
   let data = {};
   if (fetchers[panelKey]) {
     const res = await fetchers[panelKey]();
-    // Le fetcher tags retourne déjà un objet plat {tags, prefix}
-    // Les autres retournent une réponse bridge {success, data}
     if (panelKey === "tags") {
       data = res ?? {};
+    } else if (res === null) {
+      data = {};
     } else {
       data = res?.data ?? {};
     }
