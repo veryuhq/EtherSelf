@@ -27,7 +27,7 @@ function build(data = {}) {
         { label: "⬆️  Auto-Bump",                      value: "autobump",     description: "Config du bump automatique Disboard" },
         { label: "🔫  Guns.lol",                       value: "gunslol",      description: "Envoi automatique du lien guns.lol" },
         { label: "🎁  Nitro Sniper",                   value: "nitro",        description: "Claim automatique des codes Nitro" },
-        { label: "🎮  Rich Presence et Custom Status", value: "rpc_hub",      description: "Personnaliser ta présence Discord" },
+        { label: "🎮  Rich Presence / Spotify / Custom Status", value: "rpc_hub",    description: "Rich Presence, Spotify RPC et Custom Status" },
         { label: "🔊  Salon vocal",                    value: "joinvc",       description: "Rejoindre ou quitter un salon vocal" },
         { label: "🗑️  Purge",                         value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                 value: "quests",       description: "Complétion automatique des quêtes Discord" },
