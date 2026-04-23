@@ -18,8 +18,8 @@
 
 ---
 
-> ### 🤖 Vibecodé avec Claude Sonnet 4.6
-> Ce projet a été **entièrement généré par une IA** (Claude Sonnet 4.6 d'Anthropic). Si tu envisages de faire quelque chose de similaire, il est **fortement recommandé de l'implémenter toi-même** sans IA — tu comprendras réellement ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer quand ça casse. Et ça cassera.
+> ### 🤖 Vibecodé avec des modèles d'IA
+> Ce projet a été **entièrement généré par une IA** (Claude Sonnet 4.6 d'Anthropic et Codex/GPT-5.4). Si tu envisages de faire quelque chose de similaire, il est **fortement recommandé de l'implémenter toi-même** sans IA — tu comprendras réellement ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer quand ça casse. Et ça cassera.
 
 ---
 
@@ -81,6 +81,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP  -->  Selfbot  -->  Discord A
 | Module | Description |
 |---|---|
 | 🎮 **Rich Presence** | Activités Discord personnalisées (playing, streaming, listening…) rotation + boutons cliquables |
+| 🎵 **Spotify RPC** | Activité Spotify personnalisable (track, album, artistes, assets, timestamps, extras) |
 | 💬 **Custom Status** | Rotation automatique de statuts personnalisés avec emojis |
 | 🔊 **Salon vocal** | Rejoindre / quitter / changer de salon avec auto-rejoin au démarrage |
 
@@ -90,14 +91,15 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP  -->  Selfbot  -->  Discord A
 |---|---|
 | 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs, tous les serveurs — annulation en temps réel |
 | 🔁 **Clone de serveur** | Copie rôles, salons, emojis et paramètres d'un serveur vers un autre |
+| 🎞️ **Backup GIFs favoris** | Récupère tes GIFs favoris via l'API Discord, les archive dans un ZIP et te l'envoie en DM |
 | 📊 **Infos système** | Ping WebSocket, uptime du processus, CPU / RAM / OS de l'hôte |
 
 ### ⌨️ Commandes préfixe
 
 ```
-<préfixe>mock <texte>     →  tExTe En MoDe MoCk
-<préfixe>spoiler <texte>  →  ||texte caché||
-<préfixe>tag <nom>        →  envoie le contenu du tag correspondant
+[préfixe]mock <texte>     →  tExTe En MoDe MoCk
+[préfixe]spoiler <texte>  →  ||texte caché||
+[préfixe]tag <nom>        →  envoie le contenu du tag correspondant
 ```
 
 ---
@@ -118,7 +120,7 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 - **Deux tokens Discord :**
   - 🔑 Un token de **compte utilisateur** (selfbot) pour `sb-uhq`
   - 🤖 Un token de **bot classique** pour `bot-controller`
-- Le bot controller doit pouvoir t'envoyer des DMs ou être dans un serveur commun avec toi
+- Le bot controller doit pouvoir t'envoyer des DMs **ET** être dans un serveur commun avec toi
 
 ---
 
@@ -209,38 +211,6 @@ Une fois les deux processus en ligne, tape **`/panel`** dans n'importe quel salo
 Le panel s'ouvre en éphémère — visible uniquement par toi. La navigation se fait entièrement via le menu déroulant et les boutons, aucune commande texte supplémentaire n'est requise.
 
 Au démarrage, le bot controller t'envoie automatiquement un DM confirmant que tout est en ligne, avec le ping WebSocket et l'uptime du selfbot.
-
----
-
-## 🗂️ Structure du projet
-
-```
-etherself/
-├── 📦 packages/
-│   │
-│   ├── 🤖 sb-uhq/                           # Selfbot
-│   │   ├── src/
-│   │   │   ├── bridge/server.js             # Serveur HTTP bridge
-│   │   │   ├── router/action-router.js      # Dispatch des actions bridge
-│   │   │   └── self/
-│   │   │       ├── commands/                # Logique métier (afk, purge, quests…)
-│   │   │       └── func/                   # Utilitaires partagés
-│   │   └── index.js                         # Entry point + events Discord
-│   │
-│   └── 🎛️ bot-controller/                  # Bot classique
-│       ├── src/
-│       │   ├── bridge/client.js             # Client HTTP vers le selfbot
-│       │   ├── interactions/
-│       │   │   ├── buttons.js               # Handlers boutons
-│       │   │   ├── modals.js                # Handlers modals
-│       │   │   └── selects.js               # Handlers menus déroulants
-│       │   ├── panels/                      # Builders Components V2
-│       │   └── commands/panel.js            # Commande /panel
-│       └── index.js                         # Entry point + serveur de progression
-│
-├── package.json                             # Workspace root (npm workspaces)
-└── README.md
-```
 
 ---
 
