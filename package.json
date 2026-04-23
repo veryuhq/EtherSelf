@@ -9,6 +9,7 @@
   "scripts": {
     "start:controller": "npm --workspace=packages/bot-controller start",
     "start:selfbot": "npm --workspace=packages/sb-uhq start",
+    "clean:data": "node scripts/clean_data.js",
     "lines:count": "node scripts/lines_count.js",
     "deploy": "npm --workspace=packages/bot-controller run deploy"
   }
