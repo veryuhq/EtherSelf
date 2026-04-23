@@ -137,6 +137,7 @@ const ACTIONS = {
     channelId:       p.channelId,
     limit:           p.limit ?? 0,
     sendToChannelId: p.sendToChannelId ?? null,
+    jobId:           p.jobId ?? null,
   }),
 
   // ── QUESTS ────────────────────────────────────────────────────────────────
@@ -166,7 +167,7 @@ const ACTIONS = {
 
   // ── BACKUP GIFs ───────────────────────────────────────────────────────────
   "backupgifs.getState": (c, p) => backupgifs.execute(c, { action: "getState" }),
-  "backupgifs.backup":   (c, p) => backupgifs.execute(c, { action: "backup" }),
+  "backupgifs.backup":   (c, p) => backupgifs.execute(c, { action: "backup", jobId: p.jobId }),
   "backupgifs.clear":    (c, p) => backupgifs.execute(c, { action: "clear" }),
 
   // ── FUN ───────────────────────────────────────────────────────────────────

@@ -816,15 +816,21 @@ async function handle(interaction) {
     return interaction.update(backups.buildCloneGuildList(res?.data ?? {}));
   }
 
-  // ── BACKUP GIFs ───────────────────────────────────────────────────────────
+  // ── BACKUP GIFs ─────────────────────────────────────────────────────────── 
   if (id === "backupgifs:backup") {
     await interaction.update(backups.buildGifsRunning());
-    const res = await sendAction("backupgifs.backup");
+    const jobId = makeJobId("backupgifs");
+ 
+    const { registerBackupGifsJob } = getProgressHelpers();
+    registerBackupGifsJob(jobId, interaction);
+ 
+    const res = await sendAction("backupgifs.backup", { jobId });
     if (!res?.success) {
       const stateRes = await sendAction("backupgifs.getState");
       return interaction.editReply(backups.buildGifs({ ...(stateRes?.data ?? {}), _error: res?.error })).catch(() => {});
     }
-    return interaction.editReply(backups.buildGifs(res?.data ?? {})).catch(() => {});
+    // Le résultat sera mis à jour via /backupgifs-result (callback async)
+    return;
   }
   if (id === "backupgifs:clear") {
     const res = await sendAction("backupgifs.clear");
