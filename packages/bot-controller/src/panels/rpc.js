@@ -205,84 +205,79 @@ function buildCs(data = {}) {
   );
 }
 
+// ── Panel secondaire : Spotify RPC ───────────────────────────────────────────
+
 function buildSpotify(data = {}) {
-  const {
-    spotify = {},
-  } = data;
+  const { spotify = {} } = data;
 
-  const spotifyEnabled = !!spotify.enabled;
-  const spotifySongId = spotify.songId ?? null;
-  const spotifyAlbumId = spotify.albumId ?? null;
+  const spotifyEnabled   = !!spotify.enabled;
+  const spotifySongId    = spotify.songId    ?? null;
+  const spotifyAlbumId   = spotify.albumId   ?? null;
   const spotifyArtistIds = Array.isArray(spotify.artistIds) ? spotify.artistIds : [];
-  const spotifyAssets = spotify.assets ?? {};
-  const spotifyTimestamps = spotify.timestamps ?? {};
-  const title = spotify.details ?? "Spotify RPC";
-  const subtitle = spotify.state ?? (spotifyArtistIds.length ? `${spotifyArtistIds.length} artiste(s)` : "Prêt à jouer");
+  const spotifyAssets    = spotify.assets    ?? {};
+  const spotifyTimestamps= spotify.timestamps ?? {};
 
-  const identityBits = [
-    spotifySongId ? `track \`${spotifySongId}\`` : "track manquant",
-    spotifyAlbumId ? `album \`${spotifyAlbumId}\`` : null,
-    spotifyArtistIds.length ? `${spotifyArtistIds.length} artiste(s)` : null,
-  ].filter(Boolean).join("  •  ");
+  const trackLine  = spotifySongId  ? `\`${short(spotifySongId,  28)}\`` : "*manquant*";
+  const albumLine  = spotifyAlbumId ? `\`${short(spotifyAlbumId, 28)}\`` : "*non défini*";
+  const artistLine = spotifyArtistIds.length
+    ? spotifyArtistIds.map(id => `\`${short(id, 20)}\``).join(", ")
+    : "*non défini*";
 
-  const displaySummary = (spotify.details || spotify.state)
-    ? `${short(spotify.details ?? "—", 36)}${spotify.state ? ` — ${short(spotify.state, 28)}` : ""}`
-    : "*par défaut*";
+  const detailsLine = spotify.details ? short(spotify.details, 52) : "*non défini*";
+  const stateLine   = spotify.state   ? short(spotify.state,   52) : "*non défini*";
 
-  const assetSummary = (spotifyAssets.largeImage || spotifyAssets.smallImage)
-    ? `\`${short(spotifyAssets.largeImage ?? "—", 26)}\`  •  \`${short(spotifyAssets.smallImage ?? "—", 26)}\``
-    : "*non configurés*";
+  const lImg = spotifyAssets.largeImage ? `\`${short(spotifyAssets.largeImage, 28)}\`` : "*—*";
+  const lTxt = spotifyAssets.largeText  ? short(spotifyAssets.largeText,  28) : "—";
+  const sImg = spotifyAssets.smallImage ? `\`${short(spotifyAssets.smallImage, 28)}\`` : "*—*";
+  const sTxt = spotifyAssets.smallText  ? short(spotifyAssets.smallText,  28) : "—";
 
-  const assetTextSummary = (spotifyAssets.largeText || spotifyAssets.smallText)
-    ? `${spotifyAssets.largeText ? `large: ${short(spotifyAssets.largeText, 22)}` : "large: —"}  •  ${spotifyAssets.smallText ? `small: ${short(spotifyAssets.smallText, 22)}` : "small: —"}`
-    : null;
-
-  const timingSummary = (spotifyTimestamps.start || spotifyTimestamps.end)
-    ? `${spotifyTimestamps.start ? `\`${new Date(spotifyTimestamps.start).toISOString().slice(11, 19)}\`` : "`—`"}  →  ${spotifyTimestamps.end ? `\`${new Date(spotifyTimestamps.end).toISOString().slice(11, 19)}\`` : "`—`"}`
+  const fmtTs = (ts) => ts ? `\`${new Date(ts).toISOString().slice(11, 19)}\`` : "`—`";
+  const timingLine = (spotifyTimestamps.start || spotifyTimestamps.end)
+    ? `${fmtTs(spotifyTimestamps.start)} → ${fmtTs(spotifyTimestamps.end)}`
     : "*non configuré*";
 
-  const extrasList = [
-    spotify.applicationId ? `app \`${short(spotify.applicationId, 20)}\`` : null,
-    spotify.platform ? `plateforme \`${spotify.platform}\`` : null,
-    spotify.url ? `url \`${short(spotify.url, 34)}\`` : null,
-  ].filter(Boolean);
+  const appIdLine    = spotify.applicationId ? `\`${short(spotify.applicationId, 20)}\`` : "*—*";
+  const platformLine = spotify.platform      ? `\`${spotify.platform}\``                 : "*—*";
+  const urlLine      = spotify.url           ? short(spotify.url, 48)                    : "*—*";
 
-  const extrasSummary = extrasList.length ? extrasList.join("  •  ") : "*aucun extra configuré*";
+  const spotifyList =
+    `\`🎵\` **Track :** ${trackLine}\n` +
+    `\`💿\` **Album :** ${albumLine}\n` +
+    `\`🎤\` **Artiste(s) :** ${artistLine}\n\n` +
+    `\`📝\` **Titre (details) :** ${detailsLine}\n` +
+    `\`🎶\` **Sous-titre (state) :** ${stateLine}\n\n` +
+    `\`🖼️\` **Large image :** ${lImg}${spotifyAssets.largeText ? ` — *${lTxt}*` : ""}\n` +
+    `\`🖼️\` **Small image :** ${sImg}${spotifyAssets.smallText ? ` — *${sTxt}*` : ""}\n\n` +
+    `\`⏱️\` **Timestamps :** ${timingLine}\n\n` +
+    `\`🔑\` **App ID :** ${appIdLine}\n` +
+    `\`💻\` **Plateforme :** ${platformLine}\n` +
+    `\`🔗\` **URL :** ${urlLine}`;
+
+  const actionOptions = [
+    { label: spotifyEnabled ? "🔴  Désactiver" : "🟢  Activer", value: "spotifyToggle",     description: spotifyEnabled ? "Désactiver Spotify RPC" : "Activer Spotify RPC" },
+    { label: "⚙️  Base (track / album / artistes)",             value: "spotifyBase",       description: "IDs Spotify, titre et sous-titre" },
+    { label: "🖼️  Assets (images)",                             value: "spotifyAssets",     description: "Images large et small" },
+    { label: "⏱️  Timestamps",                                  value: "spotifyTimestamps", description: "Début et durée de lecture" },
+    { label: "🧩  Extras (app ID / plateforme)",                value: "spotifyExtras",     description: "Réglages avancés" },
+  ];
 
   return replyV2(
     container([
       textDisplay(
         `# 🎵 Spotify RPC\n` +
-        `${spotifyEnabled ? "`🟢` **Now Playing**" : "`🔴` **En attente**"}\n` +
-        `## ${short(title, 42)}\n` +
-        `*${short(subtitle, 48)}*\n` +
-        `> ${identityBits}\n` +
-        `\n` +
-        `**Carte d'affichage**\n` +
-        `> ${displaySummary}\n` +
-        `\n` +
-        `**Visuels**\n` +
-        `> ${assetSummary}${assetTextSummary ? `\n> ${assetTextSummary}` : ""}\n` +
-        `\n` +
-        `**Lecture**\n` +
-        `> ${timingSummary}\n` +
-        `\n` +
-        `**Réglages avancés**\n` +
-        `> ${extrasSummary}`
+        `${spotifyEnabled ? "`🟢` **Actif**" : "`🔴` **Inactif**"}\n\n` +
+        `**Configuration (${spotifySongId ? "1" : "0"}/1 track) :**\n${spotifyList}`
       ),
       separator(),
-      actionRow([
-        btn("⚙️  Base",      "rpc:spotify",           ButtonStyle.Primary),
-        btn("🖼️  Assets",   "rpc:spotifyAssets",     ButtonStyle.Secondary),
-        btn("⏱️  Temps",    "rpc:spotifyTimestamps", ButtonStyle.Secondary),
-        btn("🧩  Extras",   "rpc:spotifyExtras",     ButtonStyle.Secondary),
-      ]),
+      separator(1, false),
+      textDisplay("**Actions Spotify RPC :**"),
+      { type: 1, components: [{ type: 3, custom_id: "rpc:spotifyActions", placeholder: "Choisis une action…", min_values: 1, max_values: 1, options: actionOptions }] },
       separator(),
       actionRow([
-        btn("🎮  Rich Presence", "panel:rpc",         ButtonStyle.Primary),
-        btn("💬  Custom Status", "panel:rpc_cs",      ButtonStyle.Primary),
-        btn("◀️  Retour",        "panel:rpc_hub",     ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",       ButtonStyle.Secondary),
+        btn("🎮  Rich Presence", "panel:rpc",     ButtonStyle.Primary),
+        btn("💬  Custom Status", "panel:rpc_cs",  ButtonStyle.Primary),
+        btn("◀️  Retour",        "panel:rpc_hub", ButtonStyle.Secondary),
+        btn("🏠  Accueil",        "panel:home",   ButtonStyle.Secondary),
       ]),
     ], 0x7289DA)
   );
