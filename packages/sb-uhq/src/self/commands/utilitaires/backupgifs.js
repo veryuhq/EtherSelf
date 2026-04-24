@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fs   = require("fs");
+const os   = require("os");
 const path = require("path");
 const { dataPath } = require("../../func/data-path");
 
@@ -25,6 +26,13 @@ const BACKUPGIFS_ZIP_DIR   = dataPath("exports");
 
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
 const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
+const SYSTEM_RAM_MB         = Math.floor(os.totalmem() / (1024 * 1024));
+const DEFAULT_MAX_ITEMS     = SYSTEM_RAM_MB <= 1536 ? 40 : 120;
+const DEFAULT_MAX_ZIP_MB    = SYSTEM_RAM_MB <= 1536 ? 20 : 35;
+const MAX_GIFS_PER_ZIP      = Number(process.env.BACKUPGIFS_MAX_ITEMS ?? DEFAULT_MAX_ITEMS);
+const DOWNLOAD_DELAY_MS     = Number(process.env.BACKUPGIFS_DELAY_MS ?? 100);
+const MAX_ZIP_SIZE_MB       = Number(process.env.BACKUPGIFS_MAX_ZIP_MB ?? DEFAULT_MAX_ZIP_MB);
+const MAX_MEDIA_FILE_MB     = Number(process.env.BACKUPGIFS_MAX_MEDIA_MB ?? 8);
 
 // ── I/O config ────────────────────────────────────────────────────────────────
 
@@ -66,7 +74,12 @@ async function notifyResult(jobId, data) {
 
 async function sendZipViaController(zipPath, zipFilename, meta) {
   const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
-  const base64 = fs.readFileSync(zipPath).toString("base64");
+  const stat   = fs.statSync(zipPath);
+  const sizeMb = stat.size / (1024 * 1024);
+  if (sizeMb > MAX_ZIP_SIZE_MB) {
+    throw new Error(`ZIP trop volumineux (${sizeMb.toFixed(1)} MB > ${MAX_ZIP_SIZE_MB} MB)`);
+  }
+  const base64 = fs.readFileSync(zipPath, { encoding: "base64" });
   const res = await fetch(`${BRIDGE_CONTROLLER_URL}/file`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": BRIDGE_SECRET },
@@ -138,7 +151,7 @@ async function fetchFavoriteGifs(token) {
 
 // ── Création du ZIP ───────────────────────────────────────────────────────────
 
-async function buildZip(gifs) {
+async function buildZipPart(gifs, partIndex = 1, totalParts = 1, startOffset = 0) {
   const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 
   let AdmZip;
@@ -155,10 +168,11 @@ async function buildZip(gifs) {
   let   ok       = 0;
   let   fail     = 0;
 
-  console.log(`[BACKUPGIFS] 📦 Téléchargement de ${gifs.length} GIF(s) pour le ZIP…`);
+  const gifsToProcess = gifs;
+  console.log(`[BACKUPGIFS] 📦 Téléchargement de ${gifsToProcess.length} GIF(s) pour le ZIP ${partIndex}/${totalParts}…`);
 
-  for (let i = 0; i < gifs.length; i++) {
-    const gif = gifs[i];
+  for (let i = 0; i < gifsToProcess.length; i++) {
+    const gif = gifsToProcess[i];
     const url = gif.src;
     if (!url) { fail++; continue; }
 
@@ -173,20 +187,33 @@ async function buildZip(gifs) {
         continue;
       }
 
+      const contentLength = Number(imgRes.headers.get("content-length") ?? 0);
+      if (contentLength > 0 && contentLength > (MAX_MEDIA_FILE_MB * 1024 * 1024)) {
+        console.warn(`[BACKUPGIFS] ⚠️ GIF ${i + 1} trop volumineux (${(contentLength / (1024 * 1024)).toFixed(1)} MB)`);
+        fail++;
+        continue;
+      }
+
       const buf = await imgRes.buffer();
+      if (buf.length > (MAX_MEDIA_FILE_MB * 1024 * 1024)) {
+        console.warn(`[BACKUPGIFS] ⚠️ GIF ${i + 1} ignoré (> ${MAX_MEDIA_FILE_MB} MB)`);
+        fail++;
+        continue;
+      }
       const ct  = imgRes.headers.get("content-type") ?? "";
       let ext   = ".gif";
       if      (ct.includes("mp4")  || url.includes(".mp4"))  ext = ".mp4";
       else if (ct.includes("webm") || url.includes(".webm")) ext = ".webm";
       else if (ct.includes("webp") || url.includes(".webp")) ext = ".webp";
 
-      const filename = `gif_${String(i + 1).padStart(4, "0")}${ext}`;
+      const globalIndex = startOffset + i + 1;
+      const filename = `gif_${String(globalIndex).padStart(4, "0")}${ext}`;
       zip.addFile(filename, buf);
-      manifest.push({ index: i + 1, filename, src: url, format: gif.format, width: gif.width, height: gif.height, order: gif.order, key: gif.key });
+      manifest.push({ index: globalIndex, filename, src: url, format: gif.format, width: gif.width, height: gif.height, order: gif.order, key: gif.key });
       ok++;
 
-      if ((i + 1) % 10 === 0) console.log(`[BACKUPGIFS] 📦 ${i + 1}/${gifs.length} téléchargés…`);
-      await new Promise(r => setTimeout(r, 150));
+      if ((i + 1) % 10 === 0) console.log(`[BACKUPGIFS] 📦 ${i + 1}/${gifsToProcess.length} téléchargés…`);
+      await new Promise(r => setTimeout(r, DOWNLOAD_DELAY_MS));
     } catch (err) {
       console.warn(`[BACKUPGIFS] ⚠️ GIF ${i + 1} erreur : ${err.message}`);
       fail++;
@@ -195,12 +222,14 @@ async function buildZip(gifs) {
 
   zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2), "utf-8"));
 
-  const zipFilename = `discord_gifs_backup_${Date.now()}.zip`;
+  const zipFilename = totalParts > 1
+    ? `discord_gifs_backup_${Date.now()}_part-${partIndex}-of-${totalParts}.zip`
+    : `discord_gifs_backup_${Date.now()}.zip`;
   const zipPath     = path.join(BACKUPGIFS_ZIP_DIR, zipFilename);
   zip.writeZip(zipPath);
 
   console.log(`[BACKUPGIFS] ✅ ZIP créé : ${zipFilename} (${ok}✅ ${fail}❌)`);
-  return { zipPath, zipFilename, ok, fail };
+  return { zipPath, zipFilename, ok, fail, processed: gifsToProcess.length };
 }
 
 // ── Runner asynchrone (lancé en arrière-plan) ─────────────────────────────────
@@ -216,25 +245,45 @@ async function runBackup(token, jobId) {
     let sent        = false;
 
     if (gifs.length > 0) {
-      const { zipPath, zipFilename: zf, ok, fail } = await buildZip(gifs);
-      zipFilename = zf;
-      zipOk       = ok;
-      zipFail     = fail;
-
-      // Envoyer le ZIP au bot-controller pour qu'il l'attache en DM
-      const meta = {
-        totalGifs:  gifs.length,
-        zipOk,
-        zipFail,
-        zipFilename,
-        timestamp:  Date.now(),
-      };
-
-      try {
-        sent = await sendZipViaController(zipPath, zipFilename, meta);
-      } catch (err) {
-        console.error("[BACKUPGIFS] ❌ Erreur envoi ZIP :", err.message);
+      console.log(`[BACKUPGIFS] ℹ️ RAM système: ${SYSTEM_RAM_MB} MB | max/zip: ${MAX_GIFS_PER_ZIP} | max media: ${MAX_MEDIA_FILE_MB} MB | max zip: ${MAX_ZIP_SIZE_MB} MB`);
+      const chunks = [];
+      for (let i = 0; i < gifs.length; i += MAX_GIFS_PER_ZIP) {
+        chunks.push(gifs.slice(i, i + MAX_GIFS_PER_ZIP));
       }
+
+      const zipParts = chunks.length;
+      let sentCount  = 0;
+
+      for (let part = 0; part < chunks.length; part++) {
+        const offset = part * MAX_GIFS_PER_ZIP;
+        const { zipPath, zipFilename: partName, ok, fail, processed } = await buildZipPart(chunks[part], part + 1, zipParts, offset);
+        zipFilename = partName;
+        zipOk      += ok;
+        zipFail    += fail;
+
+        const meta = {
+          totalGifs:  gifs.length,
+          processed,
+          skipped:    0,
+          zipOk,
+          zipFail,
+          zipFilename: partName,
+          zipPart:     part + 1,
+          zipParts,
+          timestamp:   Date.now(),
+        };
+
+        try {
+          if (await sendZipViaController(zipPath, partName, meta)) sentCount++;
+        } catch (err) {
+          console.error(`[BACKUPGIFS] ❌ Erreur envoi ZIP part ${part + 1}/${zipParts} :`, err.message);
+        }
+
+        try { fs.unlinkSync(zipPath); } catch {}
+      }
+
+      sent = sentCount > 0;
+      if (zipParts > 1) zipFilename = `${zipParts} fichier(s) ZIP`;
     }
 
     const config       = loadConfig();
