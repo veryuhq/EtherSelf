@@ -24,7 +24,7 @@ const { healthCheck }                                       = require("./src/bri
 const { container, textDisplay, separator, actionRow, btn } = require("./src/utils/components");
 
 const snipe   = require("./src/panels/snipe");
-const backups = require("./src/panels/backups");
+const clone = require("./src/panels/clone");
 
 const OWNER_ID      = process.env.OWNER_ID;
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
@@ -83,21 +83,6 @@ function cleanSnapshotJob(jobId) { snapshotJobs.delete(jobId); }
 
 module.exports.registerSnapshotJob = registerSnapshotJob;
 module.exports.cleanSnapshotJob    = cleanSnapshotJob;
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STORE — jobs de backup GIFs
-// ─────────────────────────────────────────────────────────────────────────────
-
-const backupGifsJobs = new Map();
-
-function registerBackupGifsJob(jobId, interaction) {
-  backupGifsJobs.set(jobId, { interaction });
-}
-
-function cleanBackupGifsJob(jobId) { backupGifsJobs.delete(jobId); }
-
-module.exports.registerBackupGifsJob = registerBackupGifsJob;
-module.exports.cleanBackupGifsJob    = cleanBackupGifsJob;
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  CLIENT
@@ -196,9 +181,9 @@ const logServer = http.createServer(async (req, res) => {
       if (!job) { res.writeHead(200).end(); return; }
 
       let panelPayload;
-      if (done && summary)  panelPayload = backups.buildCloneResult(summary);
-      else if (done && error) panelPayload = backups.buildCloneResult({ success: false, error });
-      else panelPayload = backups.buildCloneRunning(progressData);
+      if (done && summary)  panelPayload = clone.buildCloneResult(summary);
+      else if (done && error) panelPayload = clone.buildCloneResult({ success: false, error });
+      else panelPayload = clone.buildCloneRunning(progressData);
 
       const now = Date.now();
       if (!done && now - job.lastUpdate < 1500) { res.writeHead(200).end(); return; }
@@ -231,32 +216,6 @@ const logServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── POST /backupgifs-result ───────────────────────────────────────────────
-  if (req.method === "POST" && req.url === "/backupgifs-result") {
-    try {
-      const body = JSON.parse(await readBody(req));
-      const { jobId, success, error, totalGifs, zipOk, zipFail, zipFilename, sent } = body;
-
-      if (jobId) {
-        const job = backupGifsJobs.get(jobId);
-        if (job) {
-          // Le fichier ZIP a déjà été envoyé séparément via POST /file.
-          // Ici on met à jour le panel avec le résultat (sans le fichier,
-          // le fichier arrive dans le message /file séparé).
-          const panelPayload = backups.buildGifsResult(
-            { totalGifs, zipOk, zipFail, zipFilename, sent, error },
-            null, // pas d'attachment ici, il arrive via /file
-            { showActions: true }
-          );
-          try { await job.interaction.editReply(panelPayload); } catch {}
-          cleanBackupGifsJob(jobId);
-        }
-      }
-      res.writeHead(200).end();
-    } catch { res.writeHead(400).end(); }
-    return;
-  }
-
   // ── POST /file ────────────────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/file") {
     let tmpPath = null;
@@ -274,12 +233,8 @@ const logServer = http.createServer(async (req, res) => {
 
       let msgPayload;
 
-      // ZIP de backup GIFs : utilise buildGifsResult avec l'attachment
-      if (filename.startsWith("discord_gifs_backup_") && meta && typeof meta === "object") {
-        msgPayload = backups.buildGifsResult(meta, attachment);
-      }
       // Snapshot HTML
-      else if (meta && typeof meta === "object") {
+      if (meta && typeof meta === "object") {
         msgPayload = buildSnapshotEmbed(meta, attachment);
       }
       // Fichier générique

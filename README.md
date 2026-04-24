@@ -91,7 +91,6 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP  -->  Selfbot  -->  Discord A
 |---|---|
 | 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs, tous les serveurs — annulation en temps réel |
 | 🔁 **Clone de serveur** | Copie rôles, salons, emojis et paramètres d'un serveur vers un autre |
-| 🎞️ **Backup GIFs favoris** | Récupère tes GIFs favoris via l'API Discord, les archive dans un ZIP et te l'envoie en DM |
 | 📊 **Infos système** | Ping WebSocket, uptime du processus, CPU / RAM / OS de l'hôte |
 
 ### ⌨️ Commandes préfixe

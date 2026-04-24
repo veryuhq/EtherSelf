@@ -21,7 +21,7 @@ const sysinfo     = require("../panels/sysinfo");
 const nitro       = require("../panels/nitro");
 const rpc         = require("../panels/rpc");
 const quests      = require("../panels/quests");
-const backups     = require("../panels/backups");
+const clone   = require("../panels/clone");
 
 async function fetchAndBuild(panelKey) {
   const fetchers = {
@@ -51,7 +51,6 @@ async function fetchAndBuild(panelKey) {
     rpc_cs:       () => sendAction("rpc.getState"),
     rpc_spotify:  () => sendAction("rpc.getState"),
     quests:       () => sendAction("quests.list"),
-    backupgifs:   () => sendAction("backupgifs.getState"),
     clone:        () => null, // données gérées via cloneConfig store
   };
 
@@ -76,11 +75,7 @@ async function fetchAndBuild(panelKey) {
     rpc_spotify:  (d) => rpc.buildSpotify(d),
     rpc_hub:      ()  => rpc.buildHub(),
     quests:       (d) => quests.build(d),
-    // Backups hub
-    backups:      ()  => backups.buildHub(),
-    // Sous-panels backups
-    backupgifs:   (d) => backups.buildGifs(d),
-    clone:        (d) => backups.buildClone(d ?? {}),
+    clone:        (d) => clone.buildClone(d ?? {}),
   };
 
   if (!builders[panelKey]) return null;

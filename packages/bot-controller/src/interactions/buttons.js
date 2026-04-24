@@ -23,7 +23,7 @@ const sysinfo   = require("../panels/sysinfo");
 const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
-const backups   = require("../panels/backups");
+const clone = require("../panels/clone");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -68,8 +68,6 @@ async function handle(interaction) {
     "panel:rpc_hub":      "rpc_hub",
     "panel:quests":       "quests",
     // Backups
-    "panel:backups":      "backups",
-    "panel:backupgifs":   "backupgifs",
     "panel:clone":        "clone",
   };
   if (NAV_MAP[id]) {
@@ -807,28 +805,28 @@ async function handle(interaction) {
   if (id === "clone:toggleRoles") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneRoles = !cfg.cloneRoles;
-    return interaction.update(backups.buildClone(cfg));
+    return interaction.update(clone.buildClone(cfg));
   }
   if (id === "clone:toggleChannels") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneChannels = !cfg.cloneChannels;
-    return interaction.update(backups.buildClone(cfg));
+    return interaction.update(clone.buildClone(cfg));
   }
   if (id === "clone:toggleEmojis") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneEmojis = !cfg.cloneEmojis;
-    return interaction.update(backups.buildClone(cfg));
+    return interaction.update(clone.buildClone(cfg));
   }
   if (id === "clone:toggleSettings") {
     const cfg = getCloneConfig(interaction.user.id);
     cfg.cloneSettings = !cfg.cloneSettings;
-    return interaction.update(backups.buildClone(cfg));
+    return interaction.update(clone.buildClone(cfg));
   }
   if (id === "clone:run") {
     const cfg   = getCloneConfig(interaction.user.id);
     const jobId = makeJobId("clone");
 
-    await interaction.update(backups.buildCloneRunning({
+    await interaction.update(clone.buildCloneRunning({
       sourceGuild: cfg.sourceGuildName ?? cfg.sourceGuildId ?? "?",
       targetGuild: cfg.targetGuildName ?? cfg.targetGuildId ?? "?",
       jobId,
@@ -853,7 +851,7 @@ async function handle(interaction) {
     const res   = await sendAction("clone.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler le job.");
     return interaction.update(
-      backups.buildCloneRunning({
+      clone.buildCloneRunning({
         step:  "start",
         label: "Annulation en cours…",
         logs:  "🛑 Demande d'annulation envoyée…",
@@ -862,50 +860,22 @@ async function handle(interaction) {
     );
   }
   if (id === "clone:cancel") {
-    return interaction.update(backups.buildCloneResult({ success: false, cancelled: true }));
+    return interaction.update(clone.buildCloneResult({ success: false, cancelled: true }));
   }
   if (id === "clone:history") {
     const res = await sendAction("clone.getHistory");
-    return interaction.update(backups.buildCloneHistory(res?.data ?? {}));
+    return interaction.update(clone.buildCloneHistory(res?.data ?? {}));
   }
   if (id === "clone:clearHistory") {
     const res = await sendAction("clone.clearHistory");
-    return interaction.update(backups.buildCloneHistory(res?.data ?? {}));
+    return interaction.update(clone.buildCloneHistory(res?.data ?? {}));
   }
   if (id === "clone:listGuilds") {
     const res = await sendAction("clone.listGuilds");
-    return interaction.update(backups.buildCloneGuildList(res?.data ?? {}));
+    return interaction.update(clone.buildCloneGuildList(res?.data ?? {}));
   }
 
-  // ── BACKUP GIFs ─────────────────────────────────────────────────────────── 
-  if (id === "backupgifs:backup") {
-    await interaction.update(backups.buildGifsRunning());
-    const jobId = makeJobId("backupgifs");
- 
-    const { registerBackupGifsJob } = getProgressHelpers();
-    registerBackupGifsJob(jobId, interaction);
- 
-    const res = await sendAction("backupgifs.backup", { jobId });
-    if (!res?.success) {
-      const stateRes = await sendAction("backupgifs.getState");
-      return interaction.editReply(backups.buildGifs({ ...(stateRes?.data ?? {}), _error: res?.error })).catch(() => {});
-    }
-    // Le résultat sera mis à jour via /backupgifs-result (callback async)
-    return;
-  }
-  if (id === "backupgifs:clear") {
-    const res = await sendAction("backupgifs.clear");
-    return interaction.update(backups.buildGifs(res?.data ?? {}));
-  }
-  if (id === "backupgifs:list") {
-    const res = await sendAction("backupgifs.getState");
-    return interaction.update(backups.buildGifsList(res?.data ?? {}, 0));
-  }
-  if (id.startsWith("backupgifs:page:")) {
-    const page = parseInt(id.split(":")[2], 10);
-    const res  = await sendAction("backupgifs.getState");
-    return interaction.update(backups.buildGifsList(res?.data ?? {}, page));
-  }
+
 }
 
 function _error(interaction, message = "Une erreur est survenue.") {

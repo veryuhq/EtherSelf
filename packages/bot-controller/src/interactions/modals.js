@@ -20,7 +20,7 @@ const purge     = require("../panels/purge");
 const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
-const backups   = require("../panels/backups");
+const clone = require("../panels/clone");
 
 function getProgressHelpers() {
   return require("../../index.js");
@@ -548,14 +548,14 @@ async function handle(interaction) {
     const cfg     = getCloneConfig(interaction.user.id);
     cfg.sourceGuildId   = guildId;
     cfg.sourceGuildName = await resolveGuildName(guildId);
-    return interaction.update(backups.buildClone(cfg));
+    return interaction.update(clone.buildClone(cfg));
   }
   if (id === "modal:clone_target") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
     const cfg     = getCloneConfig(interaction.user.id);
     cfg.targetGuildId   = guildId;
     cfg.targetGuildName = await resolveGuildName(guildId);
-    return interaction.update(backups.buildClone(cfg));
+    return interaction.update(clone.buildClone(cfg));
   }
 }
 

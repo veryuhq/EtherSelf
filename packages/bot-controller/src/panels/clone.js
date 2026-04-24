@@ -7,20 +7,6 @@ const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = r
 //  HUB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildHub() {
-  return replyV2(
-    container([
-      textDisplay(`# 💾 Backups\n*Que veux-tu sauvegarder ou restaurer ?*`),
-      separator(),
-      actionRow([
-        btn("🔁  Clone de serveur", "panel:clone",      ButtonStyle.Primary),
-        btn("🎞️  GIFs favoris",     "panel:backupgifs", ButtonStyle.Primary),
-        btn("🏠  Accueil",          "panel:home",       ButtonStyle.Secondary),
-      ]),
-    ], 0x2ECC71)
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  CLONE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,8 +59,7 @@ function buildClone(data = {}) {
       ]),
       separator(),
       actionRow([
-        btn("◀️  Retour Backups", "panel:backups", ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",    ButtonStyle.Secondary),
+        btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary),
       ]),
     ], 0xE67E22)
   );
@@ -138,7 +123,7 @@ function buildCloneResult(data = {}) {
       actionRow([
         btn("🔁  Nouveau clone", "panel:clone",    ButtonStyle.Primary),
         btn("📜  Historique",     "clone:history", ButtonStyle.Secondary),
-        btn("◀️  Backups",        "panel:backups", ButtonStyle.Secondary),
+        btn("◀️  Clone",          "panel:clone", ButtonStyle.Secondary),
         btn("🏠  Accueil",        "panel:home",    ButtonStyle.Secondary),
       ]),
     ], accentColor)
@@ -183,165 +168,10 @@ function buildCloneGuildList(data = {}) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  BACKUP GIFs
-// ─────────────────────────────────────────────────────────────────────────────
-
-function buildGifs(data = {}) {
-  const { totalSaved = 0, lastBackup = null, gifs = [], lastZip = null, lastZipOk = null, lastZipFail = null } = data;
-
-  const lastBackupStr = lastBackup
-    ? `Le **${new Date(lastBackup).toLocaleString("fr-FR")}**`
-    : "*Jamais effectué*";
-
-  let zipLine = "";
-  if (lastZip) {
-    const failStr = (lastZipFail ?? 0) > 0 ? `, ${lastZipFail} échec(s)` : "";
-    zipLine = `\`📦\` **Dernier ZIP :** \`${lastZip}\` *(${lastZipOk ?? 0} fichier(s)${failStr})*\n`;
-  }
-
-  const preview = gifs.length
-    ? gifs.slice(0, 5).map((g, i) => {
-        const url  = g.src ?? "?";
-        const dims = (g.width && g.height) ? ` *(${g.width}×${g.height})*` : "";
-        return `\`${i + 1}.\` ${url.slice(0, 80)}${url.length > 80 ? "…" : ""}${dims}`;
-      }).join("\n") + (gifs.length > 5 ? `\n*… et ${gifs.length - 5} autre(s)*` : "")
-    : "*Aucun GIF sauvegardé pour l'instant.*";
-
-  return replyV2(
-    container([
-      textDisplay(
-        `# 🎞️ Backup GIFs favoris\n` +
-        `\`📦\` **GIFs sauvegardés :** ${totalSaved}\n` +
-        `\`🕐\` **Dernier backup :** ${lastBackupStr}\n` +
-        zipLine +
-        `\n**Aperçu :**\n${preview}\n\n` +
-        `-# Les GIFs sont récupérés via l'API Discord (settings-proto/2) et téléchargés dans un ZIP envoyé en DM.`
-      ),
-      separator(),
-      actionRow([
-        btn("🔄  Lancer le backup",   "backupgifs:backup", ButtonStyle.Success),
-        btn("📋  Voir tous les GIFs",  "backupgifs:list",   ButtonStyle.Primary,   null, totalSaved === 0),
-        btn("🗑️  Effacer",            "backupgifs:clear",  ButtonStyle.Danger,    null, totalSaved === 0),
-      ]),
-      separator(),
-      actionRow([
-        btn("◀️  Retour Backups", "panel:backups", ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",    ButtonStyle.Secondary),
-      ]),
-    ], 0x2ECC71)
-  );
-}
-
-/**
- * Panel "en cours" affiché pendant le backup asynchrone.
- */
-function buildGifsRunning() {
-  return replyV2(
-    container([
-      textDisplay(
-        `# 🎞️ Backup GIFs en cours…\n` +
-        `\`⏳\` **Récupération et téléchargement des GIFs…**\n\n` +
-        `*Les GIFs sont récupérés depuis l'API Discord, téléchargés puis compressés dans un ZIP.*\n` +
-        `*Le ZIP sera joint directement dans ce message une fois terminé.*`
-      ),
-      separator(),
-      actionRow([btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary)]),
-    ], 0x2ECC71)
-  );
-}
-
-/**
- * Réponse finale avec le ZIP attaché en Components V2 FileBuilder.
- * Appelée depuis index.js via /backupgifs-result avec l'attachment.
- *
- * @param {{ totalGifs: number, zipOk: number, zipFail: number, zipFilename: string, sent: boolean, error?: string }} meta
- * @param {import("discord.js").AttachmentBuilder|null} attachment
- * @param {{ showActions?: boolean }} options
- */
-function buildGifsResult(meta = {}, attachment = null, options = {}) {
-  const { totalGifs = 0, zipOk = 0, zipFail = 0, zipFilename = null, sent = false, error = null } = meta;
-  const { showActions = false } = options;
-
-  let statusLine, accentColor;
-
-  if (error) {
-    accentColor = 0xE74C3C;
-    statusLine  = `\`❌\` **Erreur :** ${error}`;
-  } else {
-    accentColor = 0x2ECC71;
-    const failStr = zipFail > 0 ? `, **${zipFail}** échec(s)` : "";
-    statusLine =
-      `\`✅\` **Backup terminé !**\n\n` +
-      `> \`🎞️\` GIFs dans le compte : **${totalGifs}**\n` +
-      `> \`📦\` Téléchargés dans le ZIP : **${zipOk}**${failStr}\n` +
-      (zipFilename ? `> \`📄\` Fichier : \`${zipFilename}\`` : "");
-  }
-
-  // Composants de base
-  const content = [textDisplay(`# 🎞️ Backup GIFs — Résultat\n\n${statusLine}`)];
-  if (showActions) {
-    content.push(
-      separator(),
-      actionRow([
-        btn("🔄  Nouveau backup",   "backupgifs:backup", ButtonStyle.Success),
-        btn("◀️  Retour GIFs",      "panel:backupgifs",  ButtonStyle.Secondary),
-        btn("🏠  Accueil",          "panel:home",        ButtonStyle.Secondary),
-      ])
-    );
-  }
-
-  const components = [container(content, accentColor)];
-
-  // Attacher le ZIP via FileBuilder si disponible
-  if (attachment && zipFilename) {
-    const fileComponent = new FileBuilder().setURL(`attachment://${zipFilename}`);
-    return {
-      flags: (1 << 15) | (1 << 6), // IS_COMPONENTS_V2 | EPHEMERAL
-      components: [...components, fileComponent],
-      files: [attachment],
-    };
-  }
-
-  return {
-    flags: (1 << 15) | (1 << 6),
-    components,
-  };
-}
-
-function buildGifsList(data = {}, page = 0) {
-  const { gifs = [], totalSaved = 0 } = data;
-  const PAGE_SIZE  = 8;
-  const totalPages = Math.max(1, Math.ceil(gifs.length / PAGE_SIZE));
-  const slice      = gifs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-  const list = slice.length
-    ? slice.map((g, i) => {
-        const idx  = page * PAGE_SIZE + i + 1;
-        const url  = g.src ?? "?";
-        const dims = (g.width && g.height) ? ` *(${g.width}×${g.height})*` : "";
-        const fmt  = g.format && g.format !== "unknown" ? ` [${g.format}]` : "";
-        return `\`${idx}.\`${fmt} ${url.slice(0, 90)}${url.length > 90 ? "…" : ""}${dims}`;
-      }).join("\n")
-    : "*Aucun GIF.*";
-
-  return replyV2(
-    container([
-      textDisplay(`# 🎞️ GIFs favoris — Liste complète\n*${totalSaved} GIF(s) — page ${page + 1}/${totalPages}*\n\n${list}`),
-      separator(),
-      actionRow([
-        btn("⬅️", `backupgifs:page:${page - 1}`, ButtonStyle.Secondary, null, page === 0),
-        btn("➡️", `backupgifs:page:${page + 1}`, ButtonStyle.Secondary, null, page >= totalPages - 1),
-        btn("◀️  Retour GIFs", "panel:backupgifs", ButtonStyle.Secondary),
-      ]),
-    ], 0x2ECC71)
-  );
-}
-
 module.exports = {
-  buildHub,
-  // Clone
-  buildClone, buildCloneRunning, buildCloneResult, buildCloneHistory, buildCloneGuildList,
-  // GIFs
-  buildGifs, buildGifsRunning, buildGifsResult, buildGifsList,
+  buildClone,
+  buildCloneRunning,
+  buildCloneResult,
+  buildCloneHistory,
+  buildCloneGuildList,
 };

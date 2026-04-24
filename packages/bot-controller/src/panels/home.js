@@ -31,7 +31,7 @@ function build(data = {}) {
         { label: "🔊  Salon vocal",                    value: "joinvc",       description: "Rejoindre ou quitter un salon vocal" },
         { label: "🗑️  Purge",                         value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                 value: "quests",       description: "Complétion automatique des quêtes Discord" },
-        { label: "💾  Backups",                        value: "backups",      description: "Clone de serveur et sauvegarde des GIFs favoris" },
+        { label: "🔁  Clone de serveur",               value: "clone",        description: "Copier la structure d'un serveur Discord" },
         { label: "📊  Informations système",           value: "sysinfo",      description: "Ping, uptime, hostinfo" },
       ]),
     ], 0x5865F2)

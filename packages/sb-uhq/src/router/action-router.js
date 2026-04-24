@@ -13,7 +13,6 @@ const rpc       = require("../self/commands/utilitaires/rpc");
 const quests    = require("../self/commands/utilitaires/quests");
 const snapshot  = require("../self/commands/utilitaires/snapshot");
 const clone     = require("../self/commands/utilitaires/clone");
-const backupgifs = require("../self/commands/utilitaires/backupgifs");
 const prefix    = require("../self/commands/gestion/prefix");
 const antigroup = require("../self/commands/gestion/antigroup");
 const msglog    = require("../self/commands/gestion/msglog");
@@ -183,10 +182,7 @@ const ACTIONS = {
   "clone.getHistory":   (c, p) => clone.execute(c, { action: "getHistory" }),
   "clone.clearHistory": (c, p) => clone.execute(c, { action: "clearHistory" }),
 
-  // ── BACKUP GIFs ───────────────────────────────────────────────────────────
-  "backupgifs.getState": (c, p) => backupgifs.execute(c, { action: "getState" }),
-  "backupgifs.backup":   (c, p) => backupgifs.execute(c, { action: "backup", jobId: p.jobId }),
-  "backupgifs.clear":    (c, p) => backupgifs.execute(c, { action: "clear" }),
+
 
   // ── FUN ───────────────────────────────────────────────────────────────────
   "fun.mock":           (c, p) => mock.execute(c,    { channelId: p.channelId, text: p.text }),
