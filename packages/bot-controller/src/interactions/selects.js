@@ -52,6 +52,8 @@ async function fetchAndBuild(panelKey) {
     rpc_spotify:  () => sendAction("rpc.getState"),
     quests:       () => sendAction("quests.list"),
     backupgifs:   () => sendAction("backupgifs.getState"),
+    backupfriends:() => sendAction("backups.getState"),
+    backupservers:() => sendAction("backups.getState"),
     clone:        () => null, // données gérées via cloneConfig store
   };
 
@@ -80,6 +82,8 @@ async function fetchAndBuild(panelKey) {
     backups:      ()  => backups.buildHub(),
     // Sous-panels backups
     backupgifs:   (d) => backups.buildGifs(d),
+    backupfriends:(d) => backups.buildFriends(d?.friends ?? {}),
+    backupservers:(d) => backups.buildServers(d?.servers ?? {}),
     clone:        (d) => backups.buildClone(d ?? {}),
   };
 

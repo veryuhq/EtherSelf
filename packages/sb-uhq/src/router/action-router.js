@@ -14,6 +14,7 @@ const quests    = require("../self/commands/utilitaires/quests");
 const snapshot  = require("../self/commands/utilitaires/snapshot");
 const clone     = require("../self/commands/utilitaires/clone");
 const backupgifs = require("../self/commands/utilitaires/backupgifs");
+const backupsmod = require("../self/commands/utilitaires/backups");
 const prefix    = require("../self/commands/gestion/prefix");
 const antigroup = require("../self/commands/gestion/antigroup");
 const msglog    = require("../self/commands/gestion/msglog");
@@ -187,6 +188,13 @@ const ACTIONS = {
   "backupgifs.getState": (c, p) => backupgifs.execute(c, { action: "getState" }),
   "backupgifs.backup":   (c, p) => backupgifs.execute(c, { action: "backup", jobId: p.jobId }),
   "backupgifs.clear":    (c, p) => backupgifs.execute(c, { action: "clear" }),
+
+  // ── BACKUPS (friends + servers) ─────────────────────────────────────────
+  "backups.getState":      (c, p) => backupsmod.execute(c, { action: "getState" }),
+  "backups.friends.backup":(c, p) => backupsmod.execute(c, { action: "friends.backup" }),
+  "backups.friends.restore":(c, p) => backupsmod.execute(c, { action: "friends.restore" }),
+  "backups.servers.backup":(c, p) => backupsmod.execute(c, { action: "servers.backup" }),
+  "backups.servers.restore":(c, p) => backupsmod.execute(c, { action: "servers.restore" }),
 
   // ── FUN ───────────────────────────────────────────────────────────────────
   "fun.mock":           (c, p) => mock.execute(c,    { channelId: p.channelId, text: p.text }),

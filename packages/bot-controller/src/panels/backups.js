@@ -10,14 +10,86 @@ const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = r
 function buildHub() {
   return replyV2(
     container([
-      textDisplay(`# 💾 Backups\n*Que veux-tu sauvegarder ou restaurer ?*`),
+      textDisplay(`# 💾 Backups\n*QuestionHub : que voulez-vous sauvegarder ?*`),
       separator(),
       actionRow([
-        btn("🔁  Clone de serveur", "panel:clone",      ButtonStyle.Primary),
-        btn("🎞️  GIFs favoris",     "panel:backupgifs", ButtonStyle.Primary),
+        btn("👥  Backup Friends",    "panel:backupfriends", ButtonStyle.Primary),
+        btn("🏰  Backup Servers",    "panel:backupservers", ButtonStyle.Primary),
+      ]),
+      separator(1, false),
+      actionRow([
+        btn("🔁  Clone de serveur", "panel:clone",         ButtonStyle.Secondary),
+        btn("🎞️  GIFs favoris",     "panel:backupgifs",    ButtonStyle.Secondary),
         btn("🏠  Accueil",          "panel:home",       ButtonStyle.Secondary),
       ]),
     ], 0x2ECC71)
+  );
+}
+
+function buildFriends(data = {}) {
+  const latest = data.latest ?? null;
+  const lastRestore = data.lastRestore ?? null;
+  const list = latest?.friends ?? [];
+  const preview = list.length
+    ? list.slice(0, 8).map((f, i) => `\`${i + 1}.\` **${f.username}** · \`${f.id}\` · *${f.displayName ?? "N/A"}*`).join("\n")
+    : "*Aucun ami sauvegardé.*";
+
+  return replyV2(
+    container([
+      textDisplay(
+        `# 👥 Backup Friends\n` +
+        `\`📦\` **Amis sauvegardés :** ${latest?.total ?? 0}\n` +
+        `\`🕐\` **Dernière sauvegarde :** ${latest ? new Date(latest.timestamp).toLocaleString("fr-FR") : "*Jamais*"}\n` +
+        `\`🔄\` **Dernière restauration :** ${lastRestore ? `${lastRestore.restored}/${lastRestore.total} (${lastRestore.failed} échec(s))` : "*Jamais*"}\n\n` +
+        `### Aperçu\n${preview}\n\n` +
+        `-# Source: API Discord, fallback cache local / backup précédent.`
+      ),
+      separator(),
+      actionRow([
+        btn("💾  Sauvegarder", "backups:friends:backup", ButtonStyle.Success),
+        btn("♻️  Restaurer",   "backups:friends:restore", ButtonStyle.Primary, null, !list.length),
+      ]),
+      separator(),
+      actionRow([
+        btn("◀️  Retour Backups", "panel:backups", ButtonStyle.Secondary),
+        btn("🏠  Accueil",        "panel:home", ButtonStyle.Secondary),
+      ]),
+    ], 0x3498DB)
+  );
+}
+
+function buildServers(data = {}) {
+  const latest = data.latest ?? null;
+  const lastRestore = data.lastRestore ?? null;
+  const list = latest?.servers ?? [];
+  const preview = list.length
+    ? list.slice(0, 8).map((s, i) => {
+      const inv = s.inviteUrl ? s.inviteUrl : "*Aucune invite*";
+      return `\`${i + 1}.\` **${s.name}** · ${inv}`;
+    }).join("\n")
+    : "*Aucun serveur sauvegardé.*";
+
+  return replyV2(
+    container([
+      textDisplay(
+        `# 🏰 Backup Servers\n` +
+        `\`📦\` **Serveurs sauvegardés :** ${latest?.total ?? 0}\n` +
+        `\`🔗\` **Invites permanentes :** ${latest?.withInvite ?? 0}\n` +
+        `\`🕐\` **Dernière sauvegarde :** ${latest ? new Date(latest.timestamp).toLocaleString("fr-FR") : "*Jamais*"}\n` +
+        `\`🔄\` **Dernière restauration :** ${lastRestore ? `${lastRestore.restored}/${lastRestore.total} (${lastRestore.failed} échec(s))` : "*Jamais*"}\n\n` +
+        `### Aperçu\n${preview}`
+      ),
+      separator(),
+      actionRow([
+        btn("💾  Sauvegarder", "backups:servers:backup", ButtonStyle.Success),
+        btn("♻️  Restaurer",   "backups:servers:restore", ButtonStyle.Primary, null, !list.length),
+      ]),
+      separator(),
+      actionRow([
+        btn("◀️  Retour Backups", "panel:backups", ButtonStyle.Secondary),
+        btn("🏠  Accueil",        "panel:home", ButtonStyle.Secondary),
+      ]),
+    ], 0x9B59B6)
   );
 }
 
@@ -340,6 +412,8 @@ function buildGifsList(data = {}, page = 0) {
 
 module.exports = {
   buildHub,
+  buildFriends,
+  buildServers,
   // Clone
   buildClone, buildCloneRunning, buildCloneResult, buildCloneHistory, buildCloneGuildList,
   // GIFs

@@ -70,6 +70,8 @@ async function handle(interaction) {
     // Backups
     "panel:backups":      "backups",
     "panel:backupgifs":   "backupgifs",
+    "panel:backupfriends":"backupfriends",
+    "panel:backupservers":"backupservers",
     "panel:clone":        "clone",
   };
   if (NAV_MAP[id]) {
@@ -905,6 +907,32 @@ async function handle(interaction) {
     const page = parseInt(id.split(":")[2], 10);
     const res  = await sendAction("backupgifs.getState");
     return interaction.update(backups.buildGifsList(res?.data ?? {}, page));
+  }
+
+  // ── BACKUP FRIENDS / SERVERS ─────────────────────────────────────────────
+  if (id === "backups:friends:backup") {
+    const res = await sendAction("backups.friends.backup");
+    if (!res?.success) return _error(interaction, res?.error);
+    const state = await sendAction("backups.getState");
+    return interaction.update(backups.buildFriends(state?.data?.friends ?? {}));
+  }
+  if (id === "backups:friends:restore") {
+    const res = await sendAction("backups.friends.restore");
+    if (!res?.success) return _error(interaction, res?.error);
+    const state = await sendAction("backups.getState");
+    return interaction.update(backups.buildFriends(state?.data?.friends ?? {}));
+  }
+  if (id === "backups:servers:backup") {
+    const res = await sendAction("backups.servers.backup");
+    if (!res?.success) return _error(interaction, res?.error);
+    const state = await sendAction("backups.getState");
+    return interaction.update(backups.buildServers(state?.data?.servers ?? {}));
+  }
+  if (id === "backups:servers:restore") {
+    const res = await sendAction("backups.servers.restore");
+    if (!res?.success) return _error(interaction, res?.error);
+    const state = await sendAction("backups.getState");
+    return interaction.update(backups.buildServers(state?.data?.servers ?? {}));
   }
 }
 
