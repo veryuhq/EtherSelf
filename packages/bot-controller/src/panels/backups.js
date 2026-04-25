@@ -1,11 +1,133 @@
 "use strict";
 
-const { ButtonStyle, MessageFlags, FileBuilder } = require("discord.js");
+const { ButtonStyle } = require("discord.js");
 const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  HUB
+//  HUB BACKUPS
 // ─────────────────────────────────────────────────────────────────────────────
+
+function build(data = {}) {
+  const { friendsCount = null, friendsSavedAt = null, guildsCount = null, guildsSavedAt = null } = data;
+
+  const fLine = friendsSavedAt
+    ? `\`✅\` **${friendsCount ?? "?"}** ami(s) — sauvegardé le ${new Date(friendsSavedAt).toLocaleString("fr-FR")}`
+    : "`📭` *Aucun backup d'amis enregistré*";
+
+  const gLine = guildsSavedAt
+    ? `\`✅\` **${guildsCount ?? "?"}** serveur(s) — sauvegardé le ${new Date(guildsSavedAt).toLocaleString("fr-FR")}`
+    : "`📭` *Aucun backup de serveurs enregistré*";
+
+  return replyV2(
+    container([
+      textDisplay(
+        `# 💾 Backups & Clone\n\n` +
+        `### 👥 Amis\n> ${fLine}\n\n` +
+        `### 🏠 Serveurs\n> ${gLine}`
+      ),
+      separator(),
+      actionRow([
+        btn("👥  Backup amis",        "backups:friends",     ButtonStyle.Primary),
+        btn("🏠  Backup serveurs",    "backups:guilds",      ButtonStyle.Primary),
+        btn("🔁  Cloner un serveur",  "backups:clone",       ButtonStyle.Secondary),
+      ]),
+      separator(),
+      navRow(null, null, true),
+    ], 0x3498DB)
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AMIS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildFriends(data = {}) {
+  const { friends = [], savedAt = null, count = 0 } = data;
+
+  const PAGE_SIZE = 15;
+  const page = data.page ?? 0;
+  const totalPages = Math.max(1, Math.ceil(friends.length / PAGE_SIZE));
+  const slice = friends.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const list = slice.length
+    ? slice.map((f, i) => {
+        const num = page * PAGE_SIZE + i + 1;
+        const since = f.since ? ` — *depuis ${new Date(f.since).toLocaleDateString("fr-FR")}*` : "";
+        const display = f.globalName && f.globalName !== f.username
+          ? `**${f.globalName}** (${f.tag})`
+          : `**${f.tag}**`;
+        return `\`${num}.\` ${display}${since}`;
+      }).join("\n")
+    : "*Aucun ami trouvé.*";
+
+  const savedLine = savedAt
+    ? `*Backup du ${new Date(savedAt).toLocaleString("fr-FR")} — ${count} ami(s)*`
+    : "*Données live (pas de backup enregistré)*";
+
+  return replyV2(
+    container([
+      textDisplay(
+        `# 👥 Backup Amis\n${savedLine}\n\n${list}` +
+        (friends.length > PAGE_SIZE ? `\n\n*Page ${page + 1}/${totalPages}*` : "")
+      ),
+      separator(),
+      actionRow([
+        btn("⬅️", `backups:friends_page:${page - 1}`, ButtonStyle.Secondary, null, page === 0),
+        btn("➡️", `backups:friends_page:${page + 1}`, ButtonStyle.Secondary, null, page >= totalPages - 1),
+        btn("🔄  Actualiser backup", "backups:friends_refresh", ButtonStyle.Success),
+        btn("🗑️  Supprimer backup",  "backups:friends_clear",   ButtonStyle.Danger),
+      ]),
+      separator(),
+      navRow("panel:backups", "Backups"),
+    ], 0x3498DB)
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SERVEURS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildGuilds(data = {}) {
+  const { guilds = [], savedAt = null, count = 0 } = data;
+
+  const PAGE_SIZE = 8;
+  const page = data.page ?? 0;
+  const totalPages = Math.max(1, Math.ceil(guilds.length / PAGE_SIZE));
+  const slice = guilds.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const list = slice.length
+    ? slice.map((g, i) => {
+        const num = page * PAGE_SIZE + i + 1;
+        const owner = g.isOwner ? " 👑" : "";
+        const inviteLine = g.invite
+          ? `\n> 🔗 ${g.invite}`
+          : `\n> 🔗 *aucune invitation*`;
+        return `\`${num}.\` **${g.name}**${owner} — \`${g.id}\`${inviteLine}`;
+      }).join("\n\n")
+    : "*Aucun serveur trouvé.*";
+
+  const savedLine = savedAt
+    ? `*Backup du ${new Date(savedAt).toLocaleString("fr-FR")} — ${count} serveur(s)*`
+    : "*Données live — clique \"Actualiser backup\" pour générer les invitations permanentes*";
+
+  return replyV2(
+    container([
+      textDisplay(
+        `# 🏠 Backup Serveurs\n${savedLine}\n\n${list}` +
+        (guilds.length > PAGE_SIZE ? `\n\n*Page ${page + 1}/${totalPages}*` : "")
+      ),
+      separator(),
+      actionRow([
+        btn("⬅️", `backups:guilds_page:${page - 1}`, ButtonStyle.Secondary, null, page === 0),
+        btn("➡️", `backups:guilds_page:${page + 1}`, ButtonStyle.Secondary, null, page >= totalPages - 1),
+        btn("🔄  Actualiser backup", "backups:guilds_refresh", ButtonStyle.Success),
+        btn("🗑️  Supprimer backup",  "backups:guilds_clear",   ButtonStyle.Danger),
+      ]),
+      separator(),
+      navRow("panel:backups", "Backups"),
+    ], 0x3498DB)
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  CLONE
@@ -47,20 +169,18 @@ function buildClone(data = {}) {
       ]),
       separator(1, false),
       actionRow([
-        btn(cloneRoles    ? "🎭  Rôles ✅"    : "🎭  Rôles ❌",    "clone:toggleRoles",    cloneRoles    ? ButtonStyle.Success : ButtonStyle.Secondary),
-        btn(cloneChannels ? "💬  Salons ✅"   : "💬  Salons ❌",   "clone:toggleChannels", cloneChannels ? ButtonStyle.Success : ButtonStyle.Secondary),
-        btn(cloneEmojis   ? "😀  Emojis ✅"   : "😀  Emojis ❌",   "clone:toggleEmojis",   cloneEmojis   ? ButtonStyle.Success : ButtonStyle.Secondary),
-        btn(cloneSettings ? "⚙️  Params ✅"   : "⚙️  Params ❌",  "clone:toggleSettings", cloneSettings ? ButtonStyle.Success : ButtonStyle.Secondary),
+        btn(cloneRoles    ? "🎭  Rôles ✅"   : "🎭  Rôles ❌",   "clone:toggleRoles",    cloneRoles    ? ButtonStyle.Success : ButtonStyle.Secondary),
+        btn(cloneChannels ? "💬  Salons ✅"  : "💬  Salons ❌",  "clone:toggleChannels", cloneChannels ? ButtonStyle.Success : ButtonStyle.Secondary),
+        btn(cloneEmojis   ? "😀  Emojis ✅"  : "😀  Emojis ❌",  "clone:toggleEmojis",   cloneEmojis   ? ButtonStyle.Success : ButtonStyle.Secondary),
+        btn(cloneSettings ? "⚙️  Params ✅"  : "⚙️  Params ❌", "clone:toggleSettings", cloneSettings ? ButtonStyle.Success : ButtonStyle.Secondary),
       ]),
       separator(),
       actionRow([
-        btn("▶️  Lancer le clonage", "clone:run",     ButtonStyle.Danger,     null, !canRun),
+        btn("▶️  Lancer le clonage", "clone:run",     ButtonStyle.Danger,    null, !canRun),
         btn("📜  Historique",         "clone:history", ButtonStyle.Secondary),
       ]),
       separator(),
-      actionRow([
-        btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary),
-      ]),
+      navRow("panel:backups", "Backups"),
     ], 0xE67E22)
   );
 }
@@ -109,7 +229,13 @@ function buildCloneResult(data = {}) {
     statusLine  = `\`🛑\` **Clonage annulé**\n> *L'opération a été interrompue manuellement.*`;
   } else if (success) {
     accentColor = 0x2ECC71;
-    statusLine  = `\`✅\` **Clonage terminé en \`${duration}s\` !**\n\n### Résultats\n> \`🎭\` Rôles clonés     : **${rolesCloned}**\n> \`💬\` Salons clonés    : **${channelsCloned}**\n> \`😀\` Emojis clonés    : **${emojisCloned}**\n> \`⏱️\` Durée totale     : **${duration}s**`;
+    statusLine  =
+      `\`✅\` **Clonage terminé en \`${duration}s\` !**\n\n` +
+      `### Résultats\n` +
+      `> \`🎭\` Rôles clonés     : **${rolesCloned}**\n` +
+      `> \`💬\` Salons clonés    : **${channelsCloned}**\n` +
+      `> \`😀\` Emojis clonés    : **${emojisCloned}**\n` +
+      `> \`⏱️\` Durée totale     : **${duration}s**`;
   } else {
     accentColor = 0xE74C3C;
     statusLine  = `\`❌\` **Erreur lors du clonage**\n> ${error ?? "Erreur inconnue."}`;
@@ -121,10 +247,10 @@ function buildCloneResult(data = {}) {
       textDisplay(`# 🔁 Clone — Résultat\n\n### Serveurs\n> \`📤\` **Source :** ${sourceGuildName}\n> \`📥\` **Cible :**  ${targetGuildName}\n\n${statusLine}${logsSection}`),
       separator(),
       actionRow([
-        btn("🔁  Nouveau clone", "panel:clone",    ButtonStyle.Primary),
-        btn("📜  Historique",     "clone:history", ButtonStyle.Secondary),
-        btn("◀️  Clone",          "panel:clone", ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",    ButtonStyle.Secondary),
+        btn("🔁  Nouveau clone", "backups:clone",  ButtonStyle.Primary),
+        btn("📜  Historique",    "clone:history",  ButtonStyle.Secondary),
+        btn("◀️  Backups",       "panel:backups",  ButtonStyle.Secondary),
+        btn("🏠  Accueil",       "panel:home",     ButtonStyle.Secondary),
       ]),
     ], accentColor)
   );
@@ -148,7 +274,7 @@ function buildCloneHistory(data = {}) {
       separator(),
       actionRow([btn("🗑️  Effacer l'historique", "clone:clearHistory", ButtonStyle.Danger)]),
       separator(),
-      navRow("panel:clone", "Clone"),
+      navRow("backups:clone", "Clone"),
     ], 0xE67E22)
   );
 }
@@ -156,19 +282,25 @@ function buildCloneHistory(data = {}) {
 function buildCloneGuildList(data = {}) {
   const { guilds = [] } = data;
   const list = guilds.length
-    ? guilds.map((g, i) => `\`${i + 1}.\` **${g.name}** — \`${g.id}\``).join("\n")
+    ? guilds.map((g, i) => {
+        const owner = g.isOwner ? " 👑" : "";
+        return `\`${i + 1}.\` **${g.name}**${owner} — \`${g.id}\``;
+      }).join("\n")
     : "*Aucun serveur trouvé.*";
 
   return replyV2(
     container([
       textDisplay(`# 🗂️ Serveurs disponibles\n-# Utilise ces IDs pour configurer la source et la cible.\n\n${list}`),
       separator(),
-      navRow("panel:clone", "Clone"),
+      navRow("backups:clone", "Clone"),
     ], 0xE67E22)
   );
 }
 
 module.exports = {
+  build,
+  buildFriends,
+  buildGuilds,
   buildClone,
   buildCloneRunning,
   buildCloneResult,

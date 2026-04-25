@@ -12,7 +12,7 @@ const nitro     = require("../self/commands/utilitaires/nitro");
 const rpc       = require("../self/commands/utilitaires/rpc");
 const quests    = require("../self/commands/utilitaires/quests");
 const snapshot  = require("../self/commands/utilitaires/snapshot");
-const clone     = require("../self/commands/utilitaires/clone");
+const backups   = require("../self/commands/utilitaires/backups");
 const prefix    = require("../self/commands/gestion/prefix");
 const antigroup = require("../self/commands/gestion/antigroup");
 const msglog    = require("../self/commands/gestion/msglog");
@@ -125,22 +125,12 @@ const ACTIONS = {
   "rpc.applyNow":        (c, p) => rpc.execute(c, { action: "applyNow" }),
   "rpc.setApplicationId":(c, p) => rpc.execute(c, { action: "setApplicationId", applicationId: p.applicationId }),
   "rpc.setSpotifyConfig":(c, p) => rpc.execute(c, {
-    action:   "setSpotifyConfig",
-    enabled:  p.enabled,
-    songId:   p.songId,
-    albumId:  p.albumId,
-    artistIds:p.artistIds,
-    details:  p.details,
-    state:    p.state,
+    action: "setSpotifyConfig", enabled: p.enabled, songId: p.songId, albumId: p.albumId,
+    artistIds: p.artistIds, details: p.details, state: p.state,
   }),
   "rpc.setSpotifyAssets":(c, p) => rpc.execute(c, { action: "setSpotifyAssets", assets: p.assets }),
   "rpc.setSpotifyTimestamps":(c, p) => rpc.execute(c, { action: "setSpotifyTimestamps", start: p.start, end: p.end }),
-  "rpc.setSpotifyExtras":(c, p) => rpc.execute(c, {
-    action: "setSpotifyExtras",
-    applicationId: p.applicationId,
-    platform: p.platform,
-    url: p.url,
-  }),
+  "rpc.setSpotifyExtras":(c, p) => rpc.execute(c, { action: "setSpotifyExtras", applicationId: p.applicationId, platform: p.platform, url: p.url }),
   "rpc.csToggle":        (c, p) => rpc.execute(c, { action: "csToggle" }),
   "rpc.csAdd":           (c, p) => rpc.execute(c, { action: "csAdd",    emoji: p.emoji, text: p.text }),
   "rpc.csEdit":          (c, p) => rpc.execute(c, { action: "csEdit",   index: p.index, emoji: p.emoji, text: p.text }),
@@ -148,13 +138,10 @@ const ACTIONS = {
   "rpc.csClear":         (c, p) => rpc.execute(c, { action: "csClear" }),
   "rpc.setCsInterval":   (c, p) => rpc.execute(c, { action: "setCsInterval", intervalSec: p.intervalSec }),
 
-  // ── SNAPSHOT (export salon en HTML) ──────────────────────────────────────
+  // ── SNAPSHOT ──────────────────────────────────────────────────────────────
   "snapshot.run":        (c, p) => snapshot.execute(c, {
-    action:          "snapshot",
-    channelId:       p.channelId,
-    limit:           p.limit ?? 0,
-    sendToChannelId: p.sendToChannelId ?? null,
-    jobId:           p.jobId ?? null,
+    action: "snapshot", channelId: p.channelId, limit: p.limit ?? 0,
+    sendToChannelId: p.sendToChannelId ?? null, jobId: p.jobId ?? null,
   }),
 
   // ── QUESTS ────────────────────────────────────────────────────────────────
@@ -166,23 +153,22 @@ const ACTIONS = {
   "quests.getHistory":   (c, p) => quests.execute(c, { action: "getHistory" }),
   "quests.clearHistory": (c, p) => quests.execute(c, { action: "clearHistory" }),
 
-  // ── CLONE ─────────────────────────────────────────────────────────────────
-  "clone.listGuilds":   (c, p) => clone.execute(c, { action: "listGuilds" }),
-  "clone.run":          (c, p) => clone.execute(c, {
-    action:          "run",
-    sourceGuildId:   p.sourceGuildId,
-    targetGuildId:   p.targetGuildId,
-    cloneRoles:      p.cloneRoles,
-    cloneChannels:   p.cloneChannels,
-    cloneEmojis:     p.cloneEmojis,
-    cloneSettings:   p.cloneSettings,
-    jobId:           p.jobId,
+  // ── BACKUPS (clone + amis + serveurs) ─────────────────────────────────────
+  "backups.listGuilds":       (c, p) => backups.execute(c, { action: "listGuilds" }),
+  "backups.clone.run":        (c, p) => backups.execute(c, {
+    action: "clone.run", sourceGuildId: p.sourceGuildId, targetGuildId: p.targetGuildId,
+    cloneRoles: p.cloneRoles, cloneChannels: p.cloneChannels, cloneEmojis: p.cloneEmojis,
+    cloneSettings: p.cloneSettings, jobId: p.jobId,
   }),
-  "clone.cancel":       (c, p) => clone.execute(c, { action: "cancel", jobId: p.jobId }),
-  "clone.getHistory":   (c, p) => clone.execute(c, { action: "getHistory" }),
-  "clone.clearHistory": (c, p) => clone.execute(c, { action: "clearHistory" }),
-
-
+  "backups.clone.cancel":     (c, p) => backups.execute(c, { action: "clone.cancel", jobId: p.jobId }),
+  "backups.clone.getHistory": (c, p) => backups.execute(c, { action: "clone.getHistory" }),
+  "backups.clone.clearHistory":(c, p)=> backups.execute(c, { action: "clone.clearHistory" }),
+  "backups.friends.backup":   (c, p) => backups.execute(c, { action: "friends.backup" }),
+  "backups.friends.get":      (c, p) => backups.execute(c, { action: "friends.get" }),
+  "backups.friends.clearBackup":(c,p)=> backups.execute(c, { action: "friends.clearBackup" }),
+  "backups.guilds.backup":    (c, p) => backups.execute(c, { action: "guilds.backup" }),
+  "backups.guilds.get":       (c, p) => backups.execute(c, { action: "guilds.get" }),
+  "backups.guilds.clearBackup":(c,p) => backups.execute(c, { action: "guilds.clearBackup" }),
 
   // ── FUN ───────────────────────────────────────────────────────────────────
   "fun.mock":           (c, p) => mock.execute(c,    { channelId: p.channelId, text: p.text }),

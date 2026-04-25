@@ -23,16 +23,22 @@ const sysinfo   = require("../panels/sysinfo");
 const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
-const clone = require("../panels/clone");
+const backups   = require("../panels/backups");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getProgressHelpers() {
-  return require("../../index.js");
-}
+function getProgressHelpers() { return require("../../index.js"); }
 
 function makeJobId(prefix = "job") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function resolveGuildName(guildId) {
+  try {
+    const res = await sendAction("backups.listGuilds");
+    const guild = (res?.data?.guilds ?? []).find(g => g.id === guildId);
+    return guild?.name ?? null;
+  } catch { return null; }
 }
 
 /**
@@ -67,8 +73,7 @@ async function handle(interaction) {
     "panel:rpc_spotify":  "rpc_spotify",
     "panel:rpc_hub":      "rpc_hub",
     "panel:quests":       "quests",
-    // Backups
-    "panel:clone":        "clone",
+    "panel:backups":      "backups",
   };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
@@ -84,14 +89,8 @@ async function handle(interaction) {
   }
 
   // ── AFK ───────────────────────────────────────────────────────────────────
-  if (id === "afk:toggle") {
-    const res = await sendAction("afk.toggle");
-    return interaction.update(afk.build(res?.data ?? {}));
-  }
-  if (id === "afk:toggleSpecial") {
-    const res = await sendAction("afk.toggleSpecial");
-    return interaction.update(afk.build(res?.data ?? {}));
-  }
+  if (id === "afk:toggle") { const res = await sendAction("afk.toggle"); return interaction.update(afk.build(res?.data ?? {})); }
+  if (id === "afk:toggleSpecial") { const res = await sendAction("afk.toggleSpecial"); return interaction.update(afk.build(res?.data ?? {})); }
   if (id === "afk:setReason") {
     const res = await sendAction("afk.getState");
     return interaction.showModal(modal("modal:afk_reason", "Raison AFK", [
@@ -145,50 +144,40 @@ async function handle(interaction) {
     ]));
   }
   if (id.startsWith("snipe:page:")) {
-    const parts      = id.split(":");
-    const type       = parts[2];
-    const page       = parseInt(parts[3], 10);
-    const searchMode = parts[4];
-    const scopeId    = parts[5];
-
+    const parts = id.split(":");
+    const type = parts[2], page = parseInt(parts[3], 10), searchMode = parts[4], scopeId = parts[5];
     let res;
-    if (searchMode === "guild") {
-      res = await sendAction("snipe.getMessagesByGuild", { guildId: scopeId, type });
-    } else if (searchMode === "user") {
-      res = await sendAction("snipe.getMessagesByUser", { userId: scopeId, type });
-    } else {
-      res = await sendAction("snipe.getMessages", { channelId: scopeId, type });
-    }
+    if (searchMode === "guild") res = await sendAction("snipe.getMessagesByGuild", { guildId: scopeId, type });
+    else if (searchMode === "user") res = await sendAction("snipe.getMessagesByUser", { userId: scopeId, type });
+    else res = await sendAction("snipe.getMessages", { channelId: scopeId, type });
     return interaction.update(snipe.buildResults({ ...(res?.data ?? {}), page }));
   }
   if (id.startsWith("snipe:inputChannel:")) {
     const type = id.split(":")[2];
     return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode",  label: "Mode (channel / guild / user)", placeholder: "channel", value: "channel", maxLength: 7 },
+      { id: "mode", label: "Mode (channel / guild / user)", placeholder: "channel", value: "channel", maxLength: 7 },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
   if (id.startsWith("snipe:inputGuild:")) {
     const type = id.split(":")[2];
     return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode",  label: "Mode (channel / guild / user)", placeholder: "guild", value: "guild", maxLength: 7 },
+      { id: "mode", label: "Mode (channel / guild / user)", placeholder: "guild", value: "guild", maxLength: 7 },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
   if (id.startsWith("snipe:inputUser:")) {
     const type = id.split(":")[2];
     return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode",  label: "Mode (channel / guild / user)", placeholder: "user", value: "user", maxLength: 7 },
+      { id: "mode", label: "Mode (channel / guild / user)", placeholder: "user", value: "user", maxLength: 7 },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
-
-  // ── SNIPE : SNAPSHOT ──────────────────────────────────────────────────────
   if (id === "snipe:snapshot") {
     return interaction.showModal(modal("modal:snipe_snapshot", "Snapshot d'un salon", [
-      { id: "channelId",       label: "ID du salon à archiver",                placeholder: "123456789012345678" },
-      { id: "limit",           label: "Limite (0 = tous les messages)",          placeholder: "0", value: "0", required: false, maxLength: 6 },
-      { id: "sendToChannelId", label: "ID salon de réception (vide = DM selfbot)", placeholder: "Laisser vide pour recevoir en DM", required: false },
+      { id: "channelId",       label: "ID du salon à archiver",                        placeholder: "123456789012345678" },
+      { id: "limit",           label: "Limite (0 = tous les messages)",                 placeholder: "0", value: "0", required: false, maxLength: 6 },
+      { id: "sendToChannelId", label: "ID salon de réception (vide = DM selfbot)",      placeholder: "Laisser vide pour recevoir en DM", required: false },
     ]));
   }
 
@@ -264,13 +253,8 @@ async function handle(interaction) {
   }
 
   // ── ANTIGROUP ─────────────────────────────────────────────────────────────
-  if (id === "antigroup:toggle") {
-    const res = await sendAction("antigroup.toggle");
-    return interaction.update(antigroup.build(res?.data ?? {}));
-  }
-  if (id === "antigroup:confirmLeaveAll") {
-    return interaction.update(antigroup.buildConfirmLeaveAll());
-  }
+  if (id === "antigroup:toggle") { const res = await sendAction("antigroup.toggle"); return interaction.update(antigroup.build(res?.data ?? {})); }
+  if (id === "antigroup:confirmLeaveAll") { return interaction.update(antigroup.buildConfirmLeaveAll()); }
   if (id === "antigroup:leaveAll") {
     await interaction.update(antigroup.buildLeaveAllResult({ left: 0, failed: 0, total: null }));
     const res = await sendAction("antigroup.leaveAll");
@@ -304,11 +288,7 @@ async function handle(interaction) {
   }
 
   // ── GUNSLOL ───────────────────────────────────────────────────────────────
-  if (id === "gunslol:toggle") {
-    const res = await sendAction("gunslol.toggle");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(gunslol.build(res?.data ?? {}));
-  }
+  if (id === "gunslol:toggle") { const res = await sendAction("gunslol.toggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(gunslol.build(res?.data ?? {})); }
   if (id === "gunslol:setLink") {
     const res = await sendAction("gunslol.getState");
     return interaction.showModal(modal("modal:gunslol_link", "Définir le lien guns.lol", [
@@ -327,38 +307,21 @@ async function handle(interaction) {
       { id: "msg", label: "Message ({link} = lien inséré)", placeholder: "Check mon profil : {link}", value: res?.data?.customMessage ?? "", required: false, long: true },
     ]));
   }
-  if (id === "gunslol:resetMsg") {
-    const res = await sendAction("gunslol.resetMsg");
-    return interaction.update(gunslol.build(res?.data ?? {}));
-  }
+  if (id === "gunslol:resetMsg") { const res = await sendAction("gunslol.resetMsg"); return interaction.update(gunslol.build(res?.data ?? {})); }
 
   // ── NITRO SNIPER ──────────────────────────────────────────────────────────
-  if (id === "nitro:toggle") {
-    const res = await sendAction("nitro.toggle");
-    return interaction.update(nitro.build(res?.data ?? {}));
-  }
-  if (id === "nitro:history") {
-    const res = await sendAction("nitro.getHistory");
-    return interaction.update(nitro.buildHistory(res?.data ?? {}));
-  }
-  if (id === "nitro:exclusions") {
-    const res = await sendAction("nitro.getExclusions");
-    return interaction.update(nitro.buildExclusions(res?.data ?? {}));
-  }
-  if (id === "nitro:clearHistory") {
-    const res = await sendAction("nitro.clearHistory");
-    return interaction.update(nitro.buildHistory(res?.data ?? {}));
-  }
+  if (id === "nitro:toggle") { const res = await sendAction("nitro.toggle"); return interaction.update(nitro.build(res?.data ?? {})); }
+  if (id === "nitro:history") { const res = await sendAction("nitro.getHistory"); return interaction.update(nitro.buildHistory(res?.data ?? {})); }
+  if (id === "nitro:exclusions") { const res = await sendAction("nitro.getExclusions"); return interaction.update(nitro.buildExclusions(res?.data ?? {})); }
+  if (id === "nitro:clearHistory") { const res = await sendAction("nitro.clearHistory"); return interaction.update(nitro.buildHistory(res?.data ?? {})); }
   if (id === "nitro:toggleNotifyClaim") {
     const state = await sendAction("nitro.getState");
-    const currentValue = state?.data?.notifyOnClaim ?? true;
-    const res = await sendAction("nitro.setNotifyOnClaim", { value: !currentValue });
+    const res = await sendAction("nitro.setNotifyOnClaim", { value: !(state?.data?.notifyOnClaim ?? true) });
     return interaction.update(nitro.build(res?.data ?? {}));
   }
   if (id === "nitro:toggleNotifyFail") {
     const state = await sendAction("nitro.getState");
-    const currentValue = state?.data?.notifyOnFail ?? false;
-    const res = await sendAction("nitro.setNotifyOnFail", { value: !currentValue });
+    const res = await sendAction("nitro.setNotifyOnFail", { value: !(state?.data?.notifyOnFail ?? false) });
     return interaction.update(nitro.build(res?.data ?? {}));
   }
   if (id === "nitro:addExclusion") {
@@ -373,45 +336,39 @@ async function handle(interaction) {
   }
 
   // ── RPC — Activités ───────────────────────────────────────────────────────
-  if (id === "rpc:toggle") {
-    const res = await sendAction("rpc.toggle");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(rpc.build(res?.data ?? {}));
-  }
+  if (id === "rpc:toggle") { const res = await sendAction("rpc.toggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
   if (id === "rpc:addActivity") {
     return interaction.showModal(modal("modal:rpc_addActivity", "Ajouter une activité", [
-      { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing",                     value: "playing", maxLength: 10 },
-      { id: "name",    label: "Nom de l'activité",                   placeholder: "Minecraft, une playlist…",    maxLength: 128 },
-      { id: "details", label: "Détails (ligne 2, optionnel)",        placeholder: "Survie solo — Niveau 42",     required: false, maxLength: 128 },
-      { id: "state",   label: "État (ligne 3, optionnel)",           placeholder: "Dans les mines",              required: false, maxLength: 128 },
+      { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing", value: "playing", maxLength: 10 },
+      { id: "name",    label: "Nom de l'activité",                   placeholder: "Minecraft, une playlist…", maxLength: 128 },
+      { id: "details", label: "Détails (ligne 2, optionnel)",        placeholder: "Survie solo — Niveau 42", required: false, maxLength: 128 },
+      { id: "state",   label: "État (ligne 3, optionnel)",           placeholder: "Dans les mines", required: false, maxLength: 128 },
       { id: "url",     label: "URL stream (streaming only, vide sinon)", placeholder: "https://twitch.tv/tonpseudo", required: false, maxLength: 512 },
     ]));
   }
   if (id === "rpc:editActivity") {
-    const state      = await sendAction("rpc.getState");
+    const state = await sendAction("rpc.getState");
     const activities = state?.data?.activities ?? [];
-
     if (activities.length === 1) {
       const a = activities[0];
       return interaction.showModal(modal("modal:rpc_editActivity", "Éditer l'activité", [
-        { id: "index",   label: "Numéro de l'activité",                placeholder: "1",                        value: "1",            maxLength: 3 },
-        { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing",                   value: a.type ?? "playing", maxLength: 10 },
-        { id: "name",    label: "Nom de l'activité",                   placeholder: "Minecraft, une playlist…",  value: a.name ?? "",   maxLength: 128 },
-        { id: "details", label: "Détails (ligne 2, optionnel)",        placeholder: "Survie solo — Niveau 42",   value: a.details ?? "", required: false, maxLength: 128 },
-        { id: "state",   label: "État (ligne 3, optionnel)",           placeholder: "Dans les mines",             value: a.state ?? "",  required: false, maxLength: 128 },
+        { id: "index",   label: "Numéro de l'activité", placeholder: "1", value: "1", maxLength: 3 },
+        { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing", value: a.type ?? "playing", maxLength: 10 },
+        { id: "name",    label: "Nom de l'activité", placeholder: "Minecraft, une playlist…", value: a.name ?? "", maxLength: 128 },
+        { id: "details", label: "Détails (ligne 2, optionnel)", placeholder: "Survie solo — Niveau 42", value: a.details ?? "", required: false, maxLength: 128 },
+        { id: "state",   label: "État (ligne 3, optionnel)", placeholder: "Dans les mines", value: a.state ?? "", required: false, maxLength: 128 },
       ]));
     }
-
     return interaction.showModal(modal("modal:rpc_editActivity", "Éditer une activité", [
-      { id: "index",   label: `Numéro (1–${activities.length})`,       placeholder: "1",                        maxLength: 3 },
-      { id: "type",    label: "Type (playing/streaming/listening…)",   placeholder: "playing",                   maxLength: 10 },
-      { id: "name",    label: "Nom de l'activité",                     placeholder: "Minecraft, une playlist…",  maxLength: 128 },
-      { id: "details", label: "Détails (ligne 2, optionnel)",          placeholder: "Survie solo — Niveau 42",   required: false, maxLength: 128 },
-      { id: "state",   label: "État (ligne 3, optionnel)",             placeholder: "Dans les mines",             required: false, maxLength: 128 },
+      { id: "index",   label: `Numéro (1–${activities.length})`, placeholder: "1", maxLength: 3 },
+      { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing", maxLength: 10 },
+      { id: "name",    label: "Nom de l'activité", placeholder: "Minecraft, une playlist…", maxLength: 128 },
+      { id: "details", label: "Détails (ligne 2, optionnel)", placeholder: "Survie solo — Niveau 42", required: false, maxLength: 128 },
+      { id: "state",   label: "État (ligne 3, optionnel)", placeholder: "Dans les mines", required: false, maxLength: 128 },
     ]));
   }
   if (id === "rpc:setPlatform") {
-    const state      = await sendAction("rpc.getState");
+    const state = await sendAction("rpc.getState");
     const activities = state?.data?.activities ?? [];
     return interaction.showModal(modal("modal:rpc_setPlatform", "Définir la plateforme", [
       { id: "index",    label: activities.length === 1 ? "Numéro de l'activité" : `Numéro (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
@@ -419,16 +376,12 @@ async function handle(interaction) {
     ]));
   }
   if (id === "rpc:editButtons") {
-    const state      = await sendAction("rpc.getState");
+    const state = await sendAction("rpc.getState");
     const activities = state?.data?.activities ?? [];
-
-    const hint = activities.length === 1
-      ? (() => {
-          const btns = activities[0].buttons ?? [];
-          return btns.length ? btns.map((b, i) => `${i + 1}: ${b.label}`).join(" / ") : "aucun bouton";
-        })()
-      : null;
-
+    const hint = activities.length === 1 ? (() => {
+      const btns = activities[0].buttons ?? [];
+      return btns.length ? btns.map((b, i) => `${i + 1}: ${b.label}`).join(" / ") : "aucun bouton";
+    })() : null;
     return interaction.showModal(modal("modal:rpc_editButtons", "Gérer les boutons RPC", [
       { id: "index",        label: activities.length === 1 ? "Numéro de l'activité" : `Numéro de l'activité (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
       { id: "buttonAction", label: "Action (add / remove / clear)", placeholder: "add", value: "add", maxLength: 6 },
@@ -439,11 +392,11 @@ async function handle(interaction) {
   }
   if (id === "rpc:editAssets") {
     return interaction.showModal(modal("modal:rpc_editAssets", "Éditer les assets d'une activité", [
-      { id: "index",      label: "Numéro de l'activité (voir la liste)", placeholder: "1",                                    maxLength: 3 },
+      { id: "index",      label: "Numéro de l'activité (voir la liste)", placeholder: "1", maxLength: 3 },
       { id: "largeImage", label: "Large Image (clé asset ou URL)",        placeholder: "game_logo  ou  https://i.imgur.com/…", required: false, maxLength: 256 },
-      { id: "largeText",  label: "Large Image Text (tooltip au survol)",  placeholder: "Version 1.21.4",                       required: false, maxLength: 128 },
+      { id: "largeText",  label: "Large Image Text (tooltip au survol)",  placeholder: "Version 1.21.4", required: false, maxLength: 128 },
       { id: "smallImage", label: "Small Image (clé asset ou URL)",        placeholder: "icon_online  ou  https://i.imgur.com/…", required: false, maxLength: 256 },
-      { id: "smallText",  label: "Small Image Text (tooltip au survol)",  placeholder: "En ligne",                              required: false, maxLength: 128 },
+      { id: "smallText",  label: "Small Image Text (tooltip au survol)",  placeholder: "En ligne", required: false, maxLength: 128 },
     ]));
   }
   if (id === "rpc:editTimestamps") {
@@ -452,10 +405,7 @@ async function handle(interaction) {
     const first = activities[0]?.timestamps ?? {};
     const now = Date.now();
     const startOffsetSec = first.start ? Math.max(0, Math.round((first.start - now) / 1000)) : 0;
-    const durationSec = (first.start && first.end && first.end > first.start)
-      ? Math.round((first.end - first.start) / 1000)
-      : "";
-
+    const durationSec = (first.start && first.end && first.end > first.start) ? Math.round((first.end - first.start) / 1000) : "";
     return interaction.showModal(modal("modal:rpc_editTimestamps", "Configurer le temps d'une activité", [
       { id: "index", label: activities.length === 1 ? "Numéro de l'activité" : `Numéro (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
       { id: "startOffsetSec", label: "Début dans combien de sec", placeholder: "0", value: activities.length === 1 ? String(startOffsetSec) : "0", required: false, maxLength: 10 },
@@ -473,38 +423,17 @@ async function handle(interaction) {
       { id: "status", label: "Statut (online/idle/dnd/invisible)", placeholder: "online", value: res?.data?.status ?? "online", maxLength: 10 },
     ]));
   }
-  if (id === "rpc:toggleMode") {
-    const state   = await sendAction("rpc.getState");
-    const newMode = state?.data?.mode === "rotate" ? "static" : "rotate";
-    const res     = await sendAction("rpc.setMode", { mode: newMode });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(rpc.build(res?.data ?? {}));
-  }
+  if (id === "rpc:toggleMode") { const state = await sendAction("rpc.getState"); const newMode = state?.data?.mode === "rotate" ? "static" : "rotate"; const res = await sendAction("rpc.setMode", { mode: newMode }); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
   if (id === "rpc:setInterval") {
     const res = await sendAction("rpc.getState");
     return interaction.showModal(modal("modal:rpc_setInterval", "Intervalle de rotation des activités", [
       { id: "intervalSec", label: "Intervalle en secondes (min. 5)", placeholder: "30", value: String(res?.data?.intervalSec ?? 30), maxLength: 6 },
     ]));
   }
-  if (id === "rpc:moveUp") {
-    return interaction.showModal(modal("modal:rpc_moveUp", "Monter une activité", [
-      { id: "index", label: "Numéro de l'activité à monter", placeholder: "2" },
-    ]));
-  }
-  if (id === "rpc:moveDown") {
-    return interaction.showModal(modal("modal:rpc_moveDown", "Descendre une activité", [
-      { id: "index", label: "Numéro de l'activité à descendre", placeholder: "1" },
-    ]));
-  }
-  if (id === "rpc:clear") {
-    const res = await sendAction("rpc.clearActivities");
-    return interaction.update(rpc.build(res?.data ?? {}));
-  }
-  if (id === "rpc:applyNow") {
-    const res = await sendAction("rpc.applyNow");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(rpc.build(res?.data ?? {}));
-  }
+  if (id === "rpc:moveUp") { return interaction.showModal(modal("modal:rpc_moveUp", "Monter une activité", [{ id: "index", label: "Numéro de l'activité à monter", placeholder: "2" }])); }
+  if (id === "rpc:moveDown") { return interaction.showModal(modal("modal:rpc_moveDown", "Descendre une activité", [{ id: "index", label: "Numéro de l'activité à descendre", placeholder: "1" }])); }
+  if (id === "rpc:clear") { const res = await sendAction("rpc.clearActivities"); return interaction.update(rpc.build(res?.data ?? {})); }
+  if (id === "rpc:applyNow") { const res = await sendAction("rpc.applyNow"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
   if (id === "rpc:setAppId") {
     const res = await sendAction("rpc.getState");
     return interaction.showModal(modal("modal:rpc_setAppId", "Définir l'Application ID", [
@@ -528,9 +457,9 @@ async function handle(interaction) {
     const assets = res?.data?.spotify?.assets ?? {};
     return interaction.showModal(modal("modal:rpc_spotifyAssets", "Configurer les assets Spotify", [
       { id: "largeImage", label: "Large image", placeholder: "spotify:image_id / mp:... / asset id", value: assets.largeImage ?? "", required: false, maxLength: 256 },
-      { id: "largeText", label: "Large text", placeholder: "Tooltip image large", value: assets.largeText ?? "", required: false, maxLength: 128 },
+      { id: "largeText",  label: "Large text",  placeholder: "Tooltip image large", value: assets.largeText ?? "", required: false, maxLength: 128 },
       { id: "smallImage", label: "Small image", placeholder: "spotify:image_id / mp:... / asset id", value: assets.smallImage ?? "", required: false, maxLength: 256 },
-      { id: "smallText", label: "Small text", placeholder: "Tooltip image small", value: assets.smallText ?? "", required: false, maxLength: 128 },
+      { id: "smallText",  label: "Small text",  placeholder: "Tooltip image small", value: assets.smallText ?? "", required: false, maxLength: 128 },
     ]));
   }
   if (id === "rpc:spotifyTimestamps") {
@@ -538,12 +467,10 @@ async function handle(interaction) {
     const timestamps = res?.data?.spotify?.timestamps ?? {};
     const now = Date.now();
     const startOffsetSec = timestamps.start ? Math.max(0, Math.round((timestamps.start - now) / 1000)) : 0;
-    const durationSec = (timestamps.start && timestamps.end && timestamps.end > timestamps.start)
-      ? Math.round((timestamps.end - timestamps.start) / 1000)
-      : "";
+    const durationSec = (timestamps.start && timestamps.end && timestamps.end > timestamps.start) ? Math.round((timestamps.end - timestamps.start) / 1000) : "";
     return interaction.showModal(modal("modal:rpc_spotifyTimestamps", "Configurer le temps Spotify", [
       { id: "startOffsetSec", label: "Début dans combien de sec", placeholder: "0", value: String(startOffsetSec), required: false, maxLength: 10 },
-      { id: "durationSec", label: "Durée en sec", placeholder: "210", value: durationSec === "" ? "" : String(durationSec), required: false, maxLength: 10 },
+      { id: "durationSec",    label: "Durée en sec",              placeholder: "210", value: durationSec === "" ? "" : String(durationSec), required: false, maxLength: 10 },
     ]));
   }
   if (id === "rpc:spotifyExtras") {
@@ -551,17 +478,13 @@ async function handle(interaction) {
     const spotify = res?.data?.spotify ?? {};
     return interaction.showModal(modal("modal:rpc_spotifyExtras", "Configurer les extras Spotify", [
       { id: "applicationId", label: "Application ID (optionnel)", placeholder: "123456789012345678", value: spotify.applicationId ?? "", required: false, maxLength: 20 },
-      { id: "platform", label: "Plateforme (optionnel)", placeholder: "desktop / ios / android / xbox", value: spotify.platform ?? "", required: false, maxLength: 16 },
-      { id: "url", label: "URL (optionnel)", placeholder: "https://open.spotify.com/track/...", value: spotify.url ?? "", required: false, maxLength: 256 },
+      { id: "platform",      label: "Plateforme (optionnel)",     placeholder: "desktop / ios / android / xbox", value: spotify.platform ?? "", required: false, maxLength: 16 },
+      { id: "url",           label: "URL (optionnel)",            placeholder: "https://open.spotify.com/track/...", value: spotify.url ?? "", required: false, maxLength: 256 },
     ]));
   }
 
   // ── RPC — Custom Status ───────────────────────────────────────────────────
-  if (id === "rpc:csToggle") {
-    const res = await sendAction("rpc.csToggle");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(rpc.buildCs(res?.data ?? {}));
-  }
+  if (id === "rpc:csToggle") { const res = await sendAction("rpc.csToggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.buildCs(res?.data ?? {})); }
   if (id === "rpc:csAdd") {
     return interaction.showModal(modal("modal:rpc_csAdd", "Ajouter un custom status", [
       { id: "emoji", label: "Emoji (optionnel)", placeholder: "🎯  ou  <:nom:123456789012345678>", required: false, maxLength: 64 },
@@ -580,10 +503,7 @@ async function handle(interaction) {
       { id: "index", label: "Numéro du statut à supprimer", placeholder: "1" },
     ]));
   }
-  if (id === "rpc:csClear") {
-    const res = await sendAction("rpc.csClear");
-    return interaction.update(rpc.buildCs(res?.data ?? {}));
-  }
+  if (id === "rpc:csClear") { const res = await sendAction("rpc.csClear"); return interaction.update(rpc.buildCs(res?.data ?? {})); }
   if (id === "rpc:setCsInterval") {
     const res = await sendAction("rpc.getState");
     return interaction.showModal(modal("modal:rpc_setCsInterval", "Intervalle de rotation des statuts", [
@@ -603,195 +523,137 @@ async function handle(interaction) {
       { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678" },
     ]));
   }
-  if (id === "purge:confirm:dms") {
-    return interaction.update(purge.buildConfirm({ scope: "dms" }));
-  }
-  if (id === "purge:confirm:guilds") {
-    return interaction.update(purge.buildConfirm({ scope: "guilds" }));
-  }
+  if (id === "purge:confirm:dms") { return interaction.update(purge.buildConfirm({ scope: "dms" })); }
+  if (id === "purge:confirm:guilds") { return interaction.update(purge.buildConfirm({ scope: "guilds" })); }
 
   if (id.startsWith("purge:run:channel:")) {
-    const parts     = id.split(":");
-    const channelId = parts[3];
-    const amount    = parseInt(parts[4] ?? "0", 10) || 0;
-    const jobId     = makeJobId("purge");
-
-    await interaction.update(purge.buildProgress({
-      scope:       "channel",
-      queue:       [],
-      activeLabel: `<#${channelId}>`,
-      doneCount:   0,
-      total:       1,
-      totalDeleted: 0,
-      done:        false,
-      cancelled:   false,
-      jobId,
-    }));
-
+    const parts = id.split(":"); const channelId = parts[3]; const amount = parseInt(parts[4] ?? "0", 10) || 0;
+    const jobId = makeJobId("purge");
+    await interaction.update(purge.buildProgress({ scope: "channel", queue: [], activeLabel: `<#${channelId}>`, doneCount: 0, total: 1, totalDeleted: 0, done: false, cancelled: false, jobId }));
     const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
-
     sendAction("purge.channel", { channelId, amount: amount || undefined, jobId }).catch(() => {});
     return;
   }
-
   if (id.startsWith("purge:run:guild:")) {
-    const guildId = id.split(":")[3];
-    const jobId   = makeJobId("purge");
-
-    await interaction.update(purge.buildProgress({
-      scope:       "guild",
-      queue:       [],
-      activeLabel: null,
-      doneCount:   0,
-      total:       0,
-      totalDeleted: 0,
-      done:        false,
-      cancelled:   false,
-      jobId,
-    }));
-
+    const guildId = id.split(":")[3]; const jobId = makeJobId("purge");
+    await interaction.update(purge.buildProgress({ scope: "guild", queue: [], activeLabel: null, doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
     const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
-
     sendAction("purge.guild", { guildId, jobId }).catch(() => {});
     return;
   }
-
   if (id === "purge:run:dms") {
     const jobId = makeJobId("purge");
-
-    await interaction.update(purge.buildProgress({
-      scope:       "dms",
-      queue:       [],
-      activeLabel: null,
-      doneCount:   0,
-      total:       0,
-      totalDeleted: 0,
-      done:        false,
-      cancelled:   false,
-      jobId,
-    }));
-
+    await interaction.update(purge.buildProgress({ scope: "dms", queue: [], activeLabel: null, doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
     const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
-
     sendAction("purge.dms", { jobId }).catch(() => {});
     return;
   }
-
   if (id === "purge:run:guilds") {
     const jobId = makeJobId("purge");
-
-    await interaction.update(purge.buildProgress({
-      scope:       "guilds",
-      queue:       [],
-      activeLabel: null,
-      doneCount:   0,
-      total:       0,
-      totalDeleted: 0,
-      done:        false,
-      cancelled:   false,
-      jobId,
-    }));
-
+    await interaction.update(purge.buildProgress({ scope: "guilds", queue: [], activeLabel: null, doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
     const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
-
     sendAction("purge.guilds", { jobId }).catch(() => {});
     return;
   }
-
   if (id.startsWith("purge:cancel:")) {
     const jobId = id.slice("purge:cancel:".length);
-    const res   = await sendAction("purge.cancel", { jobId });
+    const res = await sendAction("purge.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler la purge.");
-    return interaction.update(purge.buildProgress({
-      scope:       "dms",
-      queue:       [],
-      activeLabel: "Arrêt en cours…",
-      doneCount:   0,
-      total:       0,
-      totalDeleted: 0,
-      done:        false,
-      cancelled:   false,
-      jobId,
-    }));
+    return interaction.update(purge.buildProgress({ scope: "dms", queue: [], activeLabel: "Arrêt en cours…", doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
   }
 
   // ── JOINVC ────────────────────────────────────────────────────────────────
-  if (id === "joinvc:join") {
-    return interaction.showModal(modal("modal:joinvc_join", "Rejoindre un salon vocal", [
-      { id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "joinvc:move") {
-    return interaction.showModal(modal("modal:joinvc_move", "Changer de salon vocal", [
-      { id: "channelId", label: "ID du nouveau salon vocal", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "joinvc:leave") {
-    return interaction.showModal(modal("modal:joinvc_leave", "Quitter le salon vocal", [
-      { id: "channelId", label: "ID du salon à quitter", placeholder: "123456789012345678" },
-    ]));
-  }
+  if (id === "joinvc:join") { return interaction.showModal(modal("modal:joinvc_join", "Rejoindre un salon vocal", [{ id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678" }])); }
+  if (id === "joinvc:move") { return interaction.showModal(modal("modal:joinvc_move", "Changer de salon vocal", [{ id: "channelId", label: "ID du nouveau salon vocal", placeholder: "123456789012345678" }])); }
+  if (id === "joinvc:leave") { return interaction.showModal(modal("modal:joinvc_leave", "Quitter le salon vocal", [{ id: "channelId", label: "ID du salon à quitter", placeholder: "123456789012345678" }])); }
 
   // ── SYSINFO ───────────────────────────────────────────────────────────────
-  if (id === "sysinfo:ping") {
-    const res = await sendAction("info.ping");
-    return interaction.update(sysinfo.buildPing(res?.data ?? {}));
-  }
-  if (id === "sysinfo:uptime") {
-    const res = await sendAction("info.uptime");
-    return interaction.update(sysinfo.buildUptime(res?.data ?? {}));
-  }
-  if (id === "sysinfo:hostinfo") {
-    const res = await sendAction("info.hostinfo");
-    return interaction.update(sysinfo.buildHostinfo(res?.data ?? {}));
-  }
+  if (id === "sysinfo:ping") { const res = await sendAction("info.ping"); return interaction.update(sysinfo.buildPing(res?.data ?? {})); }
+  if (id === "sysinfo:uptime") { const res = await sendAction("info.uptime"); return interaction.update(sysinfo.buildUptime(res?.data ?? {})); }
+  if (id === "sysinfo:hostinfo") { const res = await sendAction("info.hostinfo"); return interaction.update(sysinfo.buildHostinfo(res?.data ?? {})); }
 
   // ── QUESTS ────────────────────────────────────────────────────────────────
-  if (id === "quests:toggle") {
-    const res = await sendAction("quests.toggle");
-    if (!res?.success) return _error(interaction, res?.error);
-    const listRes = await sendAction("quests.list");
-    return interaction.update(quests.build(listRes?.data ?? {}));
-  }
+  if (id === "quests:toggle") { const res = await sendAction("quests.toggle"); if (!res?.success) return _error(interaction, res?.error); const lr = await sendAction("quests.list"); return interaction.update(quests.build(lr?.data ?? {})); }
   if (id === "quests:setInterval") {
-    const configRes = await sendAction("quests.getConfig");
+    const cr = await sendAction("quests.getConfig");
     return interaction.showModal(modal("modal:quests_interval", "Intervalle de complétion automatique", [
-      {
-        id:          "intervalMin",
-        label:       "Intervalle en minutes (min. 30)",
-        placeholder: "360",
-        value:       String(configRes?.data?.intervalMin ?? 360),
-        maxLength:   6,
-      },
+      { id: "intervalMin", label: "Intervalle en minutes (min. 30)", placeholder: "360", value: String(cr?.data?.intervalMin ?? 360), maxLength: 6 },
     ]));
   }
-  if (id === "quests:refresh") {
-    const res = await sendAction("quests.list");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(quests.build(res?.data ?? {}));
-  }
+  if (id === "quests:refresh") { const res = await sendAction("quests.list"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(quests.build(res?.data ?? {})); }
   if (id === "quests:run") {
     await interaction.update(quests.buildRunning());
-    sendAction("quests.run").then(async () => {
-      const listRes = await sendAction("quests.list");
-      interaction.editReply(quests.build(listRes?.data ?? {})).catch(() => {});
-    }).catch(() => {});
+    sendAction("quests.run").then(async () => { const lr = await sendAction("quests.list"); interaction.editReply(quests.build(lr?.data ?? {})).catch(() => {}); }).catch(() => {});
     return;
   }
-  if (id === "quests:history") {
-    const res = await sendAction("quests.getHistory");
-    return interaction.update(quests.buildHistory(res?.data ?? {}));
+  if (id === "quests:history") { const res = await sendAction("quests.getHistory"); return interaction.update(quests.buildHistory(res?.data ?? {})); }
+  if (id === "quests:clearHistory") { const res = await sendAction("quests.clearHistory"); return interaction.update(quests.buildHistory(res?.data ?? {})); }
+
+  // ── BACKUPS : hub ─────────────────────────────────────────────────────────
+  if (id === "backups:friends") {
+    const res = await sendAction("backups.friends.get");
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(backups.buildFriends({ ...res.data, page: 0 }));
   }
-  if (id === "quests:clearHistory") {
-    const res = await sendAction("quests.clearHistory");
-    return interaction.update(quests.buildHistory(res?.data ?? {}));
+  if (id === "backups:guilds") {
+    const res = await sendAction("backups.guilds.get");
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(backups.buildGuilds({ ...res.data, page: 0 }));
+  }
+  if (id === "backups:clone") {
+    const cfg = getCloneConfig(interaction.user.id);
+    return interaction.update(backups.buildClone(cfg));
   }
 
-  // ── CLONE (via panel backups) ─────────────────────────────────────────────
+  // ── BACKUPS : amis ────────────────────────────────────────────────────────
+  if (id === "backups:friends_refresh") {
+    await interaction.deferUpdate();
+    const res = await sendAction("backups.friends.backup");
+    if (!res?.success) return interaction.editReply({ content: `❌ ${res?.error}` }).catch(() => {});
+    return interaction.editReply(backups.buildFriends({ ...res.data, page: 0 })).catch(() => {});
+  }
+  if (id === "backups:friends_clear") {
+    const res = await sendAction("backups.friends.clearBackup");
+    const hub = await sendAction("backups.guilds.get").catch(() => null);
+    return interaction.update(backups.build({
+      friendsCount: null, friendsSavedAt: null,
+      guildsCount: hub?.data?.count ?? null, guildsSavedAt: hub?.data?.savedAt ?? null,
+    }));
+  }
+  if (id.startsWith("backups:friends_page:")) {
+    const page = parseInt(id.split(":")[2], 10);
+    const res = await sendAction("backups.friends.get");
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(backups.buildFriends({ ...res.data, page }));
+  }
+
+  // ── BACKUPS : serveurs ────────────────────────────────────────────────────
+  if (id === "backups:guilds_refresh") {
+    await interaction.deferUpdate();
+    const res = await sendAction("backups.guilds.backup");
+    if (!res?.success) return interaction.editReply({ content: `❌ ${res?.error}` }).catch(() => {});
+    return interaction.editReply(backups.buildGuilds({ ...res.data, page: 0 })).catch(() => {});
+  }
+  if (id === "backups:guilds_clear") {
+    const res = await sendAction("backups.guilds.clearBackup");
+    const hub2 = await sendAction("backups.friends.get").catch(() => null);
+    return interaction.update(backups.build({
+      guildsCount: null, guildsSavedAt: null,
+      friendsCount: hub2?.data?.count ?? null, friendsSavedAt: hub2?.data?.savedAt ?? null,
+    }));
+  }
+  if (id.startsWith("backups:guilds_page:")) {
+    const page = parseInt(id.split(":")[2], 10);
+    const res = await sendAction("backups.guilds.get");
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(backups.buildGuilds({ ...res.data, page }));
+  }
+
+  // ── CLONE ─────────────────────────────────────────────────────────────────
   if (id === "clone:setSource") {
     return interaction.showModal(modal("modal:clone_source", "Serveur source", [
       { id: "guildId", label: "ID du serveur SOURCE (à copier)", placeholder: "123456789012345678" },
@@ -802,80 +664,30 @@ async function handle(interaction) {
       { id: "guildId", label: "ID du serveur CIBLE (qui sera modifié)", placeholder: "123456789012345678" },
     ]));
   }
-  if (id === "clone:toggleRoles") {
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.cloneRoles = !cfg.cloneRoles;
-    return interaction.update(clone.buildClone(cfg));
-  }
-  if (id === "clone:toggleChannels") {
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.cloneChannels = !cfg.cloneChannels;
-    return interaction.update(clone.buildClone(cfg));
-  }
-  if (id === "clone:toggleEmojis") {
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.cloneEmojis = !cfg.cloneEmojis;
-    return interaction.update(clone.buildClone(cfg));
-  }
-  if (id === "clone:toggleSettings") {
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.cloneSettings = !cfg.cloneSettings;
-    return interaction.update(clone.buildClone(cfg));
-  }
+  if (id === "clone:toggleRoles") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneRoles = !cfg.cloneRoles; return interaction.update(backups.buildClone(cfg)); }
+  if (id === "clone:toggleChannels") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneChannels = !cfg.cloneChannels; return interaction.update(backups.buildClone(cfg)); }
+  if (id === "clone:toggleEmojis") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneEmojis = !cfg.cloneEmojis; return interaction.update(backups.buildClone(cfg)); }
+  if (id === "clone:toggleSettings") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneSettings = !cfg.cloneSettings; return interaction.update(backups.buildClone(cfg)); }
+
   if (id === "clone:run") {
-    const cfg   = getCloneConfig(interaction.user.id);
+    const cfg = getCloneConfig(interaction.user.id);
     const jobId = makeJobId("clone");
-
-    await interaction.update(clone.buildCloneRunning({
-      sourceGuild: cfg.sourceGuildName ?? cfg.sourceGuildId ?? "?",
-      targetGuild: cfg.targetGuildName ?? cfg.targetGuildId ?? "?",
-      jobId,
-    }));
-
+    await interaction.update(backups.buildCloneRunning({ sourceGuild: cfg.sourceGuildName ?? cfg.sourceGuildId ?? "?", targetGuild: cfg.targetGuildName ?? cfg.targetGuildId ?? "?", jobId }));
     const { registerCloneJob } = getProgressHelpers();
     registerCloneJob(jobId, interaction);
-
-    sendAction("clone.run", {
-      sourceGuildId: cfg.sourceGuildId,
-      targetGuildId: cfg.targetGuildId,
-      cloneRoles:    cfg.cloneRoles    ?? true,
-      cloneChannels: cfg.cloneChannels ?? true,
-      cloneEmojis:   cfg.cloneEmojis   ?? true,
-      cloneSettings: cfg.cloneSettings ?? true,
-      jobId,
-    }).catch(() => {});
+    sendAction("backups.clone.run", { sourceGuildId: cfg.sourceGuildId, targetGuildId: cfg.targetGuildId, cloneRoles: cfg.cloneRoles ?? true, cloneChannels: cfg.cloneChannels ?? true, cloneEmojis: cfg.cloneEmojis ?? true, cloneSettings: cfg.cloneSettings ?? true, jobId }).catch(() => {});
     return;
   }
   if (id.startsWith("clone:cancel:")) {
     const jobId = id.slice("clone:cancel:".length);
-    const res   = await sendAction("clone.cancel", { jobId });
+    const res = await sendAction("backups.clone.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler le job.");
-    return interaction.update(
-      clone.buildCloneRunning({
-        step:  "start",
-        label: "Annulation en cours…",
-        logs:  "🛑 Demande d'annulation envoyée…",
-        jobId,
-      })
-    );
+    return interaction.update(backups.buildCloneRunning({ step: "start", label: "Annulation en cours…", logs: "🛑 Demande d'annulation envoyée…", jobId }));
   }
-  if (id === "clone:cancel") {
-    return interaction.update(clone.buildCloneResult({ success: false, cancelled: true }));
-  }
-  if (id === "clone:history") {
-    const res = await sendAction("clone.getHistory");
-    return interaction.update(clone.buildCloneHistory(res?.data ?? {}));
-  }
-  if (id === "clone:clearHistory") {
-    const res = await sendAction("clone.clearHistory");
-    return interaction.update(clone.buildCloneHistory(res?.data ?? {}));
-  }
-  if (id === "clone:listGuilds") {
-    const res = await sendAction("clone.listGuilds");
-    return interaction.update(clone.buildCloneGuildList(res?.data ?? {}));
-  }
-
-
+  if (id === "clone:cancel") { return interaction.update(backups.buildCloneResult({ success: false, cancelled: true })); }
+  if (id === "clone:history") { const res = await sendAction("backups.clone.getHistory"); return interaction.update(backups.buildCloneHistory(res?.data ?? {})); }
+  if (id === "clone:clearHistory") { const res = await sendAction("backups.clone.clearHistory"); return interaction.update(backups.buildCloneHistory(res?.data ?? {})); }
+  if (id === "clone:listGuilds") { const res = await sendAction("backups.listGuilds"); return interaction.update(backups.buildCloneGuildList(res?.data ?? {})); }
 }
 
 function _error(interaction, message = "Une erreur est survenue.") {

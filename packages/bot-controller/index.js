@@ -24,7 +24,7 @@ const { healthCheck }                                       = require("./src/bri
 const { container, textDisplay, separator, actionRow, btn } = require("./src/utils/components");
 
 const snipe   = require("./src/panels/snipe");
-const clone = require("./src/panels/clone");
+const backups = require("./src/panels/backups");
 
 const OWNER_ID      = process.env.OWNER_ID;
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
@@ -181,9 +181,9 @@ const logServer = http.createServer(async (req, res) => {
       if (!job) { res.writeHead(200).end(); return; }
 
       let panelPayload;
-      if (done && summary)  panelPayload = clone.buildCloneResult(summary);
-      else if (done && error) panelPayload = clone.buildCloneResult({ success: false, error });
-      else panelPayload = clone.buildCloneRunning(progressData);
+      if (done && summary)  panelPayload = backups.buildCloneResult(summary);
+      else if (done && error) panelPayload = backups.buildCloneResult({ success: false, error });
+      else panelPayload = backups.buildCloneRunning(progressData);
 
       const now = Date.now();
       if (!done && now - job.lastUpdate < 1500) { res.writeHead(200).end(); return; }
@@ -206,7 +206,12 @@ const logServer = http.createServer(async (req, res) => {
       if (jobId) {
         const job = snapshotJobs.get(jobId);
         if (job) {
-          const panelPayload = snipe.buildSnapshotResult({ channelName: channelName ?? "?", messageCount: messageCount ?? 0, sent: sent ?? false, error: error ?? null });
+          const panelPayload = snipe.buildSnapshotResult({
+            channelName:  channelName ?? "?",
+            messageCount: messageCount ?? 0,
+            sent:         sent ?? false,
+            error:        error ?? null,
+          });
           try { await job.interaction.editReply(panelPayload); } catch {}
           cleanSnapshotJob(jobId);
         }
