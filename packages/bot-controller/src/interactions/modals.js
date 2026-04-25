@@ -633,7 +633,7 @@ async function handle(interaction) {
 
   // ── BACKUPS : serveurs ────────────────────────────────────────────────────
   if (id === "backups:guilds_refresh") {
-    await interaction.deferUpdate();
+    await interaction.update(backups.buildGuilds({ guilds: [], savedAt: null, count: 0, page: 0, _loading: true }));
     const res = await sendAction("backups.guilds.backup");
     if (!res?.success) return interaction.editReply({ content: `❌ ${res?.error}` }).catch(() => {});
     return interaction.editReply(backups.buildGuilds({ ...res.data, page: 0 })).catch(() => {});
