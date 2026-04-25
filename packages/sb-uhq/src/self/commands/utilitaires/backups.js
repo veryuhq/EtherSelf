@@ -10,7 +10,7 @@ const BACKUPS_FILE          = dataPath("logs", "backups_data.json");
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
 const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
 
-// ── User-Agent / Super-Properties (réutilisés depuis quest-http.js) ───────────
+// ── User-Agent / Super-Properties ─────────────────────────────────────────────
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9228 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36";
@@ -39,14 +39,14 @@ function makeSuperProperties() {
 
 function makeDiscordHeaders(token) {
   return {
-    "Authorization":     token,
-    "Content-Type":      "application/json",
-    "User-Agent":        USER_AGENT,
+    "Authorization":      token,
+    "Content-Type":       "application/json",
+    "User-Agent":         USER_AGENT,
     "X-Super-Properties": makeSuperProperties(),
-    "accept-language":   "en-US",
-    "x-discord-locale":  "en-US",
-    "origin":            "https://discord.com",
-    "referer":           "https://discord.com/channels/@me",
+    "accept-language":    "en-US",
+    "x-discord-locale":   "en-US",
+    "origin":             "https://discord.com",
+    "referer":            "https://discord.com/channels/@me",
   };
 }
 
@@ -114,7 +114,7 @@ async function notifyProgress(jobId, data) {
   }).catch(() => {});
 }
 
-// ── Fetch amis ────────────────────────────────────────────────────────────────
+// ── Sérialisation d'un ami ────────────────────────────────────────────────────
 
 function serializeFriend(userId, user, since) {
   const tag = (user?.discriminator && user.discriminator !== "0")
@@ -123,37 +123,39 @@ function serializeFriend(userId, user, since) {
   return {
     id:         userId,
     tag,
-    username:   user?.username ?? null,
+    username:   user?.username   ?? null,
     globalName: user?.globalName ?? user?.global_name ?? null,
-    avatar:     user?.avatar    ?? null,
+    avatar:     user?.avatar     ?? null,
     since:      since ?? null,
   };
 }
 
+// ── Fetch amis ────────────────────────────────────────────────────────────────
+
+async function resolveUser(client, userId) {
+  let user = client.users.cache.get(userId);
+  if (!user) user = await client.users.fetch(userId).catch(() => null);
+  return user ?? null;
+}
+
 async function fetchFriends(client) {
-  // Essai 1 : cache discord.js-selfbot-v13 (RelationshipManager)
-  // La lib peuple client.relationships.cache au ready via le gateway — c'est la source la plus fiable
+  // Essai 1 : cache RelationshipManager
   try {
     const rels = client.relationships?.cache;
     if (rels && rels.size > 0) {
       const friends = [];
       for (const [userId, rel] of rels) {
-        // Type 1 = FRIEND dans selfbot-v13
         const relType = typeof rel === "object" ? (rel.type ?? rel) : rel;
         if (relType !== 1 && relType !== "FRIEND") continue;
-        const user = rel.user ?? client.users.cache.get(userId);
-        if (!user && typeof rel === "object") {
-          // Essayer de reconstruire depuis les données brutes de la relation
-          friends.push(serializeFriend(userId, null, rel.since));
-        } else {
-          friends.push(serializeFriend(userId, user, rel.since));
-        }
+        let user = rel.user ?? client.users.cache.get(userId);
+        if (!user || !user.username) user = await resolveUser(client, userId);
+        friends.push(serializeFriend(userId, user, rel.since ?? rel.since_at ?? null));
       }
       if (friends.length > 0) return { friends, source: "cache" };
     }
   } catch { /* fallback */ }
 
-  // Essai 2 : client.relationships.fetch() — méthode native de selfbot-v13
+  // Essai 2 : client.relationships.fetch()
   try {
     await client.relationships.fetch();
     const rels = client.relationships?.cache;
@@ -162,15 +164,15 @@ async function fetchFriends(client) {
       for (const [userId, rel] of rels) {
         const relType = typeof rel === "object" ? (rel.type ?? rel) : rel;
         if (relType !== 1 && relType !== "FRIEND") continue;
-        const user = rel.user ?? client.users.cache.get(userId);
-        friends.push(serializeFriend(userId, user ?? null, rel.since));
+        let user = rel.user ?? client.users.cache.get(userId);
+        if (!user || !user.username) user = await resolveUser(client, userId);
+        friends.push(serializeFriend(userId, user, rel.since ?? rel.since_at ?? null));
       }
       if (friends.length > 0) return { friends, source: "fetch" };
     }
   } catch { /* fallback */ }
 
-  // Essai 3 : API REST avec les bons headers Discord (User-Agent + X-Super-Properties)
-  // Sans ces headers, Discord retourne 400 Bad Request
+  // Essai 3 : API REST
   try {
     const res = await fetch("https://discord.com/api/v9/users/@me/relationships", {
       method: "GET",
@@ -181,9 +183,15 @@ async function fetchFriends(client) {
       throw new Error(`HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`);
     }
     const data = await res.json();
-    const friends = data
-      .filter(r => r.type === 1)
-      .map(r => serializeFriend(r.id, r.user, r.since));
+    const friends = await Promise.all(
+      data
+        .filter(r => r.type === 1)
+        .map(async r => {
+          let user = r.user;
+          if (!user || !user.username) user = await resolveUser(client, r.id);
+          return serializeFriend(r.id, user ?? r.user, r.since);
+        })
+    );
     return { friends, source: "api" };
   } catch (err) {
     throw new Error(`Impossible de récupérer la liste d'amis : ${err.message}`);
@@ -193,7 +201,6 @@ async function fetchFriends(client) {
 // ── Fetch serveurs avec lien d'invitation permanent ───────────────────────────
 
 async function createPermanentInvite(guild, client) {
-  // Cherche un salon texte accessible dans lequel on peut créer une invite
   const channels = [...guild.channels.cache.values()].filter(c =>
     (c.type === "GUILD_TEXT" || c.type === "GUILD_NEWS") &&
     c.permissionsFor?.(client.user)?.has?.("CREATE_INSTANT_INVITE")
@@ -201,16 +208,15 @@ async function createPermanentInvite(guild, client) {
 
   if (!channels.length) return null;
 
-  // Préférer le canal système, sinon le premier salon texte trouvé
   const target = (guild.systemChannelId && channels.find(c => c.id === guild.systemChannelId))
     ?? channels[0];
 
   try {
     const invite = await target.createInvite({
-      maxAge:   0, // permanent
-      maxUses:  0, // illimité
-      unique:   false,
-      reason:   "Backup EtherSelf",
+      maxAge:  0,
+      maxUses: 0,
+      unique:  false,
+      reason:  "Backup EtherSelf",
     });
     return `https://discord.gg/${invite.code}`;
   } catch {
@@ -219,14 +225,12 @@ async function createPermanentInvite(guild, client) {
 }
 
 async function fetchGuilds(client, withInvites = false) {
-  // Toujours partir du cache — il est peuplé au ready
   const guilds = [];
 
   for (const guild of client.guilds.cache.values()) {
     let invite = null;
 
     if (withInvites) {
-      // Essayer d'abord les invites existantes permanentes
       try {
         const existing = await guild.invites.fetch().catch(() => null);
         if (existing) {
@@ -236,10 +240,7 @@ async function fetchGuilds(client, withInvites = false) {
         }
       } catch { /* non bloquant */ }
 
-      // Si rien trouvé, en créer une
-      if (!invite) {
-        invite = await createPermanentInvite(guild, client);
-      }
+      if (!invite) invite = await createPermanentInvite(guild, client);
     }
 
     guilds.push({
@@ -254,7 +255,6 @@ async function fetchGuilds(client, withInvites = false) {
 
   if (guilds.length > 0) return { guilds, source: "cache" };
 
-  // Fallback API REST (sans invites car on n'a pas accès aux salons)
   const res = await fetch("https://discord.com/api/v9/users/@me/guilds", {
     headers: makeDiscordHeaders(client.token),
   });
@@ -567,7 +567,6 @@ async function execute(client, payload) {
 
   // ── Backup serveurs ───────────────────────────────────────────────────────
   if (action === "guilds.backup") {
-    // withInvites = true : crée des invites permanentes pour chaque serveur
     const { guilds, source } = await fetchGuilds(client, true);
     const data = loadBackupsData();
     data.guilds = guilds;
@@ -579,7 +578,6 @@ async function execute(client, payload) {
   if (action === "guilds.get") {
     const data = loadBackupsData();
     if (data.guilds) return { guilds: data.guilds, count: data.guilds.length, savedAt: data.guildsSavedAt };
-    // Live sans invites (juste pour afficher)
     const { guilds, source } = await fetchGuilds(client, false);
     return { guilds, count: guilds.length, source, savedAt: null };
   }
