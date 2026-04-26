@@ -47,13 +47,17 @@ async function fetchAndBuild(panelKey) {
     rpc_spotify:  () => sendAction("rpc.getState"),
     quests:       () => sendAction("quests.list"),
     backups:      async () => {
-      const res = await sendAction("backups.guilds.get").catch(() => null);
-      const res2 = await sendAction("backups.friends.get").catch(() => null);
+      const [res, res2] = await Promise.allSettled([
+        sendAction("backups.guilds.get"),
+        sendAction("backups.friends.get"),
+      ]);
+      const gData = res.status === "fulfilled" ? res.value?.data : null;
+      const fData = res2.status === "fulfilled" ? res2.value?.data : null;
       return {
-        guildsCount: res?.data?.count ?? null,
-        guildsSavedAt: res?.data?.savedAt ?? null,
-        friendsCount: res2?.data?.count ?? null,
-        friendsSavedAt: res2?.data?.savedAt ?? null,
+        guildsCount:   gData?.count    ?? null,
+        guildsSavedAt: gData?.savedAt  ?? null,
+        friendsCount:  fData?.count    ?? null,
+        friendsSavedAt: fData?.savedAt ?? null,
       };
     },
   };
