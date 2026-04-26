@@ -176,27 +176,35 @@ async function fetchFriends(client) {
 // ── Fetch serveurs avec lien d'invitation permanent ───────────────────────────
 
 async function createPermanentInvite(guild, client) {
+  // On récupère tous les salons texte sans vérifier les permissions à l'avance
+  // (le cache des permissions en selfbot est souvent incomplet/incorrect).
+  // On tente salon par salon et on passe au suivant en cas d'échec.
   const channels = [...guild.channels.cache.values()].filter(c =>
-    (c.type === "GUILD_TEXT" || c.type === "GUILD_NEWS") &&
-    c.permissionsFor?.(client.user)?.has?.("CREATE_INSTANT_INVITE")
+    c.type === "GUILD_TEXT" || c.type === "GUILD_NEWS"
   );
 
-  if (!channels.length) return null;
+  // Priorité au salon système s'il existe
+  const sorted = channels.sort((a, b) => {
+    if (a.id === guild.systemChannelId) return -1;
+    if (b.id === guild.systemChannelId) return 1;
+    return a.position - b.position;
+  });
 
-  const target = (guild.systemChannelId && channels.find(c => c.id === guild.systemChannelId))
-    ?? channels[0];
-
-  try {
-    const invite = await target.createInvite({
-      maxAge:  0,
-      maxUses: 0,
-      unique:  false,
-      reason:  "Backup EtherSelf",
-    });
-    return `https://discord.gg/${invite.code}`;
-  } catch {
-    return null;
+  for (const channel of sorted) {
+    try {
+      const invite = await channel.createInvite({
+        maxAge:  0,
+        maxUses: 0,
+        unique:  false,
+        reason:  "Backup EtherSelf",
+      });
+      if (invite?.code) return `https://discord.gg/${invite.code}`;
+    } catch {
+      // Pas les perms ou autre erreur sur ce salon → on essaie le suivant
+    }
   }
+
+  return null;
 }
 
 async function fetchGuilds(client, withInvites = false) {
@@ -208,13 +216,15 @@ async function fetchGuilds(client, withInvites = false) {
     if (withInvites) {
       try {
         const existing = await guild.invites.fetch().catch(() => null);
-        if (existing) {
-          const perm = existing.find(i => i.maxAge === 0 && i.inviter?.id === client.user?.id);
-          const any  = existing.find(i => i.maxAge === 0);
-          invite = perm?.url ?? any?.url ?? null;
+        if (existing && existing.size > 0) {
+          // Priorité : invite permanente créée par le selfbot, sinon n'importe quelle permanente
+          const ownPerm = existing.find(i => i.maxAge === 0 && i.inviter?.id === client.user?.id);
+          const anyPerm = existing.find(i => i.maxAge === 0);
+          invite = ownPerm?.url ?? anyPerm?.url ?? null;
         }
       } catch { /* non bloquant */ }
 
+      // Si aucune invite existante trouvée, on essaie d'en créer une
       if (!invite) invite = await createPermanentInvite(guild, client);
     }
 
