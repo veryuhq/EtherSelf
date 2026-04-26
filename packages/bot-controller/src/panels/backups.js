@@ -42,12 +42,16 @@ function build(data = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildFriends(data = {}) {
-  const { friends = [], savedAt = null, count = 0, _loading = false } = data;
+  // Normalise : null → []
+  const friends   = Array.isArray(data.friends) ? data.friends : [];
+  const savedAt   = data.savedAt   ?? null;
+  const count     = data.count     ?? friends.length;
+  const _loading  = data._loading  ?? false;
 
-  const PAGE_SIZE = 15;
-  const page = data.page ?? 0;
+  const PAGE_SIZE  = 15;
+  const page       = data.page ?? 0;
   const totalPages = Math.max(1, Math.ceil(friends.length / PAGE_SIZE));
-  const slice = friends.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const slice      = friends.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const list = _loading
     ? "*⏳ Récupération de la liste d'amis en cours…*"
@@ -60,13 +64,13 @@ function buildFriends(data = {}) {
           : `**${f.tag}**`;
         return `\`${num}.\` ${display}${since}`;
       }).join("\n")
-    : "*Aucun ami trouvé.*";
+    : "*Aucun ami trouvé. Clique sur \"Actualiser backup\" pour récupérer ta liste d'amis.*";
 
   const savedLine = _loading
     ? "*Actualisation en cours…*"
     : savedAt
     ? `*Backup du ${new Date(savedAt).toLocaleString("fr-FR")} — ${count} ami(s)*`
-    : "*Données live (pas de backup enregistré)*";
+    : "*Aucun backup enregistré — clique sur \"Actualiser backup\" pour en créer un*";
 
   return replyV2(
     container([
@@ -79,7 +83,7 @@ function buildFriends(data = {}) {
         btn("⬅️", `backups:friends_page:${page - 1}`, ButtonStyle.Secondary, null, page === 0 || _loading),
         btn("➡️", `backups:friends_page:${page + 1}`, ButtonStyle.Secondary, null, page >= totalPages - 1 || _loading),
         btn("🔄  Actualiser backup", "backups:friends_refresh", ButtonStyle.Success, null, _loading),
-        btn("🗑️  Supprimer backup",  "backups:friends_clear",   ButtonStyle.Danger,  null, _loading),
+        btn("🗑️  Supprimer backup",  "backups:friends_clear",   ButtonStyle.Danger,  null, _loading || !savedAt),
       ]),
       separator(),
       navRow("panel:backups", "Backups"),
@@ -92,12 +96,16 @@ function buildFriends(data = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildGuilds(data = {}) {
-  const { guilds = [], savedAt = null, count = 0, _loading = false } = data;
+  // Normalise : null → []
+  const guilds    = Array.isArray(data.guilds) ? data.guilds : [];
+  const savedAt   = data.savedAt  ?? null;
+  const count     = data.count    ?? guilds.length;
+  const _loading  = data._loading ?? false;
 
-  const PAGE_SIZE = 8;
-  const page = data.page ?? 0;
+  const PAGE_SIZE  = 8;
+  const page       = data.page ?? 0;
   const totalPages = Math.max(1, Math.ceil(guilds.length / PAGE_SIZE));
-  const slice = guilds.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const slice      = guilds.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const list = _loading
     ? "*⏳ Génération des invitations permanentes en cours…*"
@@ -110,13 +118,13 @@ function buildGuilds(data = {}) {
           : `\n> 🔗 *aucune invitation*`;
         return `\`${num}.\` **${g.name}**${owner} — \`${g.id}\`${inviteLine}`;
       }).join("\n\n")
-    : "*Aucun serveur trouvé.*";
+    : "*Aucun serveur trouvé. Clique sur \"Actualiser backup\" pour en créer un.*";
 
   const savedLine = _loading
     ? "*Actualisation en cours…*"
     : savedAt
     ? `*Backup du ${new Date(savedAt).toLocaleString("fr-FR")} — ${count} serveur(s)*`
-    : "*Données live — clique \"Actualiser backup\" pour générer les invitations permanentes*";
+    : "*Aucun backup enregistré — clique \"Actualiser backup\" pour générer les invitations permanentes*";
 
   return replyV2(
     container([
@@ -129,7 +137,7 @@ function buildGuilds(data = {}) {
         btn("⬅️", `backups:guilds_page:${page - 1}`, ButtonStyle.Secondary, null, page === 0 || _loading),
         btn("➡️", `backups:guilds_page:${page + 1}`, ButtonStyle.Secondary, null, page >= totalPages - 1 || _loading),
         btn("🔄  Actualiser backup", "backups:guilds_refresh", ButtonStyle.Success, null, _loading),
-        btn("🗑️  Supprimer backup",  "backups:guilds_clear",   ButtonStyle.Danger,  null, _loading),
+        btn("🗑️  Supprimer backup",  "backups:guilds_clear",   ButtonStyle.Danger,  null, _loading || !savedAt),
       ]),
       separator(),
       navRow("panel:backups", "Backups"),
