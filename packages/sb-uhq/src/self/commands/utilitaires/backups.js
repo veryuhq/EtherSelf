@@ -116,86 +116,58 @@ async function notifyProgress(jobId, data) {
 
 // ── Sérialisation d'un ami ────────────────────────────────────────────────────
 
+/**
+ * Sérialise un ami depuis n'importe quelle source (objet API brut, objet discord.js, ou juste un ID).
+ * Lit tous les champs possibles pour maximiser les données récupérées.
+ */
 function serializeFriend(userId, user, since) {
-  const tag = (user?.discriminator && user.discriminator !== "0")
-    ? `${user.username}#${user.discriminator}`
-    : user?.username ?? user?.tag ?? userId;
+  // L'objet peut venir de l'API REST (snake_case) ou de discord.js (camelCase)
+  const username   = user?.username ?? null;
+  const discrim    = user?.discriminator ?? "0";
+  const globalName = user?.global_name ?? user?.globalName ?? null;
+  const avatar     = user?.avatar ?? null;
+
+  let tag;
+  if (username) {
+    tag = (discrim && discrim !== "0") ? `${username}#${discrim}` : username;
+  } else {
+    tag = userId;
+  }
+
   return {
     id:         userId,
     tag,
-    username:   user?.username   ?? null,
-    globalName: user?.globalName ?? user?.global_name ?? null,
-    avatar:     user?.avatar     ?? null,
+    username,
+    globalName,
+    avatar,
     since:      since ?? null,
   };
 }
 
 // ── Fetch amis ────────────────────────────────────────────────────────────────
 
-async function resolveUser(client, userId) {
-  let user = client.users.cache.get(userId);
-  if (!user) user = await client.users.fetch(userId).catch(() => null);
-  return user ?? null;
-}
-
 async function fetchFriends(client) {
-  // Essai 1 : cache RelationshipManager
-  try {
-    const rels = client.relationships?.cache;
-    if (rels && rels.size > 0) {
-      const friends = [];
-      for (const [userId, rel] of rels) {
-        const relType = typeof rel === "object" ? (rel.type ?? rel) : rel;
-        if (relType !== 1 && relType !== "FRIEND") continue;
-        let user = rel.user ?? client.users.cache.get(userId);
-        if (!user || !user.username) user = await resolveUser(client, userId);
-        friends.push(serializeFriend(userId, user, rel.since ?? rel.since_at ?? null));
-      }
-      if (friends.length > 0) return { friends, source: "cache" };
-    }
-  } catch { /* fallback */ }
+  // On passe TOUJOURS par l'API REST : c'est la seule source fiable qui retourne
+  // les données complètes (username, global_name, avatar) pour tous les amis,
+  // y compris ceux qui ne sont pas dans le cache discord.js.
+  const res = await fetch("https://discord.com/api/v9/users/@me/relationships", {
+    method: "GET",
+    headers: makeDiscordHeaders(client.token),
+  });
 
-  // Essai 2 : client.relationships.fetch()
-  try {
-    await client.relationships.fetch();
-    const rels = client.relationships?.cache;
-    if (rels && rels.size > 0) {
-      const friends = [];
-      for (const [userId, rel] of rels) {
-        const relType = typeof rel === "object" ? (rel.type ?? rel) : rel;
-        if (relType !== 1 && relType !== "FRIEND") continue;
-        let user = rel.user ?? client.users.cache.get(userId);
-        if (!user || !user.username) user = await resolveUser(client, userId);
-        friends.push(serializeFriend(userId, user, rel.since ?? rel.since_at ?? null));
-      }
-      if (friends.length > 0) return { friends, source: "fetch" };
-    }
-  } catch { /* fallback */ }
-
-  // Essai 3 : API REST
-  try {
-    const res = await fetch("https://discord.com/api/v9/users/@me/relationships", {
-      method: "GET",
-      headers: makeDiscordHeaders(client.token),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`);
-    }
-    const data = await res.json();
-    const friends = await Promise.all(
-      data
-        .filter(r => r.type === 1)
-        .map(async r => {
-          let user = r.user;
-          if (!user || !user.username) user = await resolveUser(client, r.id);
-          return serializeFriend(r.id, user ?? r.user, r.since);
-        })
-    );
-    return { friends, source: "api" };
-  } catch (err) {
-    throw new Error(`Impossible de récupérer la liste d'amis : ${err.message}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Impossible de récupérer les amis — HTTP ${res.status}${body ? ` : ${body.slice(0, 200)}` : ""}`);
   }
+
+  const data = await res.json();
+
+  // type 1 = ami accepté
+  const friends = data
+    .filter(r => r.type === 1)
+    .map(r => serializeFriend(r.id, r.user ?? {}, r.since ?? null));
+
+  return { friends, source: "api" };
 }
 
 // ── Fetch serveurs avec lien d'invitation permanent ───────────────────────────
