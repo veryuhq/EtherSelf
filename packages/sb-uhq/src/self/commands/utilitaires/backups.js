@@ -540,7 +540,18 @@ async function execute(client, payload) {
   if (action === "clone.getHistory") { return { history: loadCloneHistory() }; }
   if (action === "clone.clearHistory") { saveCloneHistory([]); return { history: [] }; }
 
-  // ── Backup amis ───────────────────────────────────────────────────────────
+  // ── Backup amis — LECTURE SEULE depuis le fichier (rapide, pas de fetch réseau) ──
+  if (action === "friends.get") {
+    const data = loadBackupsData();
+    // Retourne ce qui est en fichier, sans jamais faire de fetch réseau
+    return {
+      friends:   Array.isArray(data.friends) ? data.friends : null,
+      count:     Array.isArray(data.friends) ? data.friends.length : null,
+      savedAt:   data.friendsSavedAt ?? null,
+    };
+  }
+
+  // ── Backup amis — ÉCRITURE (fetch réseau, puis sauvegarde) ────────────────
   if (action === "friends.backup") {
     const { friends, source } = await fetchFriends(client);
     const data = loadBackupsData();
@@ -548,13 +559,6 @@ async function execute(client, payload) {
     data.friendsSavedAt = Date.now();
     saveBackupsData(data);
     return { friends, count: friends.length, source, savedAt: data.friendsSavedAt };
-  }
-
-  if (action === "friends.get") {
-    const data = loadBackupsData();
-    if (data.friends) return { friends: data.friends, count: data.friends.length, savedAt: data.friendsSavedAt };
-    const { friends, source } = await fetchFriends(client);
-    return { friends, count: friends.length, source, savedAt: null };
   }
 
   if (action === "friends.clearBackup") {
@@ -565,7 +569,18 @@ async function execute(client, payload) {
     return { cleared: true };
   }
 
-  // ── Backup serveurs ───────────────────────────────────────────────────────
+  // ── Backup serveurs — LECTURE SEULE depuis le fichier (rapide, pas de fetch réseau) ──
+  if (action === "guilds.get") {
+    const data = loadBackupsData();
+    // Retourne ce qui est en fichier, sans jamais faire de fetch réseau
+    return {
+      guilds:  Array.isArray(data.guilds) ? data.guilds : null,
+      count:   Array.isArray(data.guilds) ? data.guilds.length : null,
+      savedAt: data.guildsSavedAt ?? null,
+    };
+  }
+
+  // ── Backup serveurs — ÉCRITURE (fetch réseau + invitations, puis sauvegarde) ──
   if (action === "guilds.backup") {
     const { guilds, source } = await fetchGuilds(client, true);
     const data = loadBackupsData();
@@ -573,13 +588,6 @@ async function execute(client, payload) {
     data.guildsSavedAt = Date.now();
     saveBackupsData(data);
     return { guilds, count: guilds.length, source, savedAt: data.guildsSavedAt };
-  }
-
-  if (action === "guilds.get") {
-    const data = loadBackupsData();
-    if (data.guilds) return { guilds: data.guilds, count: data.guilds.length, savedAt: data.guildsSavedAt };
-    const { guilds, source } = await fetchGuilds(client, false);
-    return { guilds, count: guilds.length, source, savedAt: null };
   }
 
   if (action === "guilds.clearBackup") {
