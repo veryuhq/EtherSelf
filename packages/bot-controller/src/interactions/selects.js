@@ -54,10 +54,10 @@ async function fetchAndBuild(panelKey) {
       const gData = res.status === "fulfilled" ? res.value?.data : null;
       const fData = res2.status === "fulfilled" ? res2.value?.data : null;
       return {
-        guildsCount:   gData?.count    ?? null,
-        guildsSavedAt: gData?.savedAt  ?? null,
-        friendsCount:  fData?.count    ?? null,
-        friendsSavedAt: fData?.savedAt ?? null,
+        guildsCount:    gData?.count    ?? null,
+        guildsSavedAt:  gData?.savedAt  ?? null,
+        friendsCount:   fData?.count    ?? null,
+        friendsSavedAt: fData?.savedAt  ?? null,
       };
     },
   };
@@ -238,16 +238,26 @@ async function handle(interaction) {
     return interaction.reply({ content: "❌ Action RPC inconnue.", ephemeral: true });
   }
 
+  if (interaction.customId === "rpc:spotifyActions") {
+    // Géré via modals/buttons côté rpc_spotify — on laisse passer sans erreur
+    return;
+  }
+
   if (interaction.customId !== "panel:nav") return;
 
-  const val   = interaction.values[0];
+  const val = interaction.values[0];
+  if (!val) return;
+
+  // Defer immédiatement pour éviter le timeout Discord (3s)
+  await interaction.deferUpdate();
+
   const panel = await fetchAndBuild(val);
 
   if (!panel) {
-    return interaction.reply({ content: `❌ Module \`${val}\` inconnu.`, ephemeral: true });
+    return interaction.followUp({ content: `❌ Module \`${val}\` inconnu.`, ephemeral: true });
   }
 
-  return interaction.update(panel);
+  return interaction.editReply(panel);
 }
 
 module.exports = { handle, fetchAndBuild };
