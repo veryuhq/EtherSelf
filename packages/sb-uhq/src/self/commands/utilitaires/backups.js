@@ -37,10 +37,9 @@ function makeSuperProperties() {
   ).toString("base64");
 }
 
-function makeDiscordHeaders(token) {
-  return {
+function makeDiscordHeaders(token, includeContentType = true) {
+  const headers = {
     "Authorization":      token,
-    "Content-Type":       "application/json",
     "User-Agent":         USER_AGENT,
     "X-Super-Properties": makeSuperProperties(),
     "accept-language":    "en-US",
@@ -48,6 +47,8 @@ function makeDiscordHeaders(token) {
     "origin":             "https://discord.com",
     "referer":            "https://discord.com/channels/@me",
   };
+  if (includeContentType) headers["Content-Type"] = "application/json";
+  return headers;
 }
 
 // ── Délais ────────────────────────────────────────────────────────────────────
@@ -150,9 +151,11 @@ async function fetchFriends(client) {
   // On passe TOUJOURS par l'API REST : c'est la seule source fiable qui retourne
   // les données complètes (username, global_name, avatar) pour tous les amis,
   // y compris ceux qui ne sont pas dans le cache discord.js.
+  const getHeaders = makeDiscordHeaders(client.token, false);
+
   const res = await fetch("https://discord.com/api/v9/users/@me/relationships", {
     method: "GET",
-    headers: makeDiscordHeaders(client.token),
+    headers: getHeaders,
   });
 
   if (!res.ok) {
@@ -228,7 +231,7 @@ async function fetchGuilds(client, withInvites = false) {
   if (guilds.length > 0) return { guilds, source: "cache" };
 
   const res = await fetch("https://discord.com/api/v9/users/@me/guilds", {
-    headers: makeDiscordHeaders(client.token),
+    headers: makeDiscordHeaders(client.token, false),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
