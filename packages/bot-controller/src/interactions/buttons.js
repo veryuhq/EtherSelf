@@ -567,9 +567,28 @@ async function handle(interaction) {
   }
 
   // ── JOINVC ────────────────────────────────────────────────────────────────
-  if (id === "joinvc:join") { return interaction.showModal(modal("modal:joinvc_join", "Rejoindre un salon vocal", [{ id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678" }])); }
+  if (id === "joinvc:join") {
+    // Rejoindre directement le dernier salon sauvegardé en config
+    const state = await sendAction("voice.getState");
+    const savedChannelId = state?.data?.channelId ?? null;
+    if (savedChannelId) {
+      const res = await sendAction("voice.join", { channelId: savedChannelId });
+      if (!res?.success) return _error(interaction, res?.error ?? "Impossible de rejoindre le salon.");
+      return interaction.update(joinvc.build(res?.data ?? {}));
+    }
+    // Pas de salon sauvegardé → demander l'ID via modal
+    return interaction.showModal(modal("modal:joinvc_join", "Rejoindre un salon vocal", [{ id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678" }]));
+  }
   if (id === "joinvc:move") { return interaction.showModal(modal("modal:joinvc_move", "Changer de salon vocal", [{ id: "channelId", label: "ID du nouveau salon vocal", placeholder: "123456789012345678" }])); }
-  if (id === "joinvc:leave") { return interaction.showModal(modal("modal:joinvc_leave", "Quitter le salon vocal", [{ id: "channelId", label: "ID du salon à quitter", placeholder: "123456789012345678" }])); }
+  if (id === "joinvc:leave") {
+    // Quitter directement le salon vocal actuel
+    const state = await sendAction("voice.getState");
+    const currentChannelId = state?.data?.channelId ?? null;
+    if (!currentChannelId) return _error(interaction, "Le selfbot n'est dans aucun salon vocal.");
+    const res = await sendAction("voice.leave", { channelId: currentChannelId });
+    if (!res?.success) return _error(interaction, res?.error ?? "Impossible de quitter le salon.");
+    return interaction.update(joinvc.build(res?.data ?? {}));
+  }
 
   // ── SYSINFO ───────────────────────────────────────────────────────────────
   if (id === "sysinfo:ping") { const res = await sendAction("info.ping"); return interaction.update(sysinfo.buildPing(res?.data ?? {})); }
