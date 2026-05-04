@@ -14,7 +14,7 @@ function build() {
         btn("🖥️  Host Info", "sysinfo:hostinfo", ButtonStyle.Primary),
       ]),
       separator(),
-      navRow(null, null, true),
+      navRow("panel:config", "Configuration"),
     ], 0x2ECC71)
   );
 }
@@ -29,7 +29,7 @@ function buildPing(data = {}) {
         btn("🔄  Rafraîchir", "sysinfo:ping", ButtonStyle.Primary),
       ]),
       separator(),
-      navRow("panel:sysinfo", "Sysinfo"),
+      navRow("panel:config", "Configuration"),
     ], 0x2ECC71)
   );
 }
@@ -44,7 +44,7 @@ function buildUptime(data = {}) {
         btn("🔄  Rafraîchir", "sysinfo:uptime", ButtonStyle.Primary),
       ]),
       separator(),
-      navRow("panel:sysinfo", "Sysinfo"),
+      navRow("panel:config", "Configuration"),
     ], 0x2ECC71)
   );
 }
@@ -73,7 +73,7 @@ function buildHostinfo(data = {}) {
         btn("🔄  Rafraîchir", "sysinfo:hostinfo", ButtonStyle.Primary),
       ]),
       separator(),
-      navRow("panel:sysinfo", "Sysinfo"),
+      navRow("panel:config", "Configuration"),
     ], 0x2ECC71)
   );
 }

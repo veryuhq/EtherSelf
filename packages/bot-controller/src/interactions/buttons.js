@@ -54,7 +54,7 @@ async function handle(interaction) {
   }
 
   const NAV_MAP = {
-    "panel:prefix":       "prefix",
+    "panel:config":       "config",
     "panel:afk":          "afk",
     "panel:snipe":        "snipe",
     "panel:stalk":        "stalk",
@@ -77,6 +77,15 @@ async function handle(interaction) {
   };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
+    return interaction.update(panel);
+  }
+
+  if (id === "config:prefix") {
+    const panel = await fetchAndBuild("prefix");
+    return interaction.update(panel);
+  }
+  if (id === "config:sysinfo") {
+    const panel = await fetchAndBuild("sysinfo");
     return interaction.update(panel);
   }
 

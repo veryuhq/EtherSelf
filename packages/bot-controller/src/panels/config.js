@@ -3,18 +3,18 @@
 const { ButtonStyle } = require("discord.js");
 const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
 
-function build(data = {}) {
-  const { prefix = "." } = data;
+function build() {
   return replyV2(
     container([
-      textDisplay(`# ⚙️ Préfixe\nPréfixe actuel : \`${prefix}\``),
+      textDisplay("# ⚙️ Configuration\nGère les paramètres globaux du selfbot."),
       separator(),
       actionRow([
-        btn("✏️  Changer le préfixe", "prefix:edit", ButtonStyle.Primary),
+        btn("✏️  Préfixe", "config:prefix", ButtonStyle.Primary),
+        btn("📊  Infos système", "config:sysinfo", ButtonStyle.Secondary),
       ]),
       separator(),
-      navRow("panel:config", "Configuration"),
-    ], 0xEB459E)
+      navRow(null, null, true),
+    ], 0x5865F2)
   );
 }
 

@@ -16,7 +16,7 @@ function build(data = {}) {
       separator(),
       textDisplay("**Choisis un module :**"),
       selectMenu("panel:nav", "📂 Sélectionne un module...", [
-        { label: "⚙️  Préfixe",                             value: "prefix",       description: "Changer le préfixe des commandes" },
+        { label: "⚙️  Configuration",                      value: "config",       description: "Préfixe et informations système" },
         { label: "😴  AFK",                                  value: "afk",          description: "Configurer le mode AFK" },
         { label: "🔍  Snipe / MessageLogger / Snapshots",    value: "snipe",        description: "Whitelist, consultation des messages et snapshots de salon" },
         { label: "👁️  Stalk",                               value: "stalk",        description: "Surveiller des utilisateurs en vocal" },
@@ -32,8 +32,7 @@ function build(data = {}) {
         { label: "🗑️  Purge",                               value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                       value: "quests",       description: "Complétion automatique des quêtes Discord" },
         { label: "💾  Backups & Clone",                      value: "backups",      description: "Backup amis/serveurs, cloner un serveur" },
-        { label: "📊  Informations système",                 value: "sysinfo",      description: "Ping, uptime, hostinfo" },
-      ]),
+              ]),
     ], 0x5865F2)
   );
 }

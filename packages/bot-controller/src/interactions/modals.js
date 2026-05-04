@@ -54,7 +54,7 @@ async function handle(interaction) {
   }
 
   const NAV_MAP = {
-    "panel:prefix":       "prefix",
+    "panel:config":       "config",
     "panel:afk":          "afk",
     "panel:snipe":        "snipe",
     "panel:stalk":        "stalk",

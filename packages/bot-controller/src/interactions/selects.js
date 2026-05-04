@@ -5,6 +5,7 @@ const { modal } = require("../utils/components");
 
 // Panels
 const home        = require("../panels/home");
+const config      = require("../panels/config");
 const prefix      = require("../panels/prefix");
 const afk         = require("../panels/afk");
 const snipe       = require("../panels/snipe");
@@ -27,6 +28,7 @@ const { getCloneConfig } = require("../store/clone-config");
 async function fetchAndBuild(panelKey) {
   const fetchers = {
     home:         () => sendAction("prefix.get"),
+    config:       () => null,
     prefix:       () => sendAction("prefix.get"),
     afk:          () => sendAction("afk.getState"),
     snipe:        () => sendAction("snipe.getWhitelist"),
@@ -64,6 +66,7 @@ async function fetchAndBuild(panelKey) {
 
   const builders = {
     home:         (d) => home.build(d),
+    config:       ()  => config.build(),
     prefix:       (d) => prefix.build(d),
     afk:          (d) => afk.build(d),
     snipe:        (d) => snipe.build(d),
