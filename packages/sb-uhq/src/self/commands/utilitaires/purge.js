@@ -5,6 +5,12 @@ const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...ar
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
 const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
 
+// ── Constantes de rate-limit ──────────────────────────────────────────────────
+// Discord autorise ~5 DELETE/s par canal en pratique avant de throttle.
+// On supprime par groupes de 5 avec 50ms entre chaque groupe = ~100 msg/s max.
+const PARALLEL_DELETE = 5;   // suppressions simultanées par batch
+const BATCH_DELAY_MS  = 50;  // délai entre deux batches (ms)
+
 // ── Registre des jobs actifs (pour annulation) ────────────────────────────────
 
 const activeJobs = new Map(); // jobId -> { cancelled: boolean }
@@ -50,7 +56,6 @@ async function purgeChannel(client, channel, limit = Infinity, jobId = null) {
   let lastId  = undefined;
 
   while (deleted < limit) {
-    // Vérifier l'annulation avant chaque batch
     if (jobId && isCancelled(jobId)) break;
 
     const batch = await channel.messages
@@ -58,14 +63,29 @@ async function purgeChannel(client, channel, limit = Infinity, jobId = null) {
       .catch(() => null);
     if (!batch || !batch.size) break;
 
+    // Filtrer uniquement ses propres messages
     const own = [...batch.values()].filter(m => m.author.id === client.user.id);
 
-    for (const msg of own) {
+    // Appliquer la limite globale
+    const toDelete = limit < Infinity
+      ? own.slice(0, limit - deleted)
+      : own;
+
+    // Supprimer par groupes parallèles
+    for (let i = 0; i < toDelete.length; i += PARALLEL_DELETE) {
       if (jobId && isCancelled(jobId)) break;
-      if (deleted >= limit) break;
-      await msg.delete().catch(() => {});
-      deleted++;
-      await new Promise(r => setTimeout(r, 100));
+
+      const group = toDelete.slice(i, i + PARALLEL_DELETE);
+      const results = await Promise.allSettled(group.map(msg => msg.delete()));
+
+      // Compter uniquement les succès
+      for (const r of results) {
+        if (r.status === "fulfilled") deleted++;
+      }
+
+      if (i + PARALLEL_DELETE < toDelete.length) {
+        await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+      }
     }
 
     lastId = batch.last()?.id;
@@ -150,7 +170,6 @@ async function execute(client, payload) {
     }
 
     for (let i = 0; i < dmChannels.length; i++) {
-      // Vérifier l'annulation avant chaque DM
       if (isCancelled(jobId)) {
         await notifyProgress(jobId, {
           scope: "dms",
@@ -201,7 +220,6 @@ async function execute(client, payload) {
       }
     }
 
-    // Vérifier si annulé à la fin
     const wasCancelled = isCancelled(jobId);
     cleanJob(jobId);
 
