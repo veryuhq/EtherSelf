@@ -100,17 +100,18 @@ async function handle(interaction) {
   if (id === "config:token:restart") {
     const sbName = process.env.PM2_SB_NAME || "EtherSelf-SB";
     const ctrlName = process.env.PM2_CTRL_NAME || "EtherSelf-Bot";
-    try {
-      await execAsync(`pm2 restart ${sbName} ${ctrlName}`);
-      const panel = await fetchAndBuild("config");
-      await interaction.update(panel);
-      return interaction.followUp({
-        content: `✅ Redémarrage PM2 lancé pour \`${sbName}\` et \`${ctrlName}\`.`,
-        ephemeral: true,
-      });
-    } catch (err) {
-      return _error(interaction, `Impossible de redémarrer PM2 automatiquement. Vérifie les noms des process (actuels: ${sbName}, ${ctrlName}).`);
-    }
+
+    const panel = await fetchAndBuild("config");
+    await interaction.update(panel);
+    await interaction.followUp({
+      content: `✅ Redémarrage PM2 planifié dans 5 secondes pour \`${sbName}\` et \`${ctrlName}\`.`,
+      ephemeral: true,
+    });
+
+    setTimeout(() => {
+      execAsync(`pm2 restart ${sbName} ${ctrlName}`).catch(() => {});
+    }, 5000);
+    return;
   }
   if (id === "config:sysinfo") {
     const panel = await fetchAndBuild("sysinfo");
