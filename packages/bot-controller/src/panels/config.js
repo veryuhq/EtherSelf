@@ -10,6 +10,7 @@ function build() {
       separator(),
       actionRow([
         btn("✏️  Préfixe", "config:prefix", ButtonStyle.Primary),
+        btn("🔐  Token selfbot", "config:token", ButtonStyle.Danger),
         btn("📊  Infos système", "config:sysinfo", ButtonStyle.Secondary),
       ]),
       separator(),
@@ -18,4 +19,21 @@ function build() {
   );
 }
 
-module.exports = { build };
+
+function buildTokenUpdated() {
+  return replyV2(
+    container([
+      textDisplay("# ✅ Token mis à jour\nLe token selfbot (`sb-uhq/.env` → `TOKEN`) a été modifié avec succès."),
+      separator(),
+      textDisplay("## 🔁 Redémarrage PM2\nVeux-tu redémarrer **le selfbot et le bot** maintenant ?"),
+      actionRow([
+        btn("🚀  Oui, redémarrer maintenant", "config:token:restart", ButtonStyle.Danger),
+        btn("⏭️  Non, plus tard", "config:token:restart:skip", ButtonStyle.Secondary),
+      ]),
+      separator(),
+      navRow("panel:config", "Configuration", true),
+    ], 0x57F287)
+  );
+}
+
+module.exports = { build, buildTokenUpdated };

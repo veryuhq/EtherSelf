@@ -1,5 +1,9 @@
 "use strict";
 
+const { promisify } = require("util");
+const { exec } = require("child_process");
+const execAsync = promisify(exec);
+
 const { sendAction }    = require("../bridge/client");
 const { modal }         = require("../utils/components");
 const { fetchAndBuild } = require("./selects");
@@ -83,6 +87,30 @@ async function handle(interaction) {
   if (id === "config:prefix") {
     const panel = await fetchAndBuild("prefix");
     return interaction.update(panel);
+  }
+  if (id === "config:token") {
+    return interaction.showModal(modal("modal:token", "Modifier le token du selfbot", [
+      { id: "token", label: "Nouveau token (variable TOKEN)", placeholder: "Colle le token du selfbot", long: true },
+    ]));
+  }
+  if (id === "config:token:restart:skip") {
+    const panel = await fetchAndBuild("config");
+    return interaction.update(panel);
+  }
+  if (id === "config:token:restart") {
+    const sbName = process.env.PM2_SB_NAME || "EtherSelf-SB";
+    const ctrlName = process.env.PM2_CTRL_NAME || "EtherSelf-Bot";
+    try {
+      await execAsync(`pm2 restart ${sbName} ${ctrlName}`);
+      const panel = await fetchAndBuild("config");
+      await interaction.update(panel);
+      return interaction.followUp({
+        content: `✅ Redémarrage PM2 lancé pour \`${sbName}\` et \`${ctrlName}\`.`,
+        ephemeral: true,
+      });
+    } catch (err) {
+      return _error(interaction, `Impossible de redémarrer PM2 automatiquement. Vérifie les noms des process (actuels: ${sbName}, ${ctrlName}).`);
+    }
   }
   if (id === "config:sysinfo") {
     const panel = await fetchAndBuild("sysinfo");

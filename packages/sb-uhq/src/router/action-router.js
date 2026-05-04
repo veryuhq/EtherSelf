@@ -16,6 +16,7 @@ const backups   = require("../self/commands/utilitaires/backups");
 const prefix    = require("../self/commands/gestion/prefix");
 const antigroup = require("../self/commands/gestion/antigroup");
 const msglog    = require("../self/commands/gestion/msglog");
+const token     = require("../self/commands/gestion/token");
 const gunslol   = require("../self/commands/fun/gunslol");
 const mock      = require("../self/commands/fun/mock");
 const spoiler   = require("../self/commands/fun/spoiler");
@@ -38,6 +39,7 @@ const ACTIONS = {
   // ── PREFIX ───────────────────────────────────────────────────────────────
   "prefix.set":         (c, p) => prefix.execute(c, { action: "set", prefix: p.prefix }),
   "prefix.get":         (c, p) => prefix.execute(c, { action: "get" }),
+  "token.set":          (c, p) => token.execute(c,  { action: "set", token: p.token }),
 
   // ── SNIPE / MSGLOG ────────────────────────────────────────────────────────
   "snipe.addGuild":          (c, p) => snipe.execute(c, { action: "addGuild",          guildId:   p.guildId }),

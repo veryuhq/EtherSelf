@@ -40,8 +40,8 @@ EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensembl
 
 | Package | Rôle |
 |---|---|
-| 🤖 **`sb-uhq`** | Le selfbot (discord.js-selfbot-v13), expose un bridge HTTP local |
-| 🎛️ **`bot-controller`** | Bot Discord classique (discord.js 14), sert d'interface via un panel Components V2 |
+| 🤖 **`EtherSelf-SB`** | Le selfbot (discord.js-selfbot-v13), expose un bridge HTTP local |
+| 🎛️ **`EtherSelf-Bot`** | Bot Discord classique (discord.js 14), sert d'interface via un panel Components V2 |
 
 Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Ton compte utilisateur n'interagit jamais directement avec Discord depuis l'interface — c'est propre, cloisonné, et facile à déboguer.
 
@@ -117,9 +117,9 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 
 - **Node.js v18+**
 - **Deux tokens Discord :**
-  - 🔑 Un token de **compte utilisateur** (selfbot) pour `sb-uhq`
-  - 🤖 Un token de **bot classique** pour `bot-controller`
-- Le bot controller doit pouvoir t'envoyer des DMs **ET** être dans un serveur commun avec toi
+  - 🔑 Un token de **compte utilisateur** (selfbot) pour `EtherSelf-SB`
+  - 🤖 Un token de **bot classique** pour `EtherSelf-Bot`
+- Le bot doit pouvoir t'envoyer des DMs **ET** être dans un serveur commun avec toi
 
 ---
 
@@ -196,8 +196,8 @@ npm run start:controller
 **En production** avec PM2 :
 
 ```bash
-pm2 start packages/sb-uhq/index.js         --name etherself-sb ## ou n'importe quel nom
-pm2 start packages/bot-controller/index.js --name etherself-ctrl ## ou n'importe quel nom
+pm2 start packages/sb-uhq/index.js         --name EtherSelf-SB
+pm2 start packages/bot-controller/index.js --name EtherSelf-Bot
 pm2 save && pm2 startup
 ```
 

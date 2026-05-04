@@ -24,6 +24,7 @@ const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
 const backups   = require("../panels/backups");
+const configPanel = require("../panels/config");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,13 @@ async function handle(interaction) {
   }
 
   // ── PREFIX ────────────────────────────────────────────────────────────────
+  if (id === "modal:token") {
+    const token = interaction.fields.getTextInputValue("token").trim();
+    const res = await sendAction("token.set", { token });
+    if (!res?.success) return _error(interaction, res?.error ?? "Erreur lors de la mise à jour du token.");
+    return interaction.update(configPanel.buildTokenUpdated());
+  }
+
   if (id === "modal:prefix") {
     const newPrefix = interaction.fields.getTextInputValue("prefix").trim();
     const res = await sendAction("prefix.set", { prefix: newPrefix });
