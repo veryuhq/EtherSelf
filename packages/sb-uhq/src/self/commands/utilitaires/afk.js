@@ -32,10 +32,30 @@ async function execute(_client, payload) {
     case "getState":
       return data;
 
-    case "toggle":
+    case "toggle": {
       data.enabled = !data.enabled;
-      save(data);
+
+      if (data.enabled) {
+        // Sauvegarde le globalName original avant de le modifier
+        const currentName = _client.user.globalName ?? _client.user.username;
+        data._originalGlobalName = currentName;
+        save(data);
+        const afkName = `[AFK] ${currentName}`;
+        await _client.user.setGlobalName(afkName).catch(e =>
+          console.error("[AFK] Impossible de changer le globalName :", e.message)
+        );
+      } else {
+        // Restaure le nom original
+        const original = data._originalGlobalName ?? null;
+        data._originalGlobalName = null;
+        save(data);
+        await _client.user.setGlobalName(original).catch(e =>
+          console.error("[AFK] Impossible de restaurer le globalName :", e.message)
+        );
+      }
+
       return data;
+    }
 
     case "toggleSpecial":
       data.special = !data.special;
@@ -81,8 +101,11 @@ function handleIncomingMessage(message, client) {
   const data = load();
   if (!data.enabled) return;
   if (message.author.id === client.user.id) return;
+  if (message.guild) return;
+  if (message.author.bot) return;
+  if (message.mentions.everyone) return;
+  if (message.mentions.roles.size > 0) return;
   if (data.excluded.includes(message.author.id)) return;
-  if (data.excluded.includes(message.guild?.id)) return;
   if (data.notified.includes(message.author.id)) return;
 
   const msg = data.special && data.messageSpecial
