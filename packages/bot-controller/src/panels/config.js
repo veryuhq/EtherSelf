@@ -13,7 +13,6 @@ function build() {
         btn("🔐  Token selfbot", "config:token", ButtonStyle.Primary),
         btn("🔁  Redémarrage", "config:restart", ButtonStyle.Primary),
         btn("📊  Infos système", "config:sysinfo", ButtonStyle.Secondary),
-        btn("🔁  Redémarrage", "config:restart", ButtonStyle.Danger),
       ]),
       separator(),
       navRow(null, null, true),
