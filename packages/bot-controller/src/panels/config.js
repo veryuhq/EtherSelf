@@ -13,10 +13,27 @@ function build() {
         btn("🔐  Token selfbot", "config:token", ButtonStyle.Primary),
         btn("🔁  Redémarrage", "config:restart", ButtonStyle.Primary),
         btn("📊  Infos système", "config:sysinfo", ButtonStyle.Secondary),
+        btn("🔁  Redémarrage", "config:restart", ButtonStyle.Danger),
       ]),
       separator(),
       navRow(null, null, true),
     ], 0x5865F2)
+  );
+}
+
+
+function buildRestartConfirm() {
+  return replyV2(
+    container([
+      textDisplay("# 🔁 Redémarrage PM2\nVeux-tu redémarrer **le selfbot et le bot** maintenant ?"),
+      separator(),
+      actionRow([
+        btn("🚀  Oui, redémarrer maintenant", "config:restart:confirm", ButtonStyle.Danger),
+        btn("⏭️  Non, annuler", "config:restart:skip", ButtonStyle.Secondary),
+      ]),
+      separator(),
+      navRow("panel:config", "Configuration", true),
+    ], 0xFEE75C)
   );
 }
 
@@ -37,4 +54,4 @@ function buildTokenUpdated() {
   );
 }
 
-module.exports = { build, buildTokenUpdated };
+module.exports = { build, buildRestartConfirm, buildTokenUpdated };

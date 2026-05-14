@@ -28,6 +28,7 @@ const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
 const backups   = require("../panels/backups");
+const config    = require("../panels/config");
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -93,11 +94,14 @@ async function handle(interaction) {
       { id: "token", label: "Nouveau token (variable TOKEN)", placeholder: "Colle le token du selfbot", long: true },
     ]));
   }
-  if (id === "config:token:restart:skip") {
+  if (id === "config:restart") {
+    return interaction.update(config.buildRestartConfirm());
+  }
+  if (id === "config:restart:skip" || id === "config:token:restart:skip") {
     const panel = await fetchAndBuild("config");
     return interaction.update(panel);
   }
-  if (id === "config:restart" || id === "config:token:restart") {
+  if (id === "config:restart:confirm" || id === "config:token:restart") {
     const sbName = process.env.PM2_SB_NAME || "EtherSelf-SB";
     const ctrlName = process.env.PM2_CTRL_NAME || "EtherSelf-Bot";
 
