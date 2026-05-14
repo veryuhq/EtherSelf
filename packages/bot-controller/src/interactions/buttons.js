@@ -97,7 +97,7 @@ async function handle(interaction) {
     const panel = await fetchAndBuild("config");
     return interaction.update(panel);
   }
-  if (id === "config:token:restart") {
+  if (id === "config:restart" || id === "config:token:restart") {
     const sbName = process.env.PM2_SB_NAME || "EtherSelf-SB";
     const ctrlName = process.env.PM2_CTRL_NAME || "EtherSelf-Bot";
 

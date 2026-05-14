@@ -10,7 +10,8 @@ function build() {
       separator(),
       actionRow([
         btn("✏️  Préfixe", "config:prefix", ButtonStyle.Primary),
-        btn("🔐  Token selfbot", "config:token", ButtonStyle.Danger),
+        btn("🔐  Token selfbot", "config:token", ButtonStyle.Primary),
+        btn("🔁  Redémarrage", "config:restart", ButtonStyle.Primary),
         btn("📊  Infos système", "config:sysinfo", ButtonStyle.Secondary),
       ]),
       separator(),
