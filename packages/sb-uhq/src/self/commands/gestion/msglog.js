@@ -45,9 +45,49 @@ function pushEntry(scopeId, type, entry, scopeType = "guild") {
   writeMessages(scopeId, type, messages, scopeType);
 }
 
+function normalizeAuthorTag(author) {
+  if (!author) return "unknown";
+  if (author.tag) return author.tag;
+  if (author.username && author.discriminator && author.discriminator !== "0") {
+    return `${author.username}#${author.discriminator}`;
+  }
+  return author.username ?? author.globalName ?? author.id ?? "unknown";
+}
+
+function stringifyEmbeds(embeds = []) {
+  return embeds
+    .map((embed) => [embed?.title, embed?.description].filter(Boolean).join(" — "))
+    .filter(Boolean);
+}
+
+function extractMessageContent(message) {
+  if (!message) return "";
+  const parts = [];
+  const content = typeof message.content === "string" ? message.content.trim() : "";
+  if (content) parts.push(content);
+
+  const embedText = stringifyEmbeds(message.embeds ?? []);
+  if (embedText.length) parts.push(...embedText.map((txt) => `[embed] ${txt}`));
+
+  const attachmentUrls = [...(message.attachments?.values?.() ?? [])].map((a) => a.url).filter(Boolean);
+  if (attachmentUrls.length) parts.push(...attachmentUrls.map((url) => `[file] ${url}`));
+
+  return parts.join("\n");
+}
+
+async function ensureMessageLoaded(message) {
+  if (!message?.partial) return message;
+  try {
+    return await message.fetch();
+  } catch {
+    return message;
+  }
+}
+
 // ── Event handlers Discord (inchangés) ───────────────────────────────────────
 
-function handleMessageDelete(message, client) {
+async function handleMessageDelete(message, client) {
+  message = await ensureMessageLoaded(message);
   if (message.author?.id === client.user?.id) return;
 
   if (message.guild) {
@@ -57,8 +97,8 @@ function handleMessageDelete(message, client) {
       guildId: message.guild.id,
       channelId: message.channel.id,
       authorId: message.author?.id ?? null,
-      authorTag: message.author?.tag ?? "unknown",
-      content: message.content || "",
+      authorTag: normalizeAuthorTag(message.author),
+      content: extractMessageContent(message),
       attachments: [...(message.attachments?.values() ?? [])].map(a => a.url),
       createdTimestamp: message.createdTimestamp,
       deletedAt: Date.now(),
@@ -73,17 +113,23 @@ function handleMessageDelete(message, client) {
     channelId: message.channel.id,
     recipients: [...(message.channel.recipients?.values() ?? [])].map(u => `${u.tag} (${u.id})`),
     authorId: message.author?.id ?? null,
-    authorTag: message.author?.tag ?? "unknown",
-    content: message.content || "",
+    authorTag: normalizeAuthorTag(message.author),
+    content: extractMessageContent(message),
     attachments: [...(message.attachments?.values() ?? [])].map(a => a.url),
     createdTimestamp: message.createdTimestamp,
     deletedAt: Date.now(),
   }, scopeType);
 }
 
-function handleMessageEdit(oldMessage, newMessage, client) {
+async function handleMessageEdit(oldMessage, newMessage, client) {
+  oldMessage = await ensureMessageLoaded(oldMessage);
+  newMessage = await ensureMessageLoaded(newMessage);
+
   if (oldMessage.author?.id === client.user?.id) return;
-  if (oldMessage.content === newMessage.content) return;
+
+  const oldContent = extractMessageContent(oldMessage);
+  const newContent = extractMessageContent(newMessage);
+  if (oldContent === newContent) return;
 
   if (oldMessage.guild) {
     if (!getWhitelist().includes(oldMessage.guild.id)) return;
@@ -92,9 +138,9 @@ function handleMessageEdit(oldMessage, newMessage, client) {
       guildId: oldMessage.guild.id,
       channelId: oldMessage.channel.id,
       authorId: oldMessage.author?.id ?? null,
-      authorTag: oldMessage.author?.tag ?? "unknown",
-      oldContent: oldMessage.content || "",
-      newContent: newMessage.content || "",
+      authorTag: normalizeAuthorTag(oldMessage.author),
+      oldContent,
+      newContent,
       createdTimestamp: oldMessage.createdTimestamp,
       editedAt: Date.now(),
     });
@@ -107,9 +153,9 @@ function handleMessageEdit(oldMessage, newMessage, client) {
     scope: scopeType.toLowerCase(),
     channelId: oldMessage.channel.id,
     authorId: oldMessage.author?.id ?? null,
-    authorTag: oldMessage.author?.tag ?? "unknown",
-    oldContent: oldMessage.content || "",
-    newContent: newMessage.content || "",
+    authorTag: normalizeAuthorTag(oldMessage.author),
+    oldContent,
+    newContent,
     createdTimestamp: oldMessage.createdTimestamp,
     editedAt: Date.now(),
   }, scopeType);
