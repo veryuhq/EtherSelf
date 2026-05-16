@@ -108,7 +108,7 @@ async function handle(interaction) {
     const panel = await fetchAndBuild("config");
     await interaction.update(panel);
     await interaction.followUp({
-      content: `✅ Redémarrage PM2 planifié dans 5 secondes pour \`${sbName}\` et \`${ctrlName}\`.`,
+      content: "`✅` Redémarrage PM2 planifié dans 5 secondes pour \`${sbName}\` et \`${ctrlName}\`.",
       ephemeral: true,
     });
 
@@ -649,7 +649,7 @@ async function handle(interaction) {
       const refreshed = await sendAction("voice.getState");
       const isActuallyJoined = refreshed?.success && refreshed?.data?.channelId === savedChannelId;
       if (isActuallyJoined) {
-        await interaction.followUp({ content: "✅ Connecté au salon vocal (confirmation tardive).", ephemeral: true });
+        await interaction.followUp({ content: "`✅` Connecté au salon vocal (confirmation tardive).", ephemeral: true });
         return interaction.editReply(joinvc.build(refreshed?.data ?? {}));
       }
       await interaction.followUp({ content: `❌ ${res?.error ?? "Impossible de rejoindre le salon."}`, ephemeral: true });
