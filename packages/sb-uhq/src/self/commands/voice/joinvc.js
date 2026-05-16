@@ -94,7 +94,6 @@ async function execute(client, payload) {
     if (current.vs.channelId !== channelId)
       throw new Error("Le selfbot n'est pas dans ce salon vocal.");
     current.guild.me?.voice.disconnect().catch(() => {});
-    clearSaved();
     return { joined: false, channelId: null, channelName: null, guildId: null, guildName: null };
   }
 
