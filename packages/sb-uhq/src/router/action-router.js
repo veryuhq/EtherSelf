@@ -194,6 +194,7 @@ const ACTIONS = {
   "voice.leave":        (c, p) => joinvc.execute(c, { action: "leave",    channelId: p.channelId }),
   "voice.move":         (c, p) => joinvc.execute(c, { action: "move",     channelId: p.channelId }),
   "voice.getState":     (c, p) => joinvc.execute(c, { action: "getState" }),
+  "voice.getConfig":    (c, p) => joinvc.execute(c, { action: "getConfig" }),
 
   // ── PURGE ─────────────────────────────────────────────────────────────────
   "purge.channel":      (c, p) => purge.execute(c, { scope: "channel", channelId: p.channelId, amount: p.amount, jobId: p.jobId }),
