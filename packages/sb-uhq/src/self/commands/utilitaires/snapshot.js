@@ -559,6 +559,10 @@ async function execute(client, payload) {
   }
 
   if (action === "periodic.list") {
+    const config = loadScheduleConfig();
+    if (config.running && config.jobs.length && !_scheduleInterval) {
+      startScheduleLoop(client);
+    }
     return publicScheduleState();
   }
 
