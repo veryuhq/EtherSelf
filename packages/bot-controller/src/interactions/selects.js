@@ -31,7 +31,17 @@ async function fetchAndBuild(panelKey) {
     config:       () => null,
     prefix:       () => sendAction("prefix.get"),
     afk:          () => sendAction("afk.getState"),
-    snipe:        () => sendAction("snipe.getWhitelist"),
+    snipe:        async () => {
+      const [whitelistRes, schedulesRes] = await Promise.all([
+        sendAction("snipe.getWhitelist"),
+        sendAction("snapshot.periodic.list"),
+      ]);
+      return {
+        ...(whitelistRes?.data ?? {}),
+        snapshotSchedules: schedulesRes?.data?.jobs ?? [],
+        snapshotSchedulesRunning: schedulesRes?.data?.running ?? false,
+      };
+    },
     stalk:        () => sendAction("stalk.getList"),
     tags:         async () => {
       const [tagsRes, prefixRes] = await Promise.all([sendAction("tag.list"), sendAction("prefix.get")]);
@@ -94,7 +104,7 @@ async function fetchAndBuild(panelKey) {
   let data = {};
   if (fetchers[panelKey]) {
     const res = await fetchers[panelKey]();
-    if (panelKey === "tags" || panelKey === "backups") {
+    if (panelKey === "tags" || panelKey === "backups" || panelKey === "snipe") {
       data = res ?? {};
     } else if (res === null) {
       data = {};

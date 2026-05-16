@@ -4,7 +4,7 @@ const { ButtonStyle } = require("discord.js");
 const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
-  const { whitelist = [], guilds = [] } = data;
+  const { whitelist = [], guilds = [], snapshotSchedules = [], snapshotSchedulesRunning = false } = data;
 
   const list = whitelist.length
     ? whitelist.map((id, i) => {
@@ -14,9 +14,22 @@ function build(data = {}) {
       }).join("\n")
     : "*Aucun serveur dans la whitelist.*";
 
+  const scheduleList = snapshotSchedules.length
+    ? snapshotSchedules.slice(0, 8).map((job, i) => {
+        const limit = job.limit > 0 ? `${job.limit} msg` : "tout";
+        const target = job.sendToChannelId ? `<#${job.sendToChannelId}>` : "DM";
+        const next = job.nextRunAt ? `<t:${Math.floor(job.nextRunAt / 1000)}:R>` : "bientôt";
+        return `\`${i + 1}.\` <#${job.channelId}> — **${job.intervalLabel ?? "intervalle ?"}** — ${limit} — ${target} — prochain ${next}`;
+      }).join("\n")
+    : "*Aucun snapshot périodique configuré.*";
+
   return replyV2(
     container([
-      textDisplay(`# 🔍 Snipe / MessageLogger / Snapshots\n**Serveurs whitelistés (${whitelist.length}) :**\n${list}`),
+      textDisplay(
+        `# 🔍 Snipe / MessageLogger / Snapshots\n` +
+        `**Serveurs whitelistés (${whitelist.length}) :**\n${list}\n\n` +
+        `**Snapshots périodiques (${snapshotSchedules.length}) :** ${snapshotSchedulesRunning ? "🟢 actifs" : "🔴 arrêtés"}\n${scheduleList}`
+      ),
       separator(),
       actionRow([
         btn("➕  Ajouter serveur",  "snipe:add",    ButtonStyle.Success),
@@ -29,7 +42,12 @@ function build(data = {}) {
       ]),
       separator(),
       actionRow([
-        btn("📸  Snapshot salon",  "snipe:snapshot",    ButtonStyle.Secondary),
+        btn("📸  Snapshot salon",       "snipe:snapshot",               ButtonStyle.Secondary),
+        btn("🔁  Ajouter périodique",   "snipe:snapshotPeriodicAdd",    ButtonStyle.Success),
+        btn("🗑️  Retirer périodique",   "snipe:snapshotPeriodicRemove", ButtonStyle.Danger),
+      ]),
+      actionRow([
+        btn(snapshotSchedulesRunning ? "⏸️  Stop périodiques" : "▶️  Start périodiques", "snipe:snapshotPeriodicToggle", snapshotSchedulesRunning ? ButtonStyle.Danger : ButtonStyle.Success, null, snapshotSchedules.length === 0),
       ]),
       separator(),
       navRow(null, null, true),

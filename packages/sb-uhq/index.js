@@ -18,6 +18,7 @@ const nitro     = require("./src/self/commands/utilitaires/nitro");
 const rpc       = require("./src/self/commands/utilitaires/rpc");
 const quests    = require("./src/self/commands/utilitaires/quests");
 const autobump  = require("./src/self/commands/utilitaires/autobump");
+const snapshot  = require("./src/self/commands/utilitaires/snapshot");
 
 // ── Commandes préfixe (tag / mock / spoiler uniquement) ───────────────────────
 const prefix  = require("./src/self/commands/gestion/prefix");
@@ -63,6 +64,9 @@ client.once("ready", async () => {
 
   // Autobump : relance la boucle si elle était active avant le redémarrage
   autobump.onReady(client);
+
+  // Snapshots périodiques : relance la boucle si elle était active
+  snapshot.onReady(client);
 
   // Broadcast : redirige console.log vers le bot-controller via bridge
   if (!global.consoleRedirected) {
