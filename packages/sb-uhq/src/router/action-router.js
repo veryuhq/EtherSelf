@@ -145,6 +145,14 @@ const ACTIONS = {
     action: "snapshot", channelId: p.channelId, limit: p.limit ?? 0,
     sendToChannelId: p.sendToChannelId ?? null, jobId: p.jobId ?? null,
   }),
+  "snapshot.periodic.list":   (c, p) => snapshot.execute(c, { action: "periodic.list" }),
+  "snapshot.periodic.add":    (c, p) => snapshot.execute(c, {
+    action: "periodic.add", channelId: p.channelId, interval: p.interval, limit: p.limit ?? 0,
+    sendToChannelId: p.sendToChannelId ?? null,
+  }),
+  "snapshot.periodic.remove": (c, p) => snapshot.execute(c, { action: "periodic.remove", channelId: p.channelId }),
+  "snapshot.periodic.start":  (c, p) => snapshot.execute(c, { action: "periodic.start" }),
+  "snapshot.periodic.stop":   (c, p) => snapshot.execute(c, { action: "periodic.stop" }),
 
   // ── QUESTS ────────────────────────────────────────────────────────────────
   "quests.getConfig":    (c, p) => quests.execute(c, { action: "getConfig" }),

@@ -222,6 +222,28 @@ async function handle(interaction) {
       { id: "sendToChannelId", label: "ID salon de réception (vide = DM selfbot)",      placeholder: "Laisser vide pour recevoir en DM", required: false },
     ]));
   }
+  if (id === "snipe:snapshotPeriodicAdd") {
+    return interaction.showModal(modal("modal:snipe_snapshot_periodic_add", "Snapshot périodique", [
+      { id: "channelId",       label: "ID du salon à archiver",                   placeholder: "123456789012345678" },
+      { id: "interval",        label: "Intervalle (1w, 7d, 24h, 60m)",            placeholder: "1w", value: "1w", maxLength: 20 },
+      { id: "limit",           label: "Limite (0 = tous les messages)",            placeholder: "0", value: "0", required: false, maxLength: 6 },
+      { id: "sendToChannelId", label: "ID salon réception (vide = DM selfbot)",    placeholder: "Laisser vide pour recevoir en DM", required: false },
+    ]));
+  }
+  if (id === "snipe:snapshotPeriodicRemove") {
+    return interaction.showModal(modal("modal:snipe_snapshot_periodic_remove", "Retirer un périodique", [
+      { id: "channelId", label: "ID du salon à retirer", placeholder: "123456789012345678" },
+    ]));
+  }
+  if (id === "snipe:snapshotPeriodicToggle") {
+    const state = await sendAction("snapshot.periodic.list");
+    if (!state?.success) return _error(interaction, state?.error);
+    const action = state?.data?.running ? "snapshot.periodic.stop" : "snapshot.periodic.start";
+    const res = await sendAction(action);
+    if (!res?.success) return _error(interaction, res?.error);
+    const panel = await fetchAndBuild("snipe");
+    return interaction.update(panel);
+  }
 
   // ── STALK ─────────────────────────────────────────────────────────────────
   if (id === "stalk:add") {

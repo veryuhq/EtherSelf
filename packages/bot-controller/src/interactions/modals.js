@@ -173,6 +173,25 @@ async function handle(interaction) {
     sendAction("snapshot.run", { channelId, limit, sendToChannelId, jobId }).catch(() => {});
     return;
   }
+  if (id === "modal:snipe_snapshot_periodic_add") {
+    const channelId       = interaction.fields.getTextInputValue("channelId").trim();
+    const interval        = interaction.fields.getTextInputValue("interval").trim();
+    const limitRaw        = interaction.fields.getTextInputValue("limit").trim();
+    const sendToChannelId = interaction.fields.getTextInputValue("sendToChannelId").trim() || null;
+    const limit           = parseInt(limitRaw, 10) || 0;
+
+    const res = await sendAction("snapshot.periodic.add", { channelId, interval, limit, sendToChannelId });
+    if (!res?.success) return _error(interaction, res?.error);
+    const panel = await fetchAndBuild("snipe");
+    return interaction.update(panel);
+  }
+  if (id === "modal:snipe_snapshot_periodic_remove") {
+    const channelId = interaction.fields.getTextInputValue("channelId").trim();
+    const res = await sendAction("snapshot.periodic.remove", { channelId });
+    if (!res?.success) return _error(interaction, res?.error);
+    const panel = await fetchAndBuild("snipe");
+    return interaction.update(panel);
+  }
 
   // ── STALK ─────────────────────────────────────────────────────────────────
   if (id === "modal:stalk_add") {

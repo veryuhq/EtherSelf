@@ -28,9 +28,95 @@ const SNAPSHOTS_ROOT         = dataPath("snapshots");
 const SNAPSHOTS_GUILDS_DIR   = path.join(SNAPSHOTS_ROOT, "SERVEURS");
 const SNAPSHOTS_DMS_DIR      = path.join(SNAPSHOTS_ROOT, "MPs");
 const SNAPSHOTS_GROUPDMS_DIR = path.join(SNAPSHOTS_ROOT, "GROUP_DMs");
+const SNAPSHOT_SCHEDULE_FILE = dataPath("config", "snapshot-schedules.json");
 
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
 const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
+
+const SCHEDULE_TICK_MS = 60 * 1000;
+const MIN_SCHEDULE_INTERVAL_MS = 5 * 60 * 1000;
+
+let _scheduleInterval = null;
+let _scheduleClient = null;
+const _runningScheduledSnapshots = new Set();
+
+
+// ── Configuration des snapshots périodiques ──────────────────────────────────
+
+function loadScheduleConfig() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(SNAPSHOT_SCHEDULE_FILE, "utf-8"));
+    return {
+      running: raw.running === true,
+      jobs: Array.isArray(raw.jobs) ? raw.jobs : [],
+    };
+  } catch {
+    return { running: false, jobs: [] };
+  }
+}
+
+function saveScheduleConfig(config) {
+  fs.mkdirSync(path.dirname(SNAPSHOT_SCHEDULE_FILE), { recursive: true });
+  fs.writeFileSync(SNAPSHOT_SCHEDULE_FILE, JSON.stringify({
+    running: config.running === true,
+    jobs: Array.isArray(config.jobs) ? config.jobs : [],
+  }, null, 2));
+}
+
+function parseScheduleInterval(input) {
+  const raw = String(input ?? "").trim().toLowerCase().replace(/,/g, ".");
+  if (!raw) throw new Error("Intervalle requis (ex: 1w, 7d, 24h, 60m).");
+
+  const compact = raw.match(/^(\d+(?:\.\d+)?)\s*(m|min|minute|minutes|h|heure|heures|d|j|jour|jours|w|s|sem|semaine|semaines)$/i);
+  const words = raw.match(/^toutes?\s+les?\s+(\d+(?:\.\d+)?)\s*(m|min|minute|minutes|h|heure|heures|d|j|jour|jours|w|s|sem|semaine|semaines)$/i);
+  const match = compact ?? words;
+  if (!match) throw new Error("Format d'intervalle invalide. Exemples : 1w, 7d, 24h, 60m.");
+
+  const value = Number(match[1]);
+  const unit = match[2];
+  if (!Number.isFinite(value) || value <= 0) throw new Error("L'intervalle doit être supérieur à 0.");
+
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  let ms;
+
+  if (["m", "min", "minute", "minutes"].includes(unit)) ms = value * minute;
+  else if (["h", "heure", "heures"].includes(unit)) ms = value * hour;
+  else if (["d", "j", "jour", "jours"].includes(unit)) ms = value * day;
+  else if (["w", "s", "sem", "semaine", "semaines"].includes(unit)) ms = value * week;
+  else throw new Error("Unité d'intervalle invalide.");
+
+  if (ms < MIN_SCHEDULE_INTERVAL_MS) throw new Error("Intervalle trop court (minimum 5 minutes).");
+  return Math.round(ms);
+}
+
+function formatScheduleInterval(ms) {
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+
+  if (ms % week === 0) return `${ms / week} semaine(s)`;
+  if (ms % day === 0) return `${ms / day} jour(s)`;
+  if (ms % hour === 0) return `${ms / hour} heure(s)`;
+  if (ms % minute === 0) return `${ms / minute} minute(s)`;
+  return `${Math.round(ms / minute)} minute(s)`;
+}
+
+function publicScheduleState() {
+  const config = loadScheduleConfig();
+  const now = Date.now();
+  return {
+    running: config.running === true && _scheduleInterval !== null,
+    jobs: config.jobs.map(job => ({
+      ...job,
+      intervalLabel: formatScheduleInterval(job.intervalMs),
+      nextRunInMs: Math.max(0, (job.nextRunAt ?? now) - now),
+    })),
+  };
+}
 
 // ── Classification du type de salon ──────────────────────────────────────────
 
@@ -373,14 +459,84 @@ async function runSnapshot(client, channelId, limit, sendToChannelId, jobId) {
   }
 }
 
+
+// ── Boucle des snapshots périodiques ─────────────────────────────────────────
+
+async function runScheduledSnapshot(client, job) {
+  if (_runningScheduledSnapshots.has(job.id)) return;
+  _runningScheduledSnapshots.add(job.id);
+
+  try {
+    console.log(`[SNAPSHOT] Snapshot périodique déclenché pour ${job.channelId}`);
+    await runSnapshot(client, job.channelId, job.limit ?? 0, job.sendToChannelId ?? null, null);
+  } catch (err) {
+    console.error(`[SNAPSHOT] Erreur snapshot périodique ${job.channelId} :`, err.message);
+  } finally {
+    const config = loadScheduleConfig();
+    const current = config.jobs.find(j => j.id === job.id);
+    if (current) {
+      current.lastRunAt = Date.now();
+      current.nextRunAt = current.lastRunAt + current.intervalMs;
+      saveScheduleConfig(config);
+    }
+    _runningScheduledSnapshots.delete(job.id);
+  }
+}
+
+function tickSchedules() {
+  if (!_scheduleClient) return;
+  const config = loadScheduleConfig();
+  if (!config.running) return;
+
+  const now = Date.now();
+  let changed = false;
+
+  for (const job of config.jobs) {
+    if (!job.nextRunAt) {
+      job.nextRunAt = now + job.intervalMs;
+      changed = true;
+      continue;
+    }
+
+    if (job.nextRunAt <= now) {
+      runScheduledSnapshot(_scheduleClient, { ...job }).catch(() => {});
+    }
+  }
+
+  if (changed) saveScheduleConfig(config);
+}
+
+function startScheduleLoop(client) {
+  _scheduleClient = client;
+  if (_scheduleInterval) return false;
+  _scheduleInterval = setInterval(tickSchedules, SCHEDULE_TICK_MS);
+  tickSchedules();
+  return true;
+}
+
+function stopScheduleLoop() {
+  if (!_scheduleInterval) return false;
+  clearInterval(_scheduleInterval);
+  _scheduleInterval = null;
+  return true;
+}
+
+function onReady(client) {
+  const config = loadScheduleConfig();
+  if (config.running && config.jobs.length) {
+    startScheduleLoop(client);
+    console.log(`[SNAPSHOT] 🔄 Boucle périodique relancée (${config.jobs.length} salon(s)).`);
+  }
+}
+
 // ── execute (bridge) ──────────────────────────────────────────────────────────
 
 /**
  * @param {import("discord.js-selfbot-v13").Client} client
- * @param {{ action: string, channelId?: string, limit?: number, sendToChannelId?: string, jobId?: string }} payload
+ * @param {{ action: string, channelId?: string, limit?: number, sendToChannelId?: string, jobId?: string, interval?: string }} payload
  */
 async function execute(client, payload) {
-  const { action, channelId, limit = 0, sendToChannelId, jobId } = payload;
+  const { action, channelId, limit = 0, sendToChannelId, jobId, interval } = payload;
 
   if (action === "snapshot") {
     if (!channelId) throw new Error("channelId requis.");
@@ -402,7 +558,70 @@ async function execute(client, payload) {
     return { started: true, channelId };
   }
 
+  if (action === "periodic.list") {
+    return publicScheduleState();
+  }
+
+  if (action === "periodic.add") {
+    if (!channelId) throw new Error("channelId requis.");
+    const intervalMs = parseScheduleInterval(interval);
+    const safeLimit = Math.max(0, parseInt(limit, 10) || 0);
+    const config = loadScheduleConfig();
+    const now = Date.now();
+    const id = channelId;
+    const existing = config.jobs.findIndex(j => j.id === id);
+    const job = {
+      id,
+      channelId,
+      intervalMs,
+      limit: safeLimit,
+      sendToChannelId: sendToChannelId ?? null,
+      createdAt: existing >= 0 ? config.jobs[existing].createdAt ?? now : now,
+      lastRunAt: existing >= 0 ? config.jobs[existing].lastRunAt ?? null : null,
+      nextRunAt: now + intervalMs,
+    };
+
+    if (existing >= 0) config.jobs[existing] = job;
+    else config.jobs.push(job);
+
+    config.running = true;
+    saveScheduleConfig(config);
+    startScheduleLoop(client);
+    return publicScheduleState();
+  }
+
+  if (action === "periodic.remove") {
+    if (!channelId) throw new Error("channelId requis.");
+    const config = loadScheduleConfig();
+    const before = config.jobs.length;
+    config.jobs = config.jobs.filter(j => j.channelId !== channelId && j.id !== channelId);
+    if (config.jobs.length === before) throw new Error("Aucun snapshot périodique trouvé pour ce salon.");
+    if (!config.jobs.length) {
+      config.running = false;
+      stopScheduleLoop();
+    }
+    saveScheduleConfig(config);
+    return publicScheduleState();
+  }
+
+  if (action === "periodic.start") {
+    const config = loadScheduleConfig();
+    if (!config.jobs.length) throw new Error("Aucun snapshot périodique configuré.");
+    config.running = true;
+    saveScheduleConfig(config);
+    startScheduleLoop(client);
+    return publicScheduleState();
+  }
+
+  if (action === "periodic.stop") {
+    const config = loadScheduleConfig();
+    config.running = false;
+    saveScheduleConfig(config);
+    stopScheduleLoop();
+    return publicScheduleState();
+  }
+
   throw new Error(`Action snapshot inconnue : '${action}'`);
 }
 
-module.exports = { name: "snapshot", execute };
+module.exports = { name: "snapshot", execute, onReady, parseScheduleInterval, formatScheduleInterval };
