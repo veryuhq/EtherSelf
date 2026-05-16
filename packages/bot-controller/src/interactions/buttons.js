@@ -643,15 +643,19 @@ async function handle(interaction) {
 
     // Ack immédiat pour éviter "This interaction has failed" si le join prend > 3s
     await interaction.deferUpdate();
+
+    // Mise à jour optimiste instantanée de l'UI
+    await interaction.editReply(joinvc.build({ joined: true, channelId: savedChannelId, channelName: savedChannelId, guildName: null }));
+
     const res = await sendAction("voice.join", { channelId: savedChannelId });
     if (!res?.success) {
       // Le join peut réussir côté selfbot après timeout bridge (15s) : on revérifie l'état réel
       const refreshed = await sendAction("voice.getState");
       const isActuallyJoined = refreshed?.success && refreshed?.data?.channelId === savedChannelId;
       if (isActuallyJoined) {
-        await interaction.followUp({ content: "`✅` Connecté au salon vocal (confirmation tardive).", ephemeral: true });
         return interaction.editReply(joinvc.build(refreshed?.data ?? {}));
       }
+      await interaction.editReply(joinvc.build({ joined: false }));
       await interaction.followUp({ content: `❌ ${res?.error ?? "Impossible de rejoindre le salon."}`, ephemeral: true });
       return;
     }
