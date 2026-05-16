@@ -28,7 +28,7 @@ function build(data = {}) {
       textDisplay(
         `# 🔍 Snipe / MessageLogger / Snapshots\n` +
         `**Serveurs whitelistés (${whitelist.length}) :**\n${list}\n\n` +
-        `**Snapshots périodiques (${snapshotSchedules.length}) :** ${snapshotSchedulesRunning ? "🟢 actifs" : "🔴 arrêtés"}\n${scheduleList}`
+        `**Snapshots périodiques (${snapshotSchedules.length}) :** ${snapshotSchedulesRunning ? "`🟢` Actif" : "`🔴` Inactif"}\n${scheduleList}`
       ),
       separator(),
       actionRow([
