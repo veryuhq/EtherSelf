@@ -632,15 +632,15 @@ async function handle(interaction) {
 
   // ── JOINVC ────────────────────────────────────────────────────────────────
   if (id === "joinvc:join") {
-    // Rejoindre directement le dernier salon sauvegardé en config
-    const state = await sendAction("voice.getState");
-    const savedChannelId = state?.data?.channelId ?? null;
+    // Rejoindre directement le salon configuré si présent
+    const config = await sendAction("voice.getConfig");
+    const savedChannelId = config?.data?.channelId ?? null;
     if (savedChannelId) {
       const res = await sendAction("voice.join", { channelId: savedChannelId });
       if (!res?.success) return _error(interaction, res?.error ?? "Impossible de rejoindre le salon.");
       return interaction.update(joinvc.build(res?.data ?? {}));
     }
-    // Pas de salon sauvegardé → demander l'ID via modal
+    // Pas de salon configuré → demander l'ID via modal
     return interaction.showModal(modal("modal:joinvc_join", "Rejoindre un salon vocal", [{ id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678" }]));
   }
   if (id === "joinvc:move") { return interaction.showModal(modal("modal:joinvc_move", "Changer de salon vocal", [{ id: "channelId", label: "ID du nouveau salon vocal", placeholder: "123456789012345678" }])); }

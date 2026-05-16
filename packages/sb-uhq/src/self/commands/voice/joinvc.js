@@ -50,7 +50,7 @@ async function autoRejoin(client) {
 
 /**
  * @param {import("discord.js-selfbot-v13").Client} client
- * @param {{ channelId?: string, action?: "leave"|"move"|"getState" }} payload
+ * @param {{ channelId?: string, action?: "leave"|"move"|"getState"|"getConfig" }} payload
  */
 async function execute(client, payload) {
   const { channelId, action } = payload;
@@ -76,6 +76,14 @@ async function execute(client, payload) {
       guildId:     guild.id,
       guildName:   guild.name ?? null,
     };
+  }
+
+
+  // ── getConfig ──────────────────────────────────────────────────────────────
+  if (action === "getConfig") {
+    const saved = loadSaved();
+    if (!saved?.channelId) return { configured: false, channelId: null };
+    return { configured: true, channelId: saved.channelId };
   }
 
   // ── leave ─────────────────────────────────────────────────────────────────
