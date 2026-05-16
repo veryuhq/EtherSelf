@@ -645,7 +645,8 @@ async function handle(interaction) {
     await interaction.deferUpdate();
     const res = await sendAction("voice.join", { channelId: savedChannelId });
     if (!res?.success) {
-      return interaction.editReply({ content: `❌ ${res?.error ?? "Impossible de rejoindre le salon."}` });
+      await interaction.followUp({ content: `❌ ${res?.error ?? "Impossible de rejoindre le salon."}`, ephemeral: true });
+      return;
     }
     return interaction.editReply(joinvc.build(res?.data ?? {}));
   }
