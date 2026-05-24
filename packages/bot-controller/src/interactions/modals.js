@@ -133,13 +133,17 @@ async function handle(interaction) {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
     const res = await sendAction("snipe.addGuild", { guildId });
     if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(snipe.build(res?.data ?? {}));
+    // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
+    const panel = await fetchAndBuild("snipe");
+    return interaction.update(panel);
   }
   if (id === "modal:snipe_remove") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
     const res = await sendAction("snipe.removeGuild", { guildId });
     if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(snipe.build(res?.data ?? {}));
+    // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
+    const panel = await fetchAndBuild("snipe");
+    return interaction.update(panel);
   }
   if (id === "modal:snipe_view:deleted" || id === "modal:snipe_view:edited") {
     const type  = id.endsWith("deleted") ? "deleted" : "edited";

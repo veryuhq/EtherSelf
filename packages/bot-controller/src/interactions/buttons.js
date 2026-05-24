@@ -241,6 +241,7 @@ async function handle(interaction) {
     const action = state?.data?.running ? "snapshot.periodic.stop" : "snapshot.periodic.start";
     const res = await sendAction(action);
     if (!res?.success) return _error(interaction, res?.error);
+    // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
     const panel = await fetchAndBuild("snipe");
     return interaction.update(panel);
   }
