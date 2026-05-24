@@ -633,9 +633,9 @@ async function handle(interaction) {
 
   // ── JOINVC ────────────────────────────────────────────────────────────────
   if (id === "joinvc:join") {
-    // Rejoindre directement le salon configuré si présent
-    const config = await sendAction("voice.getConfig");
-    const savedChannelId = config?.data?.channelId ?? null;
+    // Récupère le salon configuré
+    const configRes = await sendAction("voice.getConfig");
+    const savedChannelId = configRes?.data?.channelId ?? null;
 
     // Pas de salon configuré → demander l'ID via modal
     if (!savedChannelId) {
@@ -645,22 +645,22 @@ async function handle(interaction) {
     // Ack immédiat pour éviter "This interaction has failed" si le join prend > 3s
     await interaction.deferUpdate();
 
-    // Mise à jour optimiste instantanée de l'UI
-    await interaction.editReply(joinvc.build({ joined: true, channelId: savedChannelId, channelName: savedChannelId, guildName: null }));
-
     const res = await sendAction("voice.join", { channelId: savedChannelId });
+
     if (!res?.success) {
-      // Le join peut réussir côté selfbot après timeout bridge (15s) : on revérifie l'état réel
+      // Vérifier l'état réel — le join peut avoir réussi malgré un timeout bridge
       const refreshed = await sendAction("voice.getState");
-      const isActuallyJoined = refreshed?.success && refreshed?.data?.channelId === savedChannelId;
-      if (isActuallyJoined) {
-        return interaction.editReply(joinvc.build(refreshed?.data ?? {}));
+      if (refreshed?.success && refreshed?.data?.channelId === savedChannelId) {
+        return interaction.editReply(joinvc.build(refreshed.data));
       }
       await interaction.editReply(joinvc.build({ joined: false }));
       await interaction.followUp({ content: `❌ ${res?.error ?? "Impossible de rejoindre le salon."}`, ephemeral: true });
       return;
     }
-    return interaction.editReply(joinvc.build(res?.data ?? {}));
+
+    // Succès : on utilise directement les données retournées par le bridge
+    // qui contiennent channelName et guildName résolus côté selfbot
+    return interaction.editReply(joinvc.build(res.data));
   }
   if (id === "joinvc:move") { return interaction.showModal(modal("modal:joinvc_move", "Changer de salon vocal", [{ id: "channelId", label: "ID du nouveau salon vocal", placeholder: "123456789012345678" }])); }
   if (id === "joinvc:leave") {
