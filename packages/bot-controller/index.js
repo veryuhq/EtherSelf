@@ -164,7 +164,7 @@ const logServer = http.createServer(async (req, res) => {
       const { jobId, done, ...progressData } = JSON.parse(await readBody(req));
       if (!jobId) { res.writeHead(400).end(); return; }
       const { buildProgress } = require("./src/panels/purge");
-      await updateProgressJob(jobId, buildProgress(progressData), done === true);
+      await updateProgressJob(jobId, buildProgress({ ...progressData, done: done === true }), done === true);
       if (done) cleanProgressJob(jobId);
       res.writeHead(200).end();
     } catch { res.writeHead(400).end(); }
