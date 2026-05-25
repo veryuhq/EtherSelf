@@ -78,7 +78,6 @@ function buildConfirm(data = {}) {
   const label    = SCOPE_LABELS[scope]   ?? scope;
   const warning  = SCOPE_WARNINGS[scope] ?? "Cette action est irréversible.";
 
-  // Construire le customId de confirmation avec les paramètres encodés
   let confirmId;
   if (scope === "channel" && channelId) {
     confirmId = `purge:run:channel:${channelId}:${amount ?? 0}`;
@@ -89,7 +88,6 @@ function buildConfirm(data = {}) {
   } else if (scope === "guilds") {
     confirmId = `purge:run:guilds`;
   } else {
-    // Pas encore les paramètres → demander via modal
     confirmId = `purge:ask:${scope}`;
   }
 
@@ -157,7 +155,7 @@ function buildProgress(data = {}) {
 
   // Barre de progression
   const BAR_LEN = 10;
-  const filled  = total > 0 ? Math.round((doneCount / total) * BAR_LEN) : 0;
+  const filled  = total > 0 ? Math.round((doneCount / total) * BAR_LEN) : (done ? BAR_LEN : 0);
   const bar     = "█".repeat(filled) + "░".repeat(BAR_LEN - filled);
   const progressLine = `\`${bar}\` **${doneCount}/${total}** — \`${totalDeleted}\` msg supprimé(s)`;
 
@@ -188,7 +186,17 @@ function buildProgress(data = {}) {
   if (done && cancelled) {
     header = `\`🛑\` **Arrêté !** \`${totalDeleted}\` message(s) supprimé(s) avant l'arrêt.`;
   } else if (done) {
-    header = `\`✅\` **Terminé !** \`${totalDeleted}\` message(s) supprimé(s) sur **${total}** ${scope === "dms" ? "DM(s)" : scope === "guilds" ? "serveur(s)" : scope === "guild" ? "salon(s)" : "salon(s)"}.`;
+    // total === 0 = tous les canaux skippés (aucun message à supprimer)
+    if (total === 0) {
+      header = `\`✅\` **Terminé !** Aucun message à supprimer.`;
+    } else {
+      const scopeUnit =
+        scope === "dms"    ? "DM(s)" :
+        scope === "guilds" ? "serveur(s)" :
+        scope === "guild"  ? "salon(s)" :
+        "salon(s)";
+      header = `\`✅\` **Terminé !** \`${totalDeleted}\` message(s) supprimé(s) sur **${total}** ${scopeUnit}.`;
+    }
   } else if (activeLabel) {
     header = `\`⏳\` **En cours…**`;
   } else if (total === 0) {
@@ -201,7 +209,6 @@ function buildProgress(data = {}) {
     ? `${header}\n\n${progressLine}\n\n${listText}`
     : `${header}\n\n${progressLine}`;
 
-  // Bouton d'annulation — uniquement si en cours et qu'on a un jobId
   const buttons = [];
   if (done) {
     buttons.push(btn("◀️  Retour Purge", "panel:purge", ButtonStyle.Secondary));
