@@ -6,14 +6,12 @@ const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0
 const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
 
 // ── Constantes de rate-limit ──────────────────────────────────────────────────
-// Discord autorise ~5 DELETE/s par canal en pratique avant de throttle.
-// On supprime par groupes de 5 avec 50ms entre chaque groupe = ~100 msg/s max.
-const PARALLEL_DELETE = 5;   // suppressions simultanées par batch
-const BATCH_DELAY_MS  = 50;  // délai entre deux batches (ms)
+const PARALLEL_DELETE = 5;
+const BATCH_DELAY_MS  = 50;
 
 // ── Registre des jobs actifs (pour annulation) ────────────────────────────────
 
-const activeJobs = new Map(); // jobId -> { cancelled: boolean }
+const activeJobs = new Map();
 
 function registerJob(jobId) {
   activeJobs.set(jobId, { cancelled: false });
@@ -49,6 +47,49 @@ async function notifyProgress(jobId, data) {
   }).catch(() => {});
 }
 
+// ── Helper : vérifie si le selfbot a au moins un message dans un salon ────────
+//
+// On utilise l'endpoint de recherche Discord qui supporte author_id.
+// Pour les salons de serveur : /channels/{id}/messages/search?author_id=...
+// Pour les DMs               : /channels/{id}/messages/search?author_id=...
+//
+// Cet endpoint n'est disponible que pour les comptes utilisateur (selfbot),
+// pas pour les bots classiques.
+//
+// En cas d'échec (rate-limit, 403, erreur réseau), on retourne `true` par
+// sécurité pour ne pas rater de suppressions.
+//
+async function hasOwnMessages(client, channelId) {
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v9/channels/${channelId}/messages/search?author_id=${client.user.id}&limit=1`,
+      {
+        headers: {
+          "Authorization": client.token,
+          "User-Agent":    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9228 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36",
+          "X-Super-Properties": Buffer.from(JSON.stringify({
+            os: "Windows", browser: "Discord Client", release_channel: "stable",
+            client_version: "1.0.9228", client_build_number: 512062,
+          })).toString("base64"),
+        },
+      }
+    );
+
+    // 404 = salon introuvable ou pas d'accès → skip sans risque
+    if (res.status === 404) return false;
+    // 403 = pas les perms de chercher → on ne skip pas, le purgeChannel gèrera
+    if (res.status === 403) return true;
+    // Autre erreur (rate-limit 429, 5xx…) → optimiste, on ne skip pas
+    if (!res.ok) return true;
+
+    const data = await res.json();
+    // La réponse de search a la forme { total_results: N, messages: [[...]] }
+    return (data?.total_results ?? 0) > 0;
+  } catch {
+    return true;
+  }
+}
+
 // ── Helper : purge un salon unique ────────────────────────────────────────────
 
 async function purgeChannel(client, channel, limit = Infinity, jobId = null) {
@@ -63,22 +104,18 @@ async function purgeChannel(client, channel, limit = Infinity, jobId = null) {
       .catch(() => null);
     if (!batch || !batch.size) break;
 
-    // Filtrer uniquement ses propres messages
     const own = [...batch.values()].filter(m => m.author.id === client.user.id);
 
-    // Appliquer la limite globale
     const toDelete = limit < Infinity
       ? own.slice(0, limit - deleted)
       : own;
 
-    // Supprimer par groupes parallèles
     for (let i = 0; i < toDelete.length; i += PARALLEL_DELETE) {
       if (jobId && isCancelled(jobId)) break;
 
       const group = toDelete.slice(i, i + PARALLEL_DELETE);
       const results = await Promise.allSettled(group.map(msg => msg.delete()));
 
-      // Compter uniquement les succès
       for (const r of results) {
         if (r.status === "fulfilled") deleted++;
       }
@@ -147,11 +184,32 @@ async function execute(client, payload) {
     const dmChannels = [...client.channels.cache.values()].filter(c => c.type === "DM");
     let totalDeleted = 0;
     let doneCount    = 0;
-    const total      = dmChannels.length;
 
     registerJob(jobId);
 
-    const queue = dmChannels.map(ch => ({
+    // ── Pré-filtrage : on élimine les DMs où le selfbot n'a rien envoyé ──────
+    // On vérifie en parallèle par groupes de 10 pour ne pas saturer le rate-limit.
+    const CHECK_CONCURRENCY = 10;
+    const filtered = [];
+
+    for (let i = 0; i < dmChannels.length; i += CHECK_CONCURRENCY) {
+      if (isCancelled(jobId)) break;
+      const batch = dmChannels.slice(i, i + CHECK_CONCURRENCY);
+      const checks = await Promise.all(
+        batch.map(async ch => ({ ch, has: await hasOwnMessages(client, ch.id) }))
+      );
+      for (const { ch, has } of checks) {
+        if (has) filtered.push(ch);
+      }
+      // Petit délai entre les groupes de checks pour le rate-limit
+      if (i + CHECK_CONCURRENCY < dmChannels.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    const total = filtered.length;
+
+    const queue = filtered.map(ch => ({
       id:    ch.id,
       label: ch.recipient?.tag ?? ch.recipient?.username ?? ch.id,
     }));
@@ -169,7 +227,7 @@ async function execute(client, payload) {
       });
     }
 
-    for (let i = 0; i < dmChannels.length; i++) {
+    for (let i = 0; i < filtered.length; i++) {
       if (isCancelled(jobId)) {
         await notifyProgress(jobId, {
           scope: "dms",
@@ -185,7 +243,7 @@ async function execute(client, payload) {
         return { deleted: totalDeleted, scope: "dms", cancelled: true };
       }
 
-      const ch    = dmChannels[i];
+      const ch    = filtered[i];
       const label = queue[i]?.label ?? ch.id;
 
       const remaining = queue.slice(i + 1);
@@ -306,6 +364,9 @@ async function execute(client, payload) {
       let guildDeleted = 0;
       for (const ch of channels) {
         if (isCancelled(jobId)) break;
+        // Pré-check par salon aussi pour les serveurs
+        const has = await hasOwnMessages(client, ch.id);
+        if (!has) continue;
         guildDeleted += await purgeChannel(client, ch, Infinity, jobId);
       }
 
@@ -403,6 +464,26 @@ async function execute(client, payload) {
 
       const ch    = channels[i];
       const label = `#${ch.name ?? ch.id}`;
+
+      // Pré-check : skip les salons où le selfbot n'a rien envoyé
+      const has = await hasOwnMessages(client, ch.id);
+      if (!has) {
+        doneCount++;
+        if (jobId) {
+          await notifyProgress(jobId, {
+            scope: "guild",
+            guildName: guild.name,
+            queue:       queue.slice(i + 1),
+            activeLabel: null,
+            doneCount,
+            total,
+            totalDeleted,
+            done:      false,
+            cancelled: false,
+          });
+        }
+        continue;
+      }
 
       const remaining = queue.slice(i + 1);
       if (jobId) {
