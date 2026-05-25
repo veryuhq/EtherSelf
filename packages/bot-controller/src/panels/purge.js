@@ -220,12 +220,14 @@ function buildProgress(data = {}) {
     buttons.push(btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary));
   }
 
+  const accentColor = (done && !cancelled) ? 0x2ECC71 : 0xE74C3C;
+
   return replyV2(
     container([
       textDisplay(`# ${icon} ${title}\n${body}`),
       separator(),
       actionRow(buttons),
-    ], 0xE74C3C)
+    ], accentColor)
   );
 }
 
