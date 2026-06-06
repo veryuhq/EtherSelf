@@ -20,6 +20,7 @@ const fs    = require("fs");
 const path  = require("path");
 const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 const { dataPath } = require("../../func/data-path");
+const { signedHeaders } = require("../../../bridge/auth");
 const { buildHtml, isSystemMessage, resolveUrl } = require("../../func/snapshot-html");
 
 // ── Chemins ───────────────────────────────────────────────────────────────────
@@ -31,7 +32,6 @@ const SNAPSHOTS_GROUPDMS_DIR = path.join(SNAPSHOTS_ROOT, "GROUP_DMs");
 const SNAPSHOT_SCHEDULE_FILE = dataPath("config", "snapshot-schedules.json");
 
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
-const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
 
 const SCHEDULE_TICK_MS = 60 * 1000;
 const MIN_SCHEDULE_INTERVAL_MS = 5 * 60 * 1000;
@@ -56,7 +56,7 @@ function loadScheduleConfig() {
 }
 
 function saveScheduleConfig(config) {
-  fs.mkdirSync(path.dirname(SNAPSHOT_SCHEDULE_FILE), { recursive: true });
+  fs.mkdirSync(path.dirname(SNAPSHOT_SCHEDULE_FILE), { recursive: true, mode: 0o700 });
   fs.writeFileSync(SNAPSHOT_SCHEDULE_FILE, JSON.stringify({
     running: config.running === true,
     jobs: Array.isArray(config.jobs) ? config.jobs : [],
@@ -337,13 +337,11 @@ function serializeMessage(msg) {
 
 async function sendFileViaController(filepath, filename, meta, channelId = null) {
   const base64 = fs.readFileSync(filepath).toString("base64");
+  const body = JSON.stringify({ filename, base64, meta, channelId });
   const res = await fetch(`${BRIDGE_CONTROLLER_URL}/file`, {
     method:  "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      "Authorization": BRIDGE_SECRET,
-    },
-    body: JSON.stringify({ filename, base64, meta, channelId }),
+    headers: signedHeaders(body, { "Content-Type": "application/json" }),
+    body,
   });
   return res.ok;
 }
@@ -353,13 +351,11 @@ async function sendFileViaController(filepath, filename, meta, channelId = null)
 async function notifySnapshotResult(jobId, result) {
   if (!jobId) return;
   try {
+    const body = JSON.stringify({ jobId, ...result });
     await fetch(`${BRIDGE_CONTROLLER_URL}/snapshot-result`, {
       method:  "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        "Authorization": BRIDGE_SECRET,
-      },
-      body: JSON.stringify({ jobId, ...result }),
+      headers: signedHeaders(body, { "Content-Type": "application/json" }),
+      body,
     });
   } catch {
     // non bloquant
@@ -403,13 +399,13 @@ async function runSnapshot(client, channelId, limit, sendToChannelId, jobId) {
       messages: serialized,
     });
 
-    fs.mkdirSync(snapshotDir, { recursive: true });
+    fs.mkdirSync(snapshotDir, { recursive: true, mode: 0o700 });
 
     // Nom de fichier horodate — utilise l'ID du salon pour eviter les collisions
     const filename = `snapshot_${channelId}_${Date.now()}.html`;
     const filepath = path.join(snapshotDir, filename);
 
-    fs.writeFileSync(filepath, html, "utf-8");
+    fs.writeFileSync(filepath, html, { encoding: "utf-8", mode: 0o600 });
 
     const fileSizeKb = Math.round(html.length / 1024);
 

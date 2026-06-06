@@ -4,50 +4,16 @@ const fs    = require("fs");
 const path  = require("path");
 const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 const { dataPath } = require("../../func/data-path");
+const { makeDesktopHeaders } = require("../../func/discord-client-headers");
+const { signedHeaders } = require("../../../bridge/auth");
 
 const CLONE_LOG_FILE        = dataPath("logs", "clone_history.json");
 const BACKUPS_FILE          = dataPath("logs", "backups_data.json");
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
-const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
-
-// ── User-Agent / Super-Properties ─────────────────────────────────────────────
-
-const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9228 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36";
-
-function makeSuperProperties() {
-  return Buffer.from(
-    JSON.stringify({
-      os: "Windows",
-      browser: "Discord Client",
-      release_channel: "stable",
-      client_version: "1.0.9228",
-      os_version: "10.0.19045",
-      os_arch: "x64",
-      app_arch: "x64",
-      system_locale: "en-US",
-      has_client_mods: false,
-      browser_user_agent: USER_AGENT,
-      browser_version: "37.6.0",
-      os_sdk_version: "19045",
-      client_build_number: 512062,
-      native_build_number: 77013,
-      client_event_source: null,
-    })
-  ).toString("base64");
-}
 
 function makeDiscordHeaders(token, includeContentType = true) {
-  const headers = {
-    "Authorization":      token,
-    "User-Agent":         USER_AGENT,
-    "X-Super-Properties": makeSuperProperties(),
-    "accept-language":    "en-US",
-    "x-discord-locale":   "en-US",
-    "origin":             "https://discord.com",
-    "referer":            "https://discord.com/channels/@me",
-  };
-  if (includeContentType) headers["Content-Type"] = "application/json";
+  const headers = makeDesktopHeaders(token);
+  if (!includeContentType) delete headers["Content-Type"];
   return headers;
 }
 
@@ -108,10 +74,11 @@ function checkCancelled(jobId) { if (isCancelled(jobId)) throw new CancelledErro
 
 async function notifyProgress(jobId, data) {
   if (!jobId) return;
+  const body = JSON.stringify({ jobId, ...data });
   fetch(`${BRIDGE_CONTROLLER_URL}/clone-progress`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": BRIDGE_SECRET },
-    body: JSON.stringify({ jobId, ...data }),
+    headers: signedHeaders(body, { "Content-Type": "application/json" }),
+    body,
   }).catch(() => {});
 }
 

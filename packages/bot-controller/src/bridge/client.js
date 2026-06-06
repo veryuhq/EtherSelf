@@ -1,9 +1,9 @@
 "use strict";
 
 const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
+const { signedHeaders } = require("./auth");
 
 const BRIDGE_URL    = process.env.BRIDGE_URL    ?? "http://127.0.0.1:3000";
-const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
 
 /**
  * Envoie une action au selfbot via HTTP.
@@ -14,13 +14,11 @@ const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
  */
 async function sendAction(action, payload = {}) {
   try {
+    const body = JSON.stringify({ action, payload });
     const res = await fetch(`${BRIDGE_URL}/action`, {
       method:  "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        "Authorization": BRIDGE_SECRET,
-      },
-      body: JSON.stringify({ action, payload }),
+      headers: signedHeaders(body, { "Content-Type": "application/json" }),
+      body,
     });
 
     const json = await res.json();
@@ -37,7 +35,7 @@ async function sendAction(action, payload = {}) {
 async function healthCheck() {
   try {
     const res = await fetch(`${BRIDGE_URL}/health`, {
-      headers: { "Authorization": BRIDGE_SECRET },
+      headers: signedHeaders(""),
     });
     if (!res.ok) return { online: false };
     const json = await res.json();

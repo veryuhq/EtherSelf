@@ -21,6 +21,7 @@ const selects = require("./src/interactions/selects");
 const panel   = require("./src/commands/panel");
 
 const { healthCheck }                                       = require("./src/bridge/client");
+const { getSecretBuffer, verifySignedRequest }               = require("./src/bridge/auth");
 const { container, textDisplay, separator, actionRow, btn } = require("./src/utils/components");
 
 const snipe   = require("./src/panels/snipe");
@@ -29,6 +30,9 @@ const backups = require("./src/panels/backups");
 const OWNER_ID      = process.env.OWNER_ID;
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
 const LOG_PORT      = parseInt(process.env.LOG_PORT ?? "3001", 10);
+
+if (!OWNER_ID) throw new Error("OWNER_ID est obligatoire pour verrouiller les interactions du bot-controller.");
+getSecretBuffer(BRIDGE_SECRET);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  STORE — jobs de progression purge
@@ -97,16 +101,52 @@ client.commands.set(panel.data.name, panel);
 //  HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function readBody(req) {
+function readBody(req, maxBytes = 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", chunk => chunks.push(chunk));
+    let total = 0;
+    req.on("data", chunk => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        reject(new Error("Body trop volumineux."));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end",  ()    => resolve(Buffer.concat(chunks).toString("utf-8")));
     req.on("error", reject);
   });
 }
 
-function buildSnapshotEmbed(meta, attachment) {
+function safeTmpFile(filename) {
+  const base = path.basename(String(filename ?? "")).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
+  if (!base || base === "." || base === "..") throw new Error("Nom de fichier invalide.");
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "etherself-"));
+  const tmpPath = path.resolve(tmpRoot, base);
+  if (!tmpPath.startsWith(`${path.resolve(tmpRoot)}${path.sep}`)) throw new Error("Chemin de fichier invalide.");
+  return { tmpRoot, tmpPath, safeName: base };
+}
+
+function redactLogText(text) {
+  return String(text ?? "")
+    .replace(/(discord(?:app)?\.com\/(?:gifts|gift)\/)[A-Za-z0-9]{12,}/gi, "$1[redacted]")
+    .replace(/(discord\.gift\/)[A-Za-z0-9]{12,}/gi, "$1[redacted]")
+    .replace(/[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,}/g, "[redacted-token]")
+    .replace(/(Authorization\s*[:=]\s*)\S+/gi, "$1[redacted]");
+}
+
+const httpRateBuckets = new Map();
+function checkHttpRateLimit(key, max, windowMs) {
+  const now = Date.now();
+  const current = httpRateBuckets.get(key);
+  const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + windowMs };
+  bucket.count += 1;
+  httpRateBuckets.set(key, bucket);
+  return bucket.count <= max;
+}
+
+function buildSnapshotEmbed(meta, attachment, attachmentName) {
   const { channelName, guildName, messageCount, filename, fileSizeKb } = meta;
   const now = new Date().toLocaleString("fr-FR");
 
@@ -121,7 +161,7 @@ function buildSnapshotEmbed(meta, attachment) {
     `*Ouvre le fichier HTML joint dans ton navigateur pour consulter l'archive.*`,
   ].filter(l => l !== null).join("\n");
 
-  const fileComponent = new FileBuilder().setURL(`attachment://${filename}`);
+  const fileComponent = new FileBuilder().setURL(`attachment://${attachmentName}`);
 
   return {
     flags: MessageFlags.IsComponentsV2,
@@ -138,20 +178,30 @@ function buildSnapshotEmbed(meta, attachment) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const logServer = http.createServer(async (req, res) => {
+  let rawBody = "";
+  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+    try { rawBody = await readBody(req); }
+    catch { res.writeHead(413).end(); return; }
+  }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  if (req.headers["authorization"] !== BRIDGE_SECRET) {
+  if (!verifySignedRequest({ headers: req.headers, body: rawBody })) {
     res.writeHead(403).end();
+    return;
+  }
+  if (!checkHttpRateLimit(`${req.socket.remoteAddress}:${req.url}`, 100, 60_000)) {
+    res.writeHead(429, { "Retry-After": "60" }).end();
     return;
   }
 
   // ── POST /log ─────────────────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/log") {
     try {
-      const { text } = JSON.parse(await readBody(req));
-      if (text && OWNER_ID && client.isReady()) {
+      const { text } = JSON.parse(rawBody || "{}");
+      const safeText = redactLogText(text).slice(0, 1900);
+      if (safeText && client.isReady()) {
         const owner = await client.users.fetch(OWNER_ID).catch(() => null);
-        if (owner) await owner.send(`\`\`\`ini\n${String(text).slice(0, 1900)}\n\`\`\``).catch(() => {});
+        if (owner) await owner.send(`\`\`\`ini\n${safeText}\n\`\`\``).catch(() => {});
       }
       res.writeHead(200).end();
     } catch { res.writeHead(400).end(); }
@@ -161,7 +211,7 @@ const logServer = http.createServer(async (req, res) => {
   // ── POST /progress ────────────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/progress") {
     try {
-      const { jobId, done, ...progressData } = JSON.parse(await readBody(req));
+      const { jobId, done, ...progressData } = JSON.parse(rawBody || "{}");
       if (!jobId) { res.writeHead(400).end(); return; }
       const { buildProgress } = require("./src/panels/purge");
       await updateProgressJob(jobId, buildProgress({ ...progressData, done: done === true }), done === true);
@@ -174,7 +224,7 @@ const logServer = http.createServer(async (req, res) => {
   // ── POST /clone-progress ──────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/clone-progress") {
     try {
-      const { jobId, done, error, summary, ...progressData } = JSON.parse(await readBody(req));
+      const { jobId, done, error, summary, ...progressData } = JSON.parse(rawBody || "{}");
       if (!jobId) { res.writeHead(400).end(); return; }
 
       const job = cloneJobs.get(jobId);
@@ -200,7 +250,7 @@ const logServer = http.createServer(async (req, res) => {
   // ── POST /snapshot-result ─────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/snapshot-result") {
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(rawBody || "{}");
       const { jobId, error, channelName, messageCount, sent } = body;
 
       if (jobId) {
@@ -225,26 +275,28 @@ const logServer = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/file") {
     let tmpPath = null;
     try {
-      const body = JSON.parse(await readBody(req));
+      const body = JSON.parse(rawBody || "{}");
       const { filename, base64, meta, channelId } = body;
 
       if (!filename || !base64) { res.writeHead(400).end(); return; }
       if (!client.isReady())    { res.writeHead(503).end(); return; }
 
-      tmpPath = path.join(os.tmpdir(), filename);
-      fs.writeFileSync(tmpPath, Buffer.from(base64, "base64"));
+      const tmpInfo = safeTmpFile(filename);
+      tmpPath = tmpInfo.tmpPath;
+      fs.writeFileSync(tmpPath, Buffer.from(base64, "base64"), { mode: 0o600 });
 
-      const attachment = new AttachmentBuilder(tmpPath, { name: filename });
+      const filenameSafe = tmpInfo.safeName;
+      const attachment = new AttachmentBuilder(tmpPath, { name: filenameSafe });
 
       let msgPayload;
 
       // Snapshot HTML
       if (meta && typeof meta === "object") {
-        msgPayload = buildSnapshotEmbed(meta, attachment);
+        msgPayload = buildSnapshotEmbed(meta, attachment, filenameSafe);
       }
       // Fichier générique
       else {
-        const fileComponent = new FileBuilder().setURL(`attachment://${filename}`);
+        const fileComponent = new FileBuilder().setURL(`attachment://${filenameSafe}`);
         msgPayload = { flags: MessageFlags.IsComponentsV2, components: [fileComponent], files: [attachment] };
       }
 
@@ -264,7 +316,10 @@ const logServer = http.createServer(async (req, res) => {
       console.error("[CONTROLLER] /file erreur :", err.message);
       res.writeHead(500).end();
     } finally {
-      if (tmpPath) { try { fs.unlinkSync(tmpPath); } catch {} }
+      if (tmpPath) {
+        try { fs.unlinkSync(tmpPath); } catch {}
+        try { fs.rmSync(path.dirname(tmpPath), { recursive: true, force: true }); } catch {}
+      }
     }
     return;
   }

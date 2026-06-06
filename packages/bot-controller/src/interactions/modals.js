@@ -84,7 +84,11 @@ async function handle(interaction) {
   // ── PREFIX ────────────────────────────────────────────────────────────────
   if (id === "modal:token") {
     const token = interaction.fields.getTextInputValue("token").trim();
-    const res = await sendAction("token.set", { token });
+    const ownerIdConfirm = interaction.fields.getTextInputValue("ownerId").trim();
+    if (ownerIdConfirm !== process.env.OWNER_ID) {
+      return _error(interaction, "Confirmation OWNER_ID invalide — token non modifié.");
+    }
+    const res = await sendAction("token.set", { token, ownerIdConfirm });
     if (!res?.success) return _error(interaction, res?.error ?? "Erreur lors de la mise à jour du token.");
     return interaction.update(configPanel.buildTokenUpdated());
   }
