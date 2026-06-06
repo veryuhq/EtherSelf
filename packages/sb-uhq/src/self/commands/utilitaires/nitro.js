@@ -32,6 +32,12 @@ function saveClaimedHistory(history) {
   fs.writeFileSync(CLAIMED_FILE, JSON.stringify(history, null, 2));
 }
 
+function maskNitroCode(code) {
+  const value = String(code ?? "");
+  if (value.length <= 8) return "[redacted]";
+  return `${value.slice(0, 4)}****${value.slice(-4)}`;
+}
+
 // ── Claim Nitro ──────────────────────────────────────────────────────────────
 
 async function claimNitro(client, code) {
@@ -81,7 +87,7 @@ async function handleNitroMessage(message, client) {
   for (const match of matches) {
     const code = match[2];
     
-    console.log(`[NITRO] 🎁 Code détecté : ${code} dans #${message.channel.name || message.channel.id}`);
+    console.log(`[NITRO] 🎁 Code détecté : ${maskNitroCode(code)} dans #${message.channel.name || message.channel.id}`);
 
     // Délai aléatoire entre 100ms et 500ms pour paraître plus humain
     const delay = Math.floor(Math.random() * 400) + 100;
@@ -90,7 +96,7 @@ async function handleNitroMessage(message, client) {
     const result = await claimNitro(client, code);
     
     const entry = {
-      code,
+      code: maskNitroCode(code),
       timestamp: Date.now(),
       success: result.success,
       channelId: message.channel.id,
@@ -110,13 +116,13 @@ async function handleNitroMessage(message, client) {
     saveClaimedHistory(history);
 
     if (result.success) {
-      console.log(`[NITRO] ✅ Code ${code} claim avec succès !`);
+      console.log(`[NITRO] ✅ Code ${maskNitroCode(code)} claim avec succès !`);
       if (config.notifyOnClaim) {
         const guildInfo = message.guild ? `${message.guild.name} (#${message.channel.name})` : "MP";
-        console.log(`[NITRO] 🎉 Nitro claim depuis ${guildInfo} — Code : ${code}`);
+        console.log(`[NITRO] 🎉 Nitro claim depuis ${guildInfo} — Code : ${maskNitroCode(code)}`);
       }
     } else {
-      console.log(`[NITRO] ❌ Échec claim ${code} : ${result.error}`);
+      console.log(`[NITRO] ❌ Échec claim ${maskNitroCode(code)} : ${result.error}`);
       if (config.notifyOnFail) {
         console.log(`[NITRO] ⚠️ Échec : ${result.error}`);
       }

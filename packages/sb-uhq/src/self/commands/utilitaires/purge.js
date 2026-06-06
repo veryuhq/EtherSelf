@@ -1,9 +1,10 @@
 "use strict";
 
 const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
+const { signedHeaders } = require("../../../bridge/auth");
+const { makeDesktopHeaders } = require("../../func/discord-client-headers");
 
 const BRIDGE_CONTROLLER_URL = process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001";
-const BRIDGE_SECRET         = process.env.BRIDGE_SECRET ?? "";
 
 // ── Constantes de rate-limit ──────────────────────────────────────────────────
 const PARALLEL_DELETE = 5;
@@ -37,13 +38,11 @@ function cleanJob(jobId) {
 // ── Helper : notifie le bot-controller de la progression ─────────────────────
 
 async function notifyProgress(jobId, data) {
+  const body = JSON.stringify({ jobId, ...data });
   fetch(`${BRIDGE_CONTROLLER_URL}/progress`, {
     method:  "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      "Authorization": BRIDGE_SECRET,
-    },
-    body: JSON.stringify({ jobId, ...data }),
+    headers: signedHeaders(body, { "Content-Type": "application/json" }),
+    body,
   }).catch(() => {});
 }
 
@@ -64,14 +63,7 @@ async function hasOwnMessages(client, channelId) {
     const res = await fetch(
       `https://discord.com/api/v9/channels/${channelId}/messages/search?author_id=${client.user.id}&limit=1`,
       {
-        headers: {
-          "Authorization": client.token,
-          "User-Agent":    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9228 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36",
-          "X-Super-Properties": Buffer.from(JSON.stringify({
-            os: "Windows", browser: "Discord Client", release_channel: "stable",
-            client_version: "1.0.9228", client_build_number: 512062,
-          })).toString("base64"),
-        },
+        headers: makeDesktopHeaders(client.token),
       }
     );
 

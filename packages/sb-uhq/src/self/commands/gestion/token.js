@@ -10,7 +10,14 @@ function readEnvLines() {
   return fs.readFileSync(ENV_FILE, "utf8").split(/\r?\n/);
 }
 
+function assertValidToken(token) {
+  if (!/^[A-Za-z0-9._-]{50,120}$/.test(token)) {
+    throw new Error("Format de token invalide.");
+  }
+}
+
 function writeTokenToEnv(token) {
+  assertValidToken(token);
   const lines = readEnvLines();
   let found = false;
 
@@ -24,7 +31,9 @@ function writeTokenToEnv(token) {
 
   if (!found) next.push(`TOKEN=${token}`);
 
-  fs.writeFileSync(ENV_FILE, `${next.join("\n").replace(/\n+$/g, "")}\n`, "utf8");
+  const tmpFile = `${ENV_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpFile, `${next.join("\n").replace(/\n+$/g, "")}\n`, { encoding: "utf8", mode: 0o600 });
+  fs.renameSync(tmpFile, ENV_FILE);
   process.env.TOKEN = token;
   return { updated: true };
 }
@@ -37,6 +46,9 @@ async function execute(_client, payload) {
   const { action, token } = payload;
 
   if (action === "set") {
+    if (payload.ownerIdConfirm !== process.env.OWNER_ID) {
+      throw new Error("Confirmation OWNER_ID invalide.");
+    }
     const nextToken = String(token ?? "").trim();
     if (!nextToken) throw new Error("Le token ne peut pas être vide.");
     writeTokenToEnv(nextToken);

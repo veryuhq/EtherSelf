@@ -39,7 +39,7 @@ const ACTIONS = {
   // ── PREFIX ───────────────────────────────────────────────────────────────
   "prefix.set":         (c, p) => prefix.execute(c, { action: "set", prefix: p.prefix }),
   "prefix.get":         (c, p) => prefix.execute(c, { action: "get" }),
-  "token.set":          (c, p) => token.execute(c,  { action: "set", token: p.token }),
+  "token.set":          (c, p) => token.execute(c,  { action: "set", token: p.token, ownerIdConfirm: p.ownerIdConfirm }),
 
   // ── SNIPE / MSGLOG ────────────────────────────────────────────────────────
   "snipe.addGuild":          (c, p) => snipe.execute(c, { action: "addGuild",          guildId:   p.guildId }),

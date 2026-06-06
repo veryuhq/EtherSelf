@@ -3,6 +3,7 @@
 require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const { Client } = require("discord.js-selfbot-v13");
+const { signedHeaders } = require("./src/bridge/auth");
 
 // ── Bridge HTTP ───────────────────────────────────────────────────────────────
 const { startBridgeServer } = require("./src/bridge/server");
@@ -75,10 +76,11 @@ client.once("ready", async () => {
     console.log = (...args) => {
       _orig(...args);
       const text = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+      const body = JSON.stringify({ text });
       fetch(`${process.env.BRIDGE_CONTROLLER_URL ?? "http://127.0.0.1:3001"}/log`, {
         method:  "POST",
-        headers: { "Content-Type": "application/json", "Authorization": process.env.BRIDGE_SECRET ?? "" },
-        body:    JSON.stringify({ text }),
+        headers: signedHeaders(body, { "Content-Type": "application/json" }),
+        body,
       }).catch(() => {});
     };
   }

@@ -1,8 +1,8 @@
 "use strict";
 
 const { promisify } = require("util");
-const { exec } = require("child_process");
-const execAsync = promisify(exec);
+const { execFile } = require("child_process");
+const execFileAsync = promisify(execFile);
 
 const { sendAction }    = require("../bridge/client");
 const { modal }         = require("../utils/components");
@@ -49,6 +49,14 @@ async function resolveGuildName(guildId) {
 /**
  * @param {import("discord.js").ButtonInteraction} interaction
  */
+function validatePm2Name(name) {
+  const value = String(name ?? "").trim();
+  if (!/^[A-Za-z0-9._-]+$/.test(value)) {
+    throw new Error("Nom PM2 invalide : seuls lettres, chiffres, points, tirets et underscores sont autorisés.");
+  }
+  return value;
+}
+
 async function handle(interaction) {
   const id = interaction.customId;
 
@@ -91,7 +99,8 @@ async function handle(interaction) {
   }
   if (id === "config:token") {
     return interaction.showModal(modal("modal:token", "Modifier le token du selfbot", [
-      { id: "token", label: "Nouveau token (variable TOKEN)", placeholder: "Colle le token du selfbot", long: true },
+      { id: "token", label: "Nouveau token (variable TOKEN)", placeholder: "Colle le token du selfbot", long: true, minLength: 50, maxLength: 120 },
+      { id: "ownerId", label: "Confirme ton OWNER_ID", placeholder: "123456789012345678", minLength: 17, maxLength: 20 },
     ]));
   }
   if (id === "config:restart") {
@@ -102,8 +111,8 @@ async function handle(interaction) {
     return interaction.update(panel);
   }
   if (id === "config:restart:confirm" || id === "config:token:restart") {
-    const sbName = process.env.PM2_SB_NAME || "EtherSelf-SB";
-    const ctrlName = process.env.PM2_CTRL_NAME || "EtherSelf-Bot";
+    const sbName = validatePm2Name(process.env.PM2_SB_NAME || "EtherSelf-SB");
+    const ctrlName = validatePm2Name(process.env.PM2_CTRL_NAME || "EtherSelf-Bot");
 
     const panel = await fetchAndBuild("config");
     await interaction.update(panel);
@@ -113,7 +122,7 @@ async function handle(interaction) {
     });
 
     setTimeout(() => {
-      execAsync(`pm2 restart ${sbName} ${ctrlName}`).catch(() => {});
+      execFileAsync("pm2", ["restart", sbName, ctrlName], { shell: false }).catch(() => {});
     }, 5000);
     return;
   }
