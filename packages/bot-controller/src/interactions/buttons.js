@@ -99,8 +99,8 @@ async function handle(interaction) {
   }
   if (id === "config:token") {
     return interaction.showModal(modal("modal:token", "Modifier le token du selfbot", [
-      { id: "token", label: "Nouveau token (variable TOKEN)", placeholder: "Colle le token du selfbot", long: true, minLength: 50, maxLength: 120 },
-      { id: "ownerId", label: "Confirme ton OWNER_ID", placeholder: "123456789012345678", minLength: 17, maxLength: 20 },
+      { id: "token", label: "Nouveau token (variable TOKEN)", placeholder: "Colle le token du selfbot", long: true, maxLength: 120 },
+      { id: "ownerId", label: "Confirme ton OWNER_ID", placeholder: "123456789012345678", maxLength: 20 },
     ]));
   }
   if (id === "config:restart") {
