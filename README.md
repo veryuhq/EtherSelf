@@ -28,7 +28,7 @@
 >
 > - 🔴 Aucun correctif de sécurité ne sera publié
 > - 🔴 Les changements d'API Discord peuvent casser des fonctionnalités à tout moment sans avertissement
-> - 🔴 Des modules comme le RPC ou le Nitro Sniper sont particulièrement sensibles aux évolutions de Discord
+> - 🔴 Des modules comme le RPC sont particulièrement sensibles aux évolutions de Discord
 >
 > **Utilise ce projet en connaissance de cause.** Certaines fonctionnalités peuvent cesser de fonctionner du jour au lendemain.
 
@@ -73,7 +73,6 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP  -->  Selfbot  -->  Discord A
 | 🔇 **Anti-Group DM** | Quitte automatiquement tout groupe DM entrant — option pour quitter tous les groupes existants |
 | ⬆️ **Auto-Bump** | Envoi automatique de `/bump` Disboard toutes les 2h dans les salons que tu veux |
 | 🔫 **Guns.lol** | Envoi automatique de ton lien guns.lol toutes les 30 min dans le salon que tu veux (préférablement le salon bio-links du serveur officiel guns.lol)|
-| 🎁 **Nitro Sniper** | Détection et claim automatique des codes Nitro avec historique |
 | 🏆 **Discord Quests** | Complétion automatique des quêtes Discord (vidéo, plateforme, activité…) |
 
 ### 🎨 Personnalisation

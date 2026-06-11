@@ -24,7 +24,6 @@ const gunslol   = require("../panels/gunslol");
 const joinvc    = require("../panels/joinvc");
 const purge     = require("../panels/purge");
 const sysinfo   = require("../panels/sysinfo");
-const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
 const backups   = require("../panels/backups");
@@ -80,7 +79,6 @@ async function handle(interaction) {
     "panel:joinvc":       "joinvc",
     "panel:purge":        "purge",
     "panel:sysinfo":      "sysinfo",
-    "panel:nitro":        "nitro",
     "panel:rpc":          "rpc",
     "panel:rpc_cs":       "rpc_cs",
     "panel:rpc_spotify":  "rpc_spotify",
@@ -382,32 +380,6 @@ async function handle(interaction) {
     ]));
   }
   if (id === "gunslol:resetMsg") { const res = await sendAction("gunslol.resetMsg"); return interaction.update(gunslol.build(res?.data ?? {})); }
-
-  // ── NITRO SNIPER ──────────────────────────────────────────────────────────
-  if (id === "nitro:toggle") { const res = await sendAction("nitro.toggle"); return interaction.update(nitro.build(res?.data ?? {})); }
-  if (id === "nitro:history") { const res = await sendAction("nitro.getHistory"); return interaction.update(nitro.buildHistory(res?.data ?? {})); }
-  if (id === "nitro:exclusions") { const res = await sendAction("nitro.getExclusions"); return interaction.update(nitro.buildExclusions(res?.data ?? {})); }
-  if (id === "nitro:clearHistory") { const res = await sendAction("nitro.clearHistory"); return interaction.update(nitro.buildHistory(res?.data ?? {})); }
-  if (id === "nitro:toggleNotifyClaim") {
-    const state = await sendAction("nitro.getState");
-    const res = await sendAction("nitro.setNotifyOnClaim", { value: !(state?.data?.notifyOnClaim ?? true) });
-    return interaction.update(nitro.build(res?.data ?? {}));
-  }
-  if (id === "nitro:toggleNotifyFail") {
-    const state = await sendAction("nitro.getState");
-    const res = await sendAction("nitro.setNotifyOnFail", { value: !(state?.data?.notifyOnFail ?? false) });
-    return interaction.update(nitro.build(res?.data ?? {}));
-  }
-  if (id === "nitro:addExclusion") {
-    return interaction.showModal(modal("modal:nitro_excl_add", "Exclure un serveur", [
-      { id: "guildId", label: "ID du serveur à exclure", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "nitro:removeExclusion") {
-    return interaction.showModal(modal("modal:nitro_excl_remove", "Retirer une exclusion", [
-      { id: "guildId", label: "ID du serveur à retirer", placeholder: "123456789012345678" },
-    ]));
-  }
 
   // ── RPC — Activités ───────────────────────────────────────────────────────
   if (id === "rpc:toggle") { const res = await sendAction("rpc.toggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }

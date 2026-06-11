@@ -19,7 +19,6 @@ const gunslol     = require("../panels/gunslol");
 const joinvc      = require("../panels/joinvc");
 const purge       = require("../panels/purge");
 const sysinfo     = require("../panels/sysinfo");
-const nitro       = require("../panels/nitro");
 const rpc         = require("../panels/rpc");
 const quests      = require("../panels/quests");
 const backups     = require("../panels/backups");
@@ -53,7 +52,6 @@ async function fetchAndBuild(panelKey) {
     autobump:     () => sendAction("autobump.list"),
     gunslol:      () => sendAction("gunslol.getState"),
     joinvc:       () => sendAction("voice.getState"),
-    nitro:        () => sendAction("nitro.getState"),
     rpc:          () => sendAction("rpc.getState"),
     rpc_cs:       () => sendAction("rpc.getState"),
     rpc_spotify:  () => sendAction("rpc.getState"),
@@ -90,7 +88,6 @@ async function fetchAndBuild(panelKey) {
     joinvc:       (d) => joinvc.build(d),
     purge:        ()  => purge.build(),
     sysinfo:      ()  => sysinfo.build(),
-    nitro:        (d) => nitro.build(d),
     rpc:          (d) => rpc.build(d),
     rpc_cs:       (d) => rpc.buildCs(d),
     rpc_spotify:  (d) => rpc.buildSpotify(d),

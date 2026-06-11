@@ -15,7 +15,6 @@ const afk       = require("./src/self/commands/utilitaires/afk");
 const stalk     = require("./src/self/commands/utilitaires/stalk");
 const gunslol   = require("./src/self/commands/fun/gunslol");
 const joinvc    = require("./src/self/commands/voice/joinvc");
-const nitro     = require("./src/self/commands/utilitaires/nitro");
 const rpc       = require("./src/self/commands/utilitaires/rpc");
 const quests    = require("./src/self/commands/utilitaires/quests");
 const autobump  = require("./src/self/commands/utilitaires/autobump");
@@ -86,10 +85,8 @@ client.once("ready", async () => {
   }
 });
 
-// ── messageCreate : AFK + commandes préfixe + nitro sniper ───────────────────
+// ── messageCreate : AFK + commandes préfixe ───────────────────
 client.on("messageCreate", async (message) => {
-  // Nitro sniper (traite tous les messages, y compris ceux des autres)
-  nitro.handleNitroMessage(message, client);
 
   // Messages des autres → réponse AFK si besoin
   if (message.author.id !== client.user.id) {
