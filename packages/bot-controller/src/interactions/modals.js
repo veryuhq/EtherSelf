@@ -20,7 +20,6 @@ const gunslol   = require("../panels/gunslol");
 const joinvc    = require("../panels/joinvc");
 const purge     = require("../panels/purge");
 const sysinfo   = require("../panels/sysinfo");
-const nitro     = require("../panels/nitro");
 const rpc       = require("../panels/rpc");
 const quests    = require("../panels/quests");
 const backups   = require("../panels/backups");
@@ -68,7 +67,6 @@ async function handle(interaction) {
     "panel:joinvc":       "joinvc",
     "panel:purge":        "purge",
     "panel:sysinfo":      "sysinfo",
-    "panel:nitro":        "nitro",
     "panel:rpc":          "rpc",
     "panel:rpc_cs":       "rpc_cs",
     "panel:rpc_spotify":  "rpc_spotify",
@@ -320,22 +318,6 @@ async function handle(interaction) {
     const res = await sendAction("gunslol.setMsg", { message: msg });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(gunslol.build(res?.data ?? {}));
-  }
-
-  // ── NITRO SNIPER ──────────────────────────────────────────────────────────
-  if (id === "modal:nitro_excl_add") {
-    const guildId = interaction.fields.getTextInputValue("guildId").trim();
-    const res = await sendAction("nitro.addExclusion", { guildId });
-    if (!res?.success) return _error(interaction, res?.error);
-    const excl = await sendAction("nitro.getExclusions");
-    return interaction.update(nitro.buildExclusions(excl?.data ?? {}));
-  }
-  if (id === "modal:nitro_excl_remove") {
-    const guildId = interaction.fields.getTextInputValue("guildId").trim();
-    const res = await sendAction("nitro.removeExclusion", { guildId });
-    if (!res?.success) return _error(interaction, res?.error);
-    const excl = await sendAction("nitro.getExclusions");
-    return interaction.update(nitro.buildExclusions(excl?.data ?? {}));
   }
 
   // ── JOINVC ────────────────────────────────────────────────────────────────

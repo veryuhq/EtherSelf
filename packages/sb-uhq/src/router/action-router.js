@@ -8,7 +8,6 @@ const bookmark  = require("../self/commands/utilitaires/bookmark");
 const msgbm     = require("../self/commands/utilitaires/msgbookmarks");
 const autobump  = require("../self/commands/utilitaires/autobump");
 const purge     = require("../self/commands/utilitaires/purge");
-const nitro     = require("../self/commands/utilitaires/nitro");
 const rpc       = require("../self/commands/utilitaires/rpc");
 const quests    = require("../self/commands/utilitaires/quests");
 const snapshot  = require("../self/commands/utilitaires/snapshot");
@@ -97,17 +96,6 @@ const ACTIONS = {
   "gunslol.resetMsg":   (c, p) => gunslol.execute(c, { action: "resetMsg" }),
   "gunslol.setChannel": (c, p) => gunslol.execute(c, { action: "setChannel", channelId: p.channelId }),
   "gunslol.getState":   (c, p) => gunslol.execute(c, { action: "getState" }),
-
-  // ── NITRO SNIPER ──────────────────────────────────────────────────────────
-  "nitro.toggle":           (c, p) => nitro.execute(c, { action: "toggle" }),
-  "nitro.getState":         (c, p) => nitro.execute(c, { action: "getState" }),
-  "nitro.getHistory":       (c, p) => nitro.execute(c, { action: "getHistory" }),
-  "nitro.clearHistory":     (c, p) => nitro.execute(c, { action: "clearHistory" }),
-  "nitro.setNotifyOnClaim": (c, p) => nitro.execute(c, { action: "setNotifyOnClaim", value:   p.value }),
-  "nitro.setNotifyOnFail":  (c, p) => nitro.execute(c, { action: "setNotifyOnFail",  value:   p.value }),
-  "nitro.addExclusion":     (c, p) => nitro.execute(c, { action: "addExclusion",     guildId: p.guildId }),
-  "nitro.removeExclusion":  (c, p) => nitro.execute(c, { action: "removeExclusion",  guildId: p.guildId }),
-  "nitro.getExclusions":    (c, p) => nitro.execute(c, { action: "getExclusions" }),
 
   // ── RPC + Custom Status ───────────────────────────────────────────────────
   "rpc.getState":        (c, p) => rpc.execute(c, { action: "getState" }),
