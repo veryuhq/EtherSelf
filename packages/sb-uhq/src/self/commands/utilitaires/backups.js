@@ -245,7 +245,9 @@ function isEmojiLimitError(err) {
 async function fetchBase64(url) {
   try {
     const res = await fetch(url);
-    const buf = await res.buffer();
+    // node-fetch v3 supprime .buffer() — on passe par arrayBuffer() + Buffer.from()
+    const arrayBuf = await res.arrayBuffer();
+    const buf  = Buffer.from(arrayBuf);
     const mime = res.headers.get("content-type") || "image/png";
     return `data:${mime};base64,${buf.toString("base64")}`;
   } catch { return null; }
@@ -417,6 +419,9 @@ async function runClone(client, sourceGuildId, targetGuildId, options, jobId) {
   pushLog(`🚀 "${src.name}" → "${tgt.name}"`);
   await notifyProgress(jobId, { step: "start", sourceGuild: src.name, targetGuild: tgt.name, current: 0, total: 0, label: "Initialisation…", logs: logBuffer.join("\n"), jobId, done: false });
 
+  // Chargement séquentiel (pas en parallèle) pour limiter le pic mémoire.
+  // Chaque fetch peuple le cache discord.js — les faire en //, c'est tripler
+  // la RAM consommée au même instant.
   await src.channels.fetch().catch(() => {});
   await src.roles.fetch().catch(() => {});
   await src.emojis.fetch().catch(() => {});
@@ -429,12 +434,16 @@ async function runClone(client, sourceGuildId, targetGuildId, options, jobId) {
     await flushLogs({ step: "roles_done", label: "Rôles terminés", done: false, sourceGuild: ctx.src, targetGuild: ctx.tgt });
 
     if (cloneChannelsEnabled) channelMap = await cloneChannels(src, tgt, roleMap, jobId, pushLog, ctx);
+    // roleMap n'est plus nécessaire après les salons — libérer la mémoire
+    roleMap.clear();
     await flushLogs({ step: "channels_done", label: "Salons terminés", done: false, sourceGuild: ctx.src, targetGuild: ctx.tgt });
 
     if (cloneEmojisEnabled) emojisCloned = await cloneEmojis(src, tgt, jobId, pushLog, ctx);
+    // channelMap n'est plus nécessaire après les emojis (sauf cloneSettings)
     await flushLogs({ step: "emojis_done", label: "Emojis terminés", done: false, sourceGuild: ctx.src, targetGuild: ctx.tgt });
 
     if (cloneSettingsEnabled && cloneChannelsEnabled) await cloneSettings(src, tgt, channelMap, pushLog);
+    channelMap.clear();
   } catch (err) {
     cleanJob(jobId);
     if (err.cancelled) {

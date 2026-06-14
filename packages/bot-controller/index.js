@@ -101,7 +101,7 @@ client.commands.set(panel.data.name, panel);
 //  HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function readBody(req, maxBytes = 1024 * 1024) {
+function readBody(req, maxBytes = 50 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let total = 0;
@@ -274,16 +274,26 @@ const logServer = http.createServer(async (req, res) => {
   // ── POST /file ────────────────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/file") {
     let tmpPath = null;
+    let usedLocalPath = false;
     try {
       const body = JSON.parse(rawBody || "{}");
-      const { filename, base64, meta, channelId } = body;
+      const { filename, base64, filepath: localFilepath, meta, channelId } = body;
 
-      if (!filename || !base64) { res.writeHead(400).end(); return; }
-      if (!client.isReady())    { res.writeHead(503).end(); return; }
+      if (!filename || (!base64 && !localFilepath)) { res.writeHead(400).end(); return; }
+      if (!client.isReady()) { res.writeHead(503).end(); return; }
 
       const tmpInfo = safeTmpFile(filename);
       tmpPath = tmpInfo.tmpPath;
-      fs.writeFileSync(tmpPath, Buffer.from(base64, "base64"), { mode: 0o600 });
+
+      if (localFilepath) {
+        // Chemin local : les deux process tournent sur le même VPS,
+        // on lit directement le fichier sans passer par base64 en mémoire.
+        fs.copyFileSync(localFilepath, tmpPath);
+        fs.chmodSync(tmpPath, 0o600);
+        usedLocalPath = true;
+      } else {
+        fs.writeFileSync(tmpPath, Buffer.from(base64, "base64"), { mode: 0o600 });
+      }
 
       const filenameSafe = tmpInfo.safeName;
       const attachment = new AttachmentBuilder(tmpPath, { name: filenameSafe });
@@ -316,6 +326,9 @@ const logServer = http.createServer(async (req, res) => {
       console.error("[CONTROLLER] /file erreur :", err.message);
       res.writeHead(500).end();
     } finally {
+      // Nettoyage du fichier tmp créé par le bot-controller.
+      // Si on a utilisé localFilepath (chemin local depuis le selfbot),
+      // le selfbot garde son propre fichier dans data/snapshots/ — on ne le supprime pas.
       if (tmpPath) {
         try { fs.unlinkSync(tmpPath); } catch {}
         try { fs.rmSync(path.dirname(tmpPath), { recursive: true, force: true }); } catch {}

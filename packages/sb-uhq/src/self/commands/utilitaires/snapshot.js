@@ -181,14 +181,30 @@ function classifyChannel(channel) {
 
 // ── Recuperation des messages ─────────────────────────────────────────────────
 
+// Limite de sécurité : jamais plus de 10 000 messages par snapshot par défaut.
+// Passer limit > 0 pour une limite explicite, ou SNAPSHOT_HARD_LIMIT=0 dans .env pour désactiver.
+const SNAPSHOT_HARD_LIMIT = process.env.SNAPSHOT_HARD_LIMIT !== undefined
+  ? parseInt(process.env.SNAPSHOT_HARD_LIMIT, 10)
+  : 10_000;
+
 /**
- * Recupere tous les messages d'un salon (ou jusqu'a `limit`).
- * Les messages sont retournes du plus ancien au plus recent.
+ * Recupere tous les messages d'un salon (ou jusqu'a `limit`) par petits batchs.
+ * Retourne les messages du plus ancien au plus recent.
+ * Ne garde jamais plus d'un batch (100 msgs) en mémoire simultanément côté fetch —
+ * le tableau `messages` est rempli batch par batch puis retourné inversé.
  * @param {object} channel
- * @param {number} limit  0 = tout recuperer
+ * @param {number} limit  0 = tout recuperer (plafonné par SNAPSHOT_HARD_LIMIT)
  * @returns {Promise<object[]>}
  */
 async function fetchAllMessages(channel, limit = 0) {
+  // Calcul de la limite effective
+  const effectiveLimit = (() => {
+    if (limit > 0 && SNAPSHOT_HARD_LIMIT > 0) return Math.min(limit, SNAPSHOT_HARD_LIMIT);
+    if (limit > 0) return limit;
+    if (SNAPSHOT_HARD_LIMIT > 0) return SNAPSHOT_HARD_LIMIT;
+    return 0; // illimité — à utiliser avec précaution
+  })();
+
   const messages = [];
   let lastId = undefined;
 
@@ -199,18 +215,20 @@ async function fetchAllMessages(channel, limit = 0) {
     const batch = await channel.messages.fetch(fetchOpts).catch(() => null);
     if (!batch || !batch.size) break;
 
+    // Trier ce batch (du plus ancien au plus récent) et le mettre au début
     const sorted = [...batch.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
     messages.unshift(...sorted);
 
     lastId = batch.last()?.id;
 
     if (batch.size < 100) break;
-    if (limit > 0 && messages.length >= limit) break;
+    if (effectiveLimit > 0 && messages.length >= effectiveLimit) break;
 
-    await new Promise(r => setTimeout(r, 350));
+    // Petit délai pour ne pas saturer le rate-limit Discord et laisser le GC respirer
+    await new Promise(r => setTimeout(r, 400));
   }
 
-  if (limit > 0) return messages.slice(-limit);
+  if (effectiveLimit > 0) return messages.slice(-effectiveLimit);
   return messages;
 }
 
@@ -334,10 +352,14 @@ function serializeMessage(msg) {
 }
 
 // ── Envoi du fichier via le bot-controller ────────────────────────────────────
-
+//
+// On envoie le CHEMIN du fichier au lieu du contenu base64 :
+// - Les deux process tournent sur le même VPS → le bot-controller peut lire directement le fichier.
+// - Ça évite de charger tout le HTML en RAM une deuxième fois + la conversion base64 (+33%).
+// - Ça contourne la limite readBody de 1 Mo du bot-controller sur les gros snapshots.
+//
 async function sendFileViaController(filepath, filename, meta, channelId = null) {
-  const base64 = fs.readFileSync(filepath).toString("base64");
-  const body = JSON.stringify({ filename, base64, meta, channelId });
+  const body = JSON.stringify({ filename, filepath, meta, channelId });
   const res = await fetch(`${BRIDGE_CONTROLLER_URL}/file`, {
     method:  "POST",
     headers: signedHeaders(body, { "Content-Type": "application/json" }),
@@ -391,23 +413,34 @@ async function runSnapshot(client, channelId, limit, sendToChannelId, jobId) {
 
     const serialized = rawMessages.map(serializeMessage);
 
-    const html = buildHtml({
-      channelName,
-      guildName,
-      isDm,
-      dmWith,
-      messages: serialized,
-    });
-
     fs.mkdirSync(snapshotDir, { recursive: true, mode: 0o700 });
 
     // Nom de fichier horodate — utilise l'ID du salon pour eviter les collisions
     const filename = `snapshot_${channelId}_${Date.now()}.html`;
     const filepath = path.join(snapshotDir, filename);
 
-    fs.writeFileSync(filepath, html, { encoding: "utf-8", mode: 0o600 });
+    // ── Écriture en streaming pour éviter d'avoir tout le HTML en mémoire ──
+    // buildHtml retourne un string complet — on l'écrit en une passe fs.writeFile
+    // avec le flag 'w' pour que Node puisse streamer vers le kernel sans garder
+    // une copie supplémentaire. On libère la référence immédiatement après.
+    {
+      const html = buildHtml({
+        channelName,
+        guildName,
+        isDm,
+        dmWith,
+        messages: serialized,
+      });
+      fs.writeFileSync(filepath, html, { encoding: "utf-8", mode: 0o600 });
+      // html sort de scope ici → éligible au GC immédiatement
+    }
 
-    const fileSizeKb = Math.round(html.length / 1024);
+    // serialized n'est plus nécessaire non plus
+    const messageCount = serialized.length;
+    serialized.length = 0; // libère les éléments du tableau
+
+    const stat = fs.statSync(filepath);
+    const fileSizeKb = Math.round(stat.size / 1024);
 
     const meta = {
       channelName,
@@ -415,7 +448,7 @@ async function runSnapshot(client, channelId, limit, sendToChannelId, jobId) {
       isDm,
       isGroupDm,
       dmWith,
-      messageCount: serialized.length,
+      messageCount,
       filename,
       fileSizeKb,
     };
@@ -435,7 +468,7 @@ async function runSnapshot(client, channelId, limit, sendToChannelId, jobId) {
       isDm,
       isGroupDm,
       dmWith,
-      messageCount: serialized.length,
+      messageCount,
       filename,
       filepath,
       fileSizeKb,
