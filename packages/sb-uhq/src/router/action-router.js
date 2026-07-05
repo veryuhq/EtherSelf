@@ -16,7 +16,6 @@ const prefix    = require("../self/commands/gestion/prefix");
 const antigroup = require("../self/commands/gestion/antigroup");
 const msglog    = require("../self/commands/gestion/msglog");
 const token     = require("../self/commands/gestion/token");
-const gunslol   = require("../self/commands/fun/gunslol");
 const mock      = require("../self/commands/fun/mock");
 const spoiler   = require("../self/commands/fun/spoiler");
 const ping      = require("../self/commands/informations/ping");
@@ -88,14 +87,6 @@ const ACTIONS = {
   "msglog.add":         (c, p) => msglog.execute(c, { action: "add",    guildId: p.guildId }),
   "msglog.remove":      (c, p) => msglog.execute(c, { action: "remove", guildId: p.guildId }),
   "msglog.list":        (c, p) => msglog.execute(c, { action: "list" }),
-
-  // ── GUNSLOL ───────────────────────────────────────────────────────────────
-  "gunslol.toggle":     (c, p) => gunslol.execute(c, { action: "toggle" }),
-  "gunslol.setLink":    (c, p) => gunslol.execute(c, { action: "setLink",    link:      p.link }),
-  "gunslol.setMsg":     (c, p) => gunslol.execute(c, { action: "setMsg",     message:   p.message }),
-  "gunslol.resetMsg":   (c, p) => gunslol.execute(c, { action: "resetMsg" }),
-  "gunslol.setChannel": (c, p) => gunslol.execute(c, { action: "setChannel", channelId: p.channelId }),
-  "gunslol.getState":   (c, p) => gunslol.execute(c, { action: "getState" }),
 
   // ── RPC + Custom Status ───────────────────────────────────────────────────
   "rpc.getState":        (c, p) => rpc.execute(c, { action: "getState" }),

@@ -15,7 +15,6 @@ const bookmarks   = require("../panels/bookmarks");
 const msgbm       = require("../panels/msgbookmarks");
 const antigroup   = require("../panels/antigroup");
 const autobump    = require("../panels/autobump");
-const gunslol     = require("../panels/gunslol");
 const joinvc      = require("../panels/joinvc");
 const purge       = require("../panels/purge");
 const sysinfo     = require("../panels/sysinfo");
@@ -50,7 +49,6 @@ async function fetchAndBuild(panelKey) {
     msgbookmarks: () => sendAction("msgbm.list"),
     antigroup:    () => sendAction("antigroup.getState"),
     autobump:     () => sendAction("autobump.list"),
-    gunslol:      () => sendAction("gunslol.getState"),
     joinvc:       () => sendAction("voice.getState"),
     rpc:          () => sendAction("rpc.getState"),
     rpc_cs:       () => sendAction("rpc.getState"),
@@ -84,7 +82,6 @@ async function fetchAndBuild(panelKey) {
     msgbookmarks: (d) => msgbm.build(d),
     antigroup:    (d) => antigroup.build(d),
     autobump:     (d) => autobump.build(d),
-    gunslol:      (d) => gunslol.build(d),
     joinvc:       (d) => joinvc.build(d),
     purge:        ()  => purge.build(),
     sysinfo:      ()  => sysinfo.build(),
