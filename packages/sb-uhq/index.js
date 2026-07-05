@@ -13,7 +13,6 @@ const msglog    = require("./src/self/commands/gestion/msglog");
 const antigroup = require("./src/self/commands/gestion/antigroup");
 const afk       = require("./src/self/commands/utilitaires/afk");
 const stalk     = require("./src/self/commands/utilitaires/stalk");
-const gunslol   = require("./src/self/commands/fun/gunslol");
 const joinvc    = require("./src/self/commands/voice/joinvc");
 const rpc       = require("./src/self/commands/utilitaires/rpc");
 const quests    = require("./src/self/commands/utilitaires/quests");
@@ -52,9 +51,6 @@ client.once("ready", async () => {
   if (hasActivity || hasCs) {
     rpc.onReady(client);
   }
-
-  // Gunslol auto-loop si déjà activé en config
-  gunslol.onReady(client);
 
   // Auto-rejoin du dernier salon vocal si configuré
   await joinvc.autoRejoin(client);

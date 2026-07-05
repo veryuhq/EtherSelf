@@ -16,7 +16,6 @@ const bookmarks = require("../panels/bookmarks");
 const msgbm     = require("../panels/msgbookmarks");
 const antigroup = require("../panels/antigroup");
 const autobump  = require("../panels/autobump");
-const gunslol   = require("../panels/gunslol");
 const joinvc    = require("../panels/joinvc");
 const purge     = require("../panels/purge");
 const sysinfo   = require("../panels/sysinfo");
@@ -63,7 +62,6 @@ async function handle(interaction) {
     "panel:msgbookmarks": "msgbookmarks",
     "panel:antigroup":    "antigroup",
     "panel:autobump":     "autobump",
-    "panel:gunslol":      "gunslol",
     "panel:joinvc":       "joinvc",
     "panel:purge":        "purge",
     "panel:sysinfo":      "sysinfo",
@@ -298,26 +296,6 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     const state = await sendAction("autobump.list");
     return interaction.update(autobump.build(state?.data ?? {}));
-  }
-
-  // ── GUNSLOL ───────────────────────────────────────────────────────────────
-  if (id === "modal:gunslol_link") {
-    const link = interaction.fields.getTextInputValue("link").trim();
-    const res = await sendAction("gunslol.setLink", { link });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(gunslol.build(res?.data ?? {}));
-  }
-  if (id === "modal:gunslol_channel") {
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("gunslol.setChannel", { channelId });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(gunslol.build(res?.data ?? {}));
-  }
-  if (id === "modal:gunslol_msg") {
-    const msg = interaction.fields.getTextInputValue("msg").trim() || null;
-    const res = await sendAction("gunslol.setMsg", { message: msg });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(gunslol.build(res?.data ?? {}));
   }
 
   // ── JOINVC ────────────────────────────────────────────────────────────────

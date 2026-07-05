@@ -20,7 +20,6 @@ const bookmarks = require("../panels/bookmarks");
 const msgbm     = require("../panels/msgbookmarks");
 const antigroup = require("../panels/antigroup");
 const autobump  = require("../panels/autobump");
-const gunslol   = require("../panels/gunslol");
 const joinvc    = require("../panels/joinvc");
 const purge     = require("../panels/purge");
 const sysinfo   = require("../panels/sysinfo");
@@ -75,7 +74,6 @@ async function handle(interaction) {
     "panel:msgbookmarks": "msgbookmarks",
     "panel:antigroup":    "antigroup",
     "panel:autobump":     "autobump",
-    "panel:gunslol":      "gunslol",
     "panel:joinvc":       "joinvc",
     "panel:purge":        "purge",
     "panel:sysinfo":      "sysinfo",
@@ -358,28 +356,6 @@ async function handle(interaction) {
     const state = await sendAction("autobump.list");
     return interaction.update(autobump.build(state?.data ?? {}));
   }
-
-  // ── GUNSLOL ───────────────────────────────────────────────────────────────
-  if (id === "gunslol:toggle") { const res = await sendAction("gunslol.toggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(gunslol.build(res?.data ?? {})); }
-  if (id === "gunslol:setLink") {
-    const res = await sendAction("gunslol.getState");
-    return interaction.showModal(modal("modal:gunslol_link", "Définir le lien guns.lol", [
-      { id: "link", label: "Lien (doit commencer par https://guns.lol/)", placeholder: "https://guns.lol/tonpseudo", value: res?.data?.link ?? "" },
-    ]));
-  }
-  if (id === "gunslol:setChannel") {
-    const res = await sendAction("gunslol.getState");
-    return interaction.showModal(modal("modal:gunslol_channel", "Définir le salon d'envoi", [
-      { id: "channelId", label: "ID du salon", placeholder: "123456789012345678", value: res?.data?.channelId ?? "" },
-    ]));
-  }
-  if (id === "gunslol:setMsg") {
-    const res = await sendAction("gunslol.getState");
-    return interaction.showModal(modal("modal:gunslol_msg", "Message custom guns.lol", [
-      { id: "msg", label: "Message ({link} = lien inséré)", placeholder: "Check mon profil : {link}", value: res?.data?.customMessage ?? "", required: false, long: true },
-    ]));
-  }
-  if (id === "gunslol:resetMsg") { const res = await sendAction("gunslol.resetMsg"); return interaction.update(gunslol.build(res?.data ?? {})); }
 
   // ── RPC — Activités ───────────────────────────────────────────────────────
   if (id === "rpc:toggle") { const res = await sendAction("rpc.toggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
