@@ -31,7 +31,7 @@ const PREFIX_COMMANDS = { tag, mock, spoiler };
 //  CLIENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-const client = new Client();
+const client = new Client({ readyTimeout: 120_000 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  EVENTS
