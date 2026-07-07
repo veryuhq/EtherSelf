@@ -266,9 +266,11 @@ async function handle(interaction) {
 
   // ── AUTOBUMP ──────────────────────────────────────────────────────────────
   if (id === "modal:autobump_add") {
-    const guildId   = interaction.fields.getTextInputValue("guildId").trim();
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("autobump.add", { guildId, channelId });
+    const guildId     = interaction.fields.getTextInputValue("guildId").trim();
+    const channelId   = interaction.fields.getTextInputValue("channelId").trim();
+    const appId       = interaction.fields.getTextInputValue("appId").trim();
+    const commandName = interaction.fields.getTextInputValue("commandName").trim();
+    const res = await sendAction("autobump.add", { guildId, channelId, appId, commandName });
     if (!res?.success) return _error(interaction, res?.error);
     const state = await sendAction("autobump.list");
     return interaction.update(autobump.build(state?.data ?? {}));

@@ -321,8 +321,10 @@ async function handle(interaction) {
   // ── AUTOBUMP ──────────────────────────────────────────────────────────────
   if (id === "autobump:add") {
     return interaction.showModal(modal("modal:autobump_add", "Ajouter un salon autobump", [
-      { id: "guildId",   label: "ID du serveur", placeholder: "123456789012345678" },
-      { id: "channelId", label: "ID du salon",   placeholder: "123456789012345678" },
+      { id: "guildId",     label: "ID du serveur", placeholder: "123456789012345678" },
+      { id: "channelId",   label: "ID du salon",   placeholder: "123456789012345678" },
+      { id: "appId",       label: "APP ID du bot de bump", placeholder: "302050872383242240" },
+      { id: "commandName", label: "Nom de la commande", placeholder: "bump" },
     ]));
   }
   if (id === "autobump:remove") {
