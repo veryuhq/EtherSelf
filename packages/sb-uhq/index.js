@@ -12,7 +12,6 @@ const { startBridgeServer } = require("./src/bridge/server");
 const msglog    = require("./src/self/commands/gestion/msglog");
 const antigroup = require("./src/self/commands/gestion/antigroup");
 const afk       = require("./src/self/commands/utilitaires/afk");
-const stalk     = require("./src/self/commands/utilitaires/stalk");
 const joinvc    = require("./src/self/commands/voice/joinvc");
 const rpc       = require("./src/self/commands/utilitaires/rpc");
 const quests    = require("./src/self/commands/utilitaires/quests");
@@ -121,10 +120,6 @@ client.on("channelCreate", (channel) => {
   antigroup.handleChannelCreate(client, channel);
 });
 
-// ── Stalk vocal ───────────────────────────────────────────────────────────────
-client.on("voiceStateUpdate", (oldState, newState) => {
-  stalk.handleVoiceStateUpdate(oldState, newState, client);
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  LOGIN

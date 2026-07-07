@@ -19,7 +19,6 @@ function build(data = {}) {
         { label: "⚙️  Configuration",                      value: "config",       description: "Préfixe et informations système" },
         { label: "😴  AFK",                                  value: "afk",          description: "Configurer le mode AFK" },
         { label: "🔍  Snipe / MessageLogger / Snapshots",    value: "snipe",        description: "Whitelist, consultation des messages et snapshots de salon" },
-        { label: "👁️  Stalk",                               value: "stalk",        description: "Surveiller des utilisateurs en vocal" },
         { label: "🏷️  Tags",                                value: "tags",         description: "Gérer tes messages prédéfinis" },
         { label: "📌  Bookmarks salons",                     value: "bookmarks",    description: "Salons favoris" },
         { label: "💬  Bookmarks messages",                   value: "msgbookmarks", description: "Messages importants sauvegardés" },
