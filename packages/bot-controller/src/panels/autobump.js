@@ -8,10 +8,17 @@ function build(data = {}) {
 
   const entries = Object.entries(config);
   const list = entries.length
-    ? entries.flatMap(([gId, channels]) =>
-        channels.map(cId => `• Serveur \`${gId}\` → <#${cId}>`)
-      ).join("\n")
-    : "*Aucun salon configuré.*";
+    ? entries.flatMap(([gId, guildConfig]) => {
+        const channels = Array.isArray(guildConfig) ? guildConfig : (guildConfig.channels ?? []);
+        const appId = Array.isArray(guildConfig) ? "302050872383242240" : (guildConfig.appId ?? "302050872383242240");
+        const commandName = Array.isArray(guildConfig) ? "bump" : (guildConfig.commandName ?? "bump");
+        const header = `• Serveur \`${gId}\` → app \`${appId}\`, commande \`/${commandName}\``;
+        const channelLines = channels.length
+          ? channels.map(cId => `  ↳ <#${cId}>`)
+          : ["  ↳ *Aucun salon configuré.*"];
+        return [header, ...channelLines];
+      }).join("\n")
+    : "*Aucun serveur configuré.*";
 
   return replyV2(
     container([

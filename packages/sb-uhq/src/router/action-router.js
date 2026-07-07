@@ -71,7 +71,7 @@ const ACTIONS = {
   "antigroup.leaveAll": (c, p) => antigroup.execute(c, { action: "leaveAll" }),
 
   // ── AUTOBUMP ─────────────────────────────────────────────────────────────
-  "autobump.add":       (c, p) => autobump.execute(c, { action: "add",    guildId: p.guildId, channelId: p.channelId }),
+  "autobump.add":       (c, p) => autobump.execute(c, { action: "add",    guildId: p.guildId, channelId: p.channelId, appId: p.appId, commandName: p.commandName }),
   "autobump.remove":    (c, p) => autobump.execute(c, { action: "remove", guildId: p.guildId, channelId: p.channelId }),
   "autobump.start":     (c, p) => autobump.execute(c, { action: "start" }),
   "autobump.stop":      (c, p) => autobump.execute(c, { action: "stop" }),

@@ -6,8 +6,8 @@ const { dataPath } = require("../../func/data-path");
 
 const AUTOBUMP_FILE = dataPath("config", "autobump.json");
 
-// ID du bot Disboard
-const DISBOARD_BOT_ID = "302050872383242240";
+const DEFAULT_BUMP_APP_ID = "302050872383242240";
+const DEFAULT_BUMP_COMMAND = "bump";
 
 let _interval = null;
 
@@ -26,18 +26,18 @@ function save(data) {
 // ── Bump loop ─────────────────────────────────────────────────────────────────
 
 async function runBumps(client) {
-  const data = load();
-  for (const [guildId, channels] of Object.entries(data.config ?? data)) {
-    if (!Array.isArray(channels)) continue;
-    for (const channelId of channels) {
+  const data = loadConfig();
+  for (const [guildId, guildConfig] of Object.entries(data.config ?? {})) {
+    const normalized = normalizeGuildConfig(guildConfig);
+    for (const channelId of normalized.channels) {
       try {
         const channel = await client.channels.fetch(channelId).catch(() => null);
         if (!channel) {
           console.log(`[AUTOBUMP] Salon ${channelId} introuvable, skip.`);
           continue;
         }
-        await channel.sendSlash(DISBOARD_BOT_ID, "bump");
-        console.log(`[AUTOBUMP] /bump envoyé dans ${channel.name} (${channelId})`);
+        await channel.sendSlash(normalized.appId, normalized.commandName);
+        console.log(`[AUTOBUMP] /${normalized.commandName} envoyé dans ${channel.name} (${channelId}) via ${normalized.appId}`);
       } catch (e) {
         console.error(`[AUTOBUMP] Erreur bump ${channelId} :`, e.message);
       }
@@ -72,15 +72,33 @@ function onReady(client) {
 
 // ── Helpers pour lire/écrire la config proprement ────────────────────────────
 
+function normalizeGuildConfig(guildConfig) {
+  if (Array.isArray(guildConfig)) {
+    return {
+      channels: guildConfig,
+      appId: DEFAULT_BUMP_APP_ID,
+      commandName: DEFAULT_BUMP_COMMAND,
+    };
+  }
+
+  return {
+    channels: Array.isArray(guildConfig?.channels) ? guildConfig.channels : [],
+    appId: String(guildConfig?.appId || DEFAULT_BUMP_APP_ID).trim(),
+    commandName: String(guildConfig?.commandName || DEFAULT_BUMP_COMMAND).trim(),
+  };
+}
+
+function normalizeConfig(config = {}) {
+  return Object.fromEntries(
+    Object.entries(config).map(([guildId, guildConfig]) => [guildId, normalizeGuildConfig(guildConfig)])
+  );
+}
+
 function loadConfig() {
   const raw = load();
-  // Migration : si l'ancien format était un objet plat guildId -> channels[]
-  if (raw.config !== undefined) {
-    return raw;
-  }
-  // Ancien format : { guildId: [channelId, ...], ... }
-  // On le migre vers { running: false, config: { ... } }
-  const migrated = { running: false, config: raw };
+  const migrated = raw.config !== undefined
+    ? { ...raw, config: normalizeConfig(raw.config) }
+    : { running: false, config: normalizeConfig(raw) };
   save(migrated);
   return migrated;
 }
@@ -93,10 +111,10 @@ function saveConfig(data) {
 
 /**
  * @param {import("discord.js-selfbot-v13").Client} client
- * @param {{ action: "add"|"remove"|"start"|"stop"|"list", guildId?: string, channelId?: string }} payload
+ * @param {{ action: "add"|"remove"|"start"|"stop"|"list", guildId?: string, channelId?: string, appId?: string, commandName?: string }} payload
  */
 async function execute(client, payload) {
-  const { action, guildId, channelId } = payload;
+  const { action, guildId, channelId, appId, commandName } = payload;
   const data = loadConfig();
 
   if (action === "list") {
@@ -105,28 +123,32 @@ async function execute(client, payload) {
 
   if (action === "add") {
     if (!guildId || !channelId) throw new Error("guildId et channelId requis.");
-    data.config[guildId] ??= [];
-    if (data.config[guildId].includes(channelId))
-      throw new Error("Ce salon est déjà configuré.");
-    data.config[guildId].push(channelId);
+    const cleanedAppId = String(appId || DEFAULT_BUMP_APP_ID).trim();
+    const cleanedCommandName = String(commandName || DEFAULT_BUMP_COMMAND).trim().replace(/^\//, "");
+    if (!cleanedAppId || !cleanedCommandName) throw new Error("APP ID et nom de commande requis.");
+    data.config[guildId] ??= normalizeGuildConfig([]);
+    data.config[guildId].appId = cleanedAppId;
+    data.config[guildId].commandName = cleanedCommandName;
+    if (!data.config[guildId].channels.includes(channelId)) {
+      data.config[guildId].channels.push(channelId);
+    }
     saveConfig(data);
     return { config: data.config };
   }
 
   if (action === "remove") {
     if (!guildId || !channelId) throw new Error("guildId et channelId requis.");
-    const channels = data.config[guildId];
-    if (!channels) throw new Error("Aucun salon configuré pour ce serveur.");
-    const idx = channels.indexOf(channelId);
+    const guildConfig = data.config[guildId];
+    if (!guildConfig) throw new Error("Aucun salon configuré pour ce serveur.");
+    const idx = guildConfig.channels.indexOf(channelId);
     if (idx === -1) throw new Error("Ce salon n'est pas enregistré.");
-    channels.splice(idx, 1);
-    if (!channels.length) delete data.config[guildId];
+    guildConfig.channels.splice(idx, 1);
     saveConfig(data);
     return { config: data.config };
   }
 
   if (action === "start") {
-    const empty = !Object.keys(data.config).length;
+    const empty = !Object.values(data.config).some(guildConfig => guildConfig.channels.length);
     if (empty) throw new Error("Aucun salon configuré pour l'autobump.");
     const started = startAutoBump(client);
     data.running = true;
