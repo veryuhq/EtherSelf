@@ -1,14 +1,14 @@
 "use strict";
 
 const DESKTOP_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9228 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9236 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36";
 const ANDROID_USER_AGENT = "Discord-Android/316011;RNA";
 
 const DESKTOP_SUPER_PROPERTIES = {
   os: "Windows",
   browser: "Discord Client",
   release_channel: "stable",
-  client_version: "1.0.9228",
+  client_version: "1.0.9236",
   os_version: "10.0.19045",
   os_arch: "x64",
   app_arch: "x64",
@@ -17,8 +17,8 @@ const DESKTOP_SUPER_PROPERTIES = {
   browser_user_agent: DESKTOP_USER_AGENT,
   browser_version: "37.6.0",
   os_sdk_version: "19045",
-  client_build_number: 512062,
-  native_build_number: 77013,
+  client_build_number: 539951,
+  native_build_number: 81687,
   client_event_source: null,
 };
 

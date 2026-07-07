@@ -123,7 +123,7 @@ async function doWatchVideo(token, quest, onProgress) {
   const enrolledAt    = new Date(quest.user_status.enrolled_at).getTime();
   let secondsDone     = quest.user_status?.progress?.[taskName]?.value ?? 0;
 
-  const maxFuture = 10, speed = 7, interval = 1;
+  const maxFuture = 10, speed = 7, interval = 7;
   let completed = false;
 
   onProgress?.(`[QUESTS] 🎬 ${quest.config.messages.quest_name} — vidéo en cours…`);
@@ -254,12 +254,12 @@ async function doAchievementInActivity(token, quest, onProgress) {
   const authCode = new URL(location).searchParams.get("code");
   if (!authCode) throw new Error("Pas de code OAuth2");
 
-  const dsToken = await http.authorizeDiscordSays(applicationId, authCode);
+  const { token: dsToken, activityReferrer } = await http.authorizeDiscordSays(token, applicationId, quest.id, authCode);
   if (!dsToken) throw new Error("Impossible d'obtenir le token Discord Says");
 
   onProgress?.(`[QUESTS] 🏆 ${applicationName} — progression achievement…`);
 
-  const ok = await http.progressDiscordSays(applicationId, dsToken, questTarget);
+  const ok = await http.progressDiscordSays(applicationId, quest.id, dsToken, questTarget, activityReferrer);
   if (!ok) throw new Error("progressDiscordSays a échoué");
 
   try {
@@ -284,7 +284,7 @@ async function runQuest(token, quest, onProgress) {
 
   if (!quest.user_status?.enrolled_at) {
     onProgress?.(`[QUESTS] 📋 Inscription à "${questName}"…`);
-    const enrollRes = await http.enrollQuest(token, quest.id, isAndroid);
+    const enrollRes = await http.enrollQuest(token, quest, isAndroid);
     if (!enrollRes.ok) {
       throw new Error(`Inscription échouée (${enrollRes.status}): ${JSON.stringify(enrollRes.data)}`);
     }

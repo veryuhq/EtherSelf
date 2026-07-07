@@ -44,12 +44,13 @@ async function fetchQuests(token) {
 /**
  * S'inscrire à une quête
  */
-async function enrollQuest(token, questId, isAndroid = false) {
-  return discordRequest("POST", `/quests/${questId}/enroll`, token, {
+async function enrollQuest(token, quest, isAndroid = false) {
+  return discordRequest("POST", `/quests/${quest.id}/enroll`, token, {
     location: isAndroid ? 12 : 11,
     is_targeted: false,
-    metadata_raw: null,
     metadata_sealed: null,
+    traffic_metadata_raw: quest.traffic_metadata_raw,
+    traffic_metadata_sealed: quest.traffic_metadata_sealed,
   }, isAndroid);
 }
 
@@ -110,34 +111,66 @@ async function deleteOAuth2Token(token, tokenId) {
   return discordRequest("DELETE", `/oauth2/tokens/${tokenId}`, token);
 }
 
+
+/**
+ * Demander un proxy ticket Discord pour construire le referrer Discord Says.
+ */
+async function getProxyTicket(token, applicationId) {
+  const res = await discordRequest("POST", `/applications/${applicationId}/proxy-tickets`, token, {});
+  if (!res.ok || !res.data?.ticket) {
+    throw new Error(`Proxy ticket failed (${res.status}): ${JSON.stringify(res.data)}`);
+  }
+  return res.data.ticket;
+}
+
+/**
+ * Construire le referrer attendu par Discord Says.
+ */
+async function getActivityReferrer(token, applicationId) {
+  const proxyTicket = await getProxyTicket(token, applicationId);
+  const referrer = new URL(`https://${applicationId}.discordsays.com/`);
+  referrer.searchParams.set("instance_id", "example-cl-instance");
+  referrer.searchParams.set("platform", "desktop");
+  referrer.searchParams.set("discord_proxy_ticket", proxyTicket);
+  return referrer.toString();
+}
+
+function makeActivityHeaders(questId, dsToken = "", activityReferrer = null) {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Auth-Token": dsToken,
+    "X-Discord-Quest-ID": questId,
+  };
+  if (activityReferrer) headers.Referer = activityReferrer;
+  return headers;
+}
+
 /**
  * Autoriser Discord Says (ACHIEVEMENT_IN_ACTIVITY)
  */
-async function authorizeDiscordSays(applicationId, authCode) {
+async function authorizeDiscordSays(discordToken, applicationId, questId, authCode) {
+  const activityReferrer = await getActivityReferrer(discordToken, applicationId);
   const res = await fetch(
     `https://${applicationId}.discordsays.com/.proxy/acf/authorize`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: makeActivityHeaders(questId, "", activityReferrer),
       body: JSON.stringify({ code: authCode }),
     }
   );
-  const data = await res.json();
-  return data.token || null;
+  const data = await res.json().catch(() => ({}));
+  return { token: data.token || null, activityReferrer };
 }
 
 /**
  * Progresser dans Discord Says (ACHIEVEMENT_IN_ACTIVITY)
  */
-async function progressDiscordSays(applicationId, dsToken, questTarget) {
+async function progressDiscordSays(applicationId, questId, dsToken, questTarget, activityReferrer) {
   const res = await fetch(
     `https://${applicationId}.discordsays.com/.proxy/acf/quest/progress`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": dsToken,
-      },
+      headers: makeActivityHeaders(questId, dsToken, activityReferrer),
       body: JSON.stringify({ progress: questTarget }),
     }
   );
@@ -153,6 +186,8 @@ module.exports = {
   authorizeOAuth2,
   getOAuth2Tokens,
   deleteOAuth2Token,
+  getProxyTicket,
+  getActivityReferrer,
   authorizeDiscordSays,
   progressDiscordSays,
 };
