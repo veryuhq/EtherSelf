@@ -2,7 +2,6 @@
 
 const afk       = require("../self/commands/utilitaires/afk");
 const snipe     = require("../self/commands/utilitaires/snipe");
-const stalk     = require("../self/commands/utilitaires/stalk");
 const tag       = require("../self/commands/utilitaires/tag");
 const bookmark  = require("../self/commands/utilitaires/bookmark");
 const msgbm     = require("../self/commands/utilitaires/msgbookmarks");
@@ -46,11 +45,6 @@ const ACTIONS = {
   "snipe.getMessages":       (c, p) => snipe.execute(c, { action: "getMessages",       channelId: p.channelId, type: p.type }),
   "snipe.getMessagesByGuild":(c, p) => snipe.execute(c, { action: "getMessagesByGuild",guildId:   p.guildId,   type: p.type }),
   "snipe.getMessagesByUser": (c, p) => snipe.execute(c, { action: "getMessagesByUser", userId:    p.userId,    type: p.type }),
-
-  // ── STALK ─────────────────────────────────────────────────────────────────
-  "stalk.add":          (c, p) => stalk.execute(c, { action: "add",    userId: p.userId }),
-  "stalk.remove":       (c, p) => stalk.execute(c, { action: "remove", userId: p.userId }),
-  "stalk.getList":      (c, p) => stalk.execute(c, { action: "getList" }),
 
   // ── TAGS ──────────────────────────────────────────────────────────────────
   "tag.add":            (c, p) => tag.execute(c, { action: "add",    name: p.name, content: p.content }),

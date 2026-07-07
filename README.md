@@ -61,7 +61,6 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP  -->  Selfbot  -->  Discord A
 | 😴 **AFK** | Réponse automatique aux messages avec message personnalisé et mode spécial |
 | 🔍 **Snipe / MessageLogger** | Log des messages supprimés et édités, recherche par salon / serveur / utilisateur |
 | 📸 **Snapshots** | Export HTML complet d'un salon (messages, embeds, réactions, stickers, pièces jointes) |
-| 👁️ **Stalk vocal** | Notification quand un utilisateur rejoint, quitte ou change de salon vocal |
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |

@@ -10,7 +10,6 @@ const home      = require("../panels/home");
 const prefix    = require("../panels/prefix");
 const afk       = require("../panels/afk");
 const snipe     = require("../panels/snipe");
-const stalk     = require("../panels/stalk");
 const tags      = require("../panels/tags");
 const bookmarks = require("../panels/bookmarks");
 const msgbm     = require("../panels/msgbookmarks");
@@ -56,7 +55,6 @@ async function handle(interaction) {
     "panel:config":       "config",
     "panel:afk":          "afk",
     "panel:snipe":        "snipe",
-    "panel:stalk":        "stalk",
     "panel:tags":         "tags",
     "panel:bookmarks":    "bookmarks",
     "panel:msgbookmarks": "msgbookmarks",
@@ -195,20 +193,6 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     const panel = await fetchAndBuild("snipe");
     return interaction.update(panel);
-  }
-
-  // ── STALK ─────────────────────────────────────────────────────────────────
-  if (id === "modal:stalk_add") {
-    const userId = interaction.fields.getTextInputValue("userId").trim();
-    const res = await sendAction("stalk.add", { userId });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(stalk.build(res?.data ?? {}));
-  }
-  if (id === "modal:stalk_remove") {
-    const userId = interaction.fields.getTextInputValue("userId").trim();
-    const res = await sendAction("stalk.remove", { userId });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(stalk.build(res?.data ?? {}));
   }
 
   // ── TAGS ──────────────────────────────────────────────────────────────────

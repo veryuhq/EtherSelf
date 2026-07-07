@@ -14,7 +14,6 @@ const home      = require("../panels/home");
 const prefix    = require("../panels/prefix");
 const afk       = require("../panels/afk");
 const snipe     = require("../panels/snipe");
-const stalk     = require("../panels/stalk");
 const tags      = require("../panels/tags");
 const bookmarks = require("../panels/bookmarks");
 const msgbm     = require("../panels/msgbookmarks");
@@ -68,7 +67,6 @@ async function handle(interaction) {
     "panel:config":       "config",
     "panel:afk":          "afk",
     "panel:snipe":        "snipe",
-    "panel:stalk":        "stalk",
     "panel:tags":         "tags",
     "panel:bookmarks":    "bookmarks",
     "panel:msgbookmarks": "msgbookmarks",
@@ -249,18 +247,6 @@ async function handle(interaction) {
     // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
     const panel = await fetchAndBuild("snipe");
     return interaction.update(panel);
-  }
-
-  // ── STALK ─────────────────────────────────────────────────────────────────
-  if (id === "stalk:add") {
-    return interaction.showModal(modal("modal:stalk_add", "Stalker un utilisateur", [
-      { id: "userId", label: "ID de l'utilisateur", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "stalk:remove") {
-    return interaction.showModal(modal("modal:stalk_remove", "Unstalker un utilisateur", [
-      { id: "userId", label: "ID à retirer", placeholder: "123456789012345678" },
-    ]));
   }
 
   // ── TAGS ──────────────────────────────────────────────────────────────────

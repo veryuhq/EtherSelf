@@ -9,7 +9,6 @@ const config      = require("../panels/config");
 const prefix      = require("../panels/prefix");
 const afk         = require("../panels/afk");
 const snipe       = require("../panels/snipe");
-const stalk       = require("../panels/stalk");
 const tags        = require("../panels/tags");
 const bookmarks   = require("../panels/bookmarks");
 const msgbm       = require("../panels/msgbookmarks");
@@ -40,7 +39,6 @@ async function fetchAndBuild(panelKey) {
         snapshotSchedulesRunning: schedulesRes?.data?.running ?? false,
       };
     },
-    stalk:        () => sendAction("stalk.getList"),
     tags:         async () => {
       const [tagsRes, prefixRes] = await Promise.all([sendAction("tag.list"), sendAction("prefix.get")]);
       return { tags: tagsRes?.data?.tags ?? {}, prefix: prefixRes?.data?.prefix ?? "." };
@@ -76,7 +74,6 @@ async function fetchAndBuild(panelKey) {
     prefix:       (d) => prefix.build(d),
     afk:          (d) => afk.build(d),
     snipe:        (d) => snipe.build(d),
-    stalk:        (d) => stalk.build(d),
     tags:         (d) => tags.build(d),
     bookmarks:    (d) => bookmarks.build(d),
     msgbookmarks: (d) => msgbm.build(d),
