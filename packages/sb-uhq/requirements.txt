@@ -1,0 +1,7 @@
+# Selfbot EtherSelf — discord.py-self
+# ⚠️ discord.py-self s'importe sous le nom `discord` (incompatible avec discord.py officiel :
+#    ne pas installer les deux dans le même environnement).
+discord.py-self>=2.1.0
+aiohttp>=3.9
+python-dotenv>=1.0
+psutil>=5.9

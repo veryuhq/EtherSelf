@@ -4,9 +4,10 @@
 
 **Selfbot français complet controllable via un panel de bot classique en Components V2**
 
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-v18+-339933?style=flat-square&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)
-![selfbot](https://img.shields.io/badge/selfbot-discord.js--selfbot--v13-ED4245?style=flat-square)
+![selfbot](https://img.shields.io/badge/selfbot-discord.py--self-ED4245?style=flat-square)
 ![license](https://img.shields.io/badge/licence-MIT-yellow?style=flat-square)
 
 </div>
@@ -23,14 +24,12 @@
 
 ---
 
-> ### 🪦 Notice de dépréciation — `discord.js-selfbot-v13`
-> La librairie `discord.js-selfbot-v13` utilisée par ce projet **n'est plus maintenue depuis octobre 2025**. Concrètement :
+> ### 🔀 Migration — le selfbot est passé à `discord.py-self`
+> Le selfbot était historiquement écrit en `discord.js-selfbot-v13`, **non maintenu depuis octobre 2025**. Il a été **entièrement réécrit en Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)), qui est activement maintenu.
 >
-> - 🔴 Aucun correctif de sécurité ne sera publié
-> - 🔴 Les changements d'API Discord peuvent casser des fonctionnalités à tout moment sans avertissement
-> - 🔴 Des modules comme le RPC sont particulièrement sensibles aux évolutions de Discord
->
-> **Utilise ce projet en connaissance de cause.** Certaines fonctionnalités peuvent cesser de fonctionner du jour au lendemain.
+> - 🟢 Le **bot-controller reste en JavaScript** (discord.js v14) — inchangé.
+> - 🟢 Les deux process communiquent toujours via le **même bridge HTTP local signé (HMAC-SHA256)** : le contrat réseau est identique au byte près, donc le controller n'a pas eu à changer.
+> - 🔴 Les endpoints non officiels (quêtes, Discord Says, Spotify RPC) restent sensibles aux évolutions de Discord et peuvent casser sans préavis.
 
 ---
 
@@ -38,16 +37,18 @@
 
 EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensemble :
 
-| Package | Rôle |
-|---|---|
-| 🤖 **`EtherSelf-SB`** | Le selfbot (discord.js-selfbot-v13), expose un bridge HTTP local |
-| 🎛️ **`EtherSelf-Bot`** | Bot Discord classique (discord.js 14), sert d'interface via un panel Components V2 |
+| Package | Langage | Rôle |
+|---|---|---|
+| 🤖 **`EtherSelf-SB`** | 🐍 Python | Le selfbot (discord.py-self), expose un bridge HTTP local |
+| 🎛️ **`EtherSelf-Bot`** | 🟨 JavaScript | Bot Discord classique (discord.js 14), interface via un panel Components V2 |
 
 Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Ton compte utilisateur n'interagit jamais directement avec Discord depuis l'interface — c'est propre, cloisonné, et facile à déboguer.
 
+**Comment un selfbot Python et un controller JS cohabitent ?** Ce sont **deux process indépendants** qui ne partagent ni mémoire ni runtime : ils dialoguent uniquement par des requêtes HTTP sur `127.0.0.1`, signées avec un secret partagé (`BRIDGE_SECRET`, HMAC-SHA256). Le langage de chaque côté n'a donc aucune importance — Python parle à Node exactement comme Node parlait à Node. `pm2` supervise les deux (voir plus bas), chacun avec son propre interpréteur.
+
 ```
-Toi  -->  /panel (bot classique)  -->  Bridge HTTP  -->  Selfbot  -->  Discord API
-          [discord.js v14]             [localhost]     [selfbot-v13]
+Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Discord API
+          [discord.js v14 / Node]      [HMAC · localhost]      [discord.py-self / Python]
 ```
 
 ---
@@ -112,7 +113,8 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 
 ## 📋 Prérequis
 
-- **Node.js v18+**
+- **Python 3.11+** (pour le selfbot)
+- **Node.js v18+** (pour le bot-controller)
 - **Deux tokens Discord :**
   - 🔑 Un token de **compte utilisateur** (selfbot) pour `EtherSelf-SB`
   - 🤖 Un token de **bot classique** pour `EtherSelf-Bot`
@@ -127,8 +129,15 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 ```bash
 git clone https://github.com/veryuhq/etherself.git
 cd etherself
-npm install
+npm install          # dépendances du bot-controller (Node)
+npm run setup:selfbot # crée packages/sb-uhq/.venv et installe discord.py-self
 ```
+
+> `setup:selfbot` fait l'équivalent de :
+> ```bash
+> cd packages/sb-uhq && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+> ```
+> ⚠️ `discord.py-self` s'importe sous le nom `discord` : ne l'installe **pas** dans le même environnement que le `discord.py` officiel. Le virtualenv dédié règle ce problème.
 
 ### 2️⃣ Configurer le selfbot
 
@@ -140,11 +149,17 @@ cp packages/sb-uhq/.env.example packages/sb-uhq/.env
 # 🔑 Token de ton compte Discord (selfbot)
 TOKEN=ton_token_utilisateur
 
-# 🔒 Secret partagé avec le bot-controller (génère une chaîne aléatoire longue)
+# 🔒 Secret partagé avec le bot-controller (génère une chaîne aléatoire longue, 32+ octets)
 BRIDGE_SECRET=une_chaine_aleatoire_longue_et_secrete
 
 # 🌐 Port du serveur bridge (défaut : 3000)
 BRIDGE_PORT=3000
+
+# 🌐 URL du serveur logs/progress/file du controller (défaut : http://127.0.0.1:3001)
+BRIDGE_CONTROLLER_URL=http://127.0.0.1:3001
+
+# 👤 Ton ID Discord — requis uniquement pour l'action token.set
+OWNER_ID=ton_id_discord
 ```
 
 ### 3️⃣ Configurer le bot controller
@@ -183,19 +198,25 @@ npm run deploy
 **En développement** (deux terminaux séparés) :
 
 ```bash
-# Terminal 1 — selfbot
-npm run start:selfbot
+# Terminal 1 — selfbot (Python)
+npm run start:selfbot          # ou : cd packages/sb-uhq && .venv/bin/python main.py
 
-# Terminal 2 — bot controller
+# Terminal 2 — bot controller (Node)
 npm run start:controller
 ```
 
-**En production** avec PM2 :
+**En production** avec PM2 — un seul fichier `ecosystem.config.js` gère les deux process (Python + Node) :
 
 ```bash
-pm2 start packages/sb-uhq/index.js         --name EtherSelf-SB
-pm2 start packages/bot-controller/index.js --name EtherSelf-Bot
+pm2 start ecosystem.config.js
 pm2 save && pm2 startup
+```
+
+PM2 lance chaque app avec son propre interpréteur (`interpreter: "./.venv/bin/python"` pour le selfbot, `node` pour le controller). Tu peux aussi les démarrer à la main :
+
+```bash
+pm2 start packages/sb-uhq/main.py          --name EtherSelf-SB --interpreter ./packages/sb-uhq/.venv/bin/python
+pm2 start packages/bot-controller/index.js --name EtherSelf-Bot
 ```
 
 ---
@@ -225,7 +246,7 @@ Au démarrage, le bot controller t'envoie automatiquement un DM confirmant que t
 - 🗃️ **Cache Discord** — certaines fonctionnalités (quitter tous les groupes, purge DMs) effectuent un `fetch()` au préalable pour peupler le cache, mais la couverture dépend de l'état de l'API au moment de l'appel.
 - 🏆 **Quests** — les endpoints utilisés sont non officiels et peuvent changer sans préavis à chaque mise à jour de Discord.
 - ⏱️ **Purge** — la suppression de messages est intentionnellement ralentie (100ms entre chaque message) pour limiter le risque de rate-limit ou de flag de compte.
-- 🪦 **Maintenance** — `discord.js-selfbot-v13` n'étant plus maintenu, ce projet ne recevra pas de correctifs liés aux changements d'API Discord. Fork et adapte si nécessaire.
+- 🐍 **discord.py-self** — le selfbot dépend de `discord.py-self`. Certaines fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib et de l'API Discord ; valide-les sur ton compte avant de compter dessus.
 
 ---
 
