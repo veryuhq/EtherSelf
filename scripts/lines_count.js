@@ -6,13 +6,13 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 
 const TARGETS = [
-  path.join(ROOT, "packages", "sb-uhq",         "src"),
-  path.join(ROOT, "packages", "sb-uhq",         "index.js"),
+  path.join(ROOT, "packages", "sb-uhq",         "app"),
+  path.join(ROOT, "packages", "sb-uhq",         "main.py"),
   path.join(ROOT, "packages", "bot-controller", "src"),
   path.join(ROOT, "packages", "bot-controller", "index.js"),
 ];
 
-const EXTENSIONS = new Set([".js"]);
+const EXTENSIONS = new Set([".js", ".py"]);
 
 function walkDir(dir, files = []) {
   let entries;
@@ -23,7 +23,7 @@ function walkDir(dir, files = []) {
     return files;
   }
   for (const entry of entries) {
-    if (entry.name === "node_modules") continue;
+    if (["node_modules", ".venv", "__pycache__"].includes(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       walkDir(full, files);
