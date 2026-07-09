@@ -65,7 +65,7 @@ function buildHostinfo(data = {}) {
         `**Kernel :** \`${kernel}\`\n` +
         `**CPU :** ${cpu.model ?? "?"} × ${cpu.count ?? "?"}\n` +
         `**RAM :** ${memory.used ?? "?"} / ${memory.total ?? "?"} (${memory.percent ?? "?"}%)\n` +
-        `**Node.js :** \`${nodeVer}\`\n` +
+        `**Python :** \`${nodeVer}\`\n` +
         `**Uptime système :** \`${sysUptime}\``
       ),
       separator(),
