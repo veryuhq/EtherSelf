@@ -16,6 +16,13 @@ load_dotenv(ENV_FILE)
 
 import discord  # noqa: E402  (après load_dotenv)
 
+from app.func import platform_identity  # noqa: E402
+
+# Force l'identité de plateforme (Desktop par défaut) AVANT toute connexion :
+# sinon discord.py-self s'identifie comme le client Web (browser="Chrome").
+# Surchargeable via la variable d'env SB_CLIENT_PLATFORM (desktop|web|android|ios).
+platform_identity.install()
+
 from app.bridge.server import run_bridge_server  # noqa: E402
 from app.commands.fun import mock, spoiler  # noqa: E402
 from app.commands.gestion import antigroup, msglog, prefix  # noqa: E402
