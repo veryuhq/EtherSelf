@@ -20,7 +20,7 @@
 ---
 
 > ### 🤖 Vibecodé avec des modèles d'IA
-> Ce projet a été **entièrement généré par une IA** (Claude Sonnet 4.6, Claude Opus 4.8, Codex/GPT-5.4 et Codex/GPT-5.5). Si tu envisages de faire quelque chose de similaire, il est **fortement recommandé de l'implémenter toi-même** sans IA — tu comprendras réellement ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer quand ça casse. Et ça cassera.
+> Ce projet a été **entièrement généré par une IA** (Claude Fable 5, Claude Sonnet 4.6, Claude Opus 4.8, Codex/GPT-5.4 et Codex/GPT-5.5). Si tu envisages de faire quelque chose de similaire, il est **fortement recommandé de l'implémenter toi-même** sans IA — tu comprendras réellement ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer quand ça casse. Et ça cassera.
 
 ---
 
