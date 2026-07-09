@@ -91,9 +91,12 @@ async def _run_bumps(client) -> None:
 
 
 async def _loop(client) -> None:
+    # Un premier bump immédiat au démarrage, puis un toutes les 2h. Sans ça, la
+    # boucle dormait l'intervalle complet avant le tout premier envoi : après avoir
+    # activé l'autobump, rien ne partait dans les salons configurés pendant 2h.
     while True:
-        await asyncio.sleep(INTERVAL_SECONDS)
         await _run_bumps(client)
+        await asyncio.sleep(INTERVAL_SECONDS)
 
 
 def start_autobump(client) -> bool:
