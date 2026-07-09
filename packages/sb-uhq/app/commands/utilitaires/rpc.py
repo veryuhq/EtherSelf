@@ -300,6 +300,23 @@ async def apply_presence(client, config) -> None:
         await client.change_presence(status=status, activities=activities, edit_settings=False)
     except Exception as e:  # noqa: BLE001
         logerr(f"[RPC] Erreur change_presence : {e}")
+        return
+
+    # Le custom status, lui, est resynchronisé dans les réglages du compte : tes
+    # PROPRES clients officiels (app Web/Desktop) n'affichent pas la présence des
+    # autres sessions du compte, mais bien le custom status enregistré dans les
+    # réglages. Sans ça, tu ne voyais plus la rotation depuis ton propre compte.
+    # On ne touche QUE custom_activity, jamais status : ton invisible/offline reste
+    # donc préservé (contrairement au comportement d'origine edit_settings=True).
+    try:
+        custom = next(
+            (a for a in activities if getattr(a, "type", None) == discord.ActivityType.custom),
+            None,
+        )
+        if custom != client.settings.custom_activity:
+            await client.settings.edit(custom_activity=custom)
+    except Exception as e:  # noqa: BLE001
+        logerr(f"[RPC] Erreur sync custom status (settings) : {e}")
 
 
 async def _activity_loop(client, interval_sec):
