@@ -175,6 +175,14 @@ def _build_spotify(spotify):
     """
     assets = spotify.get("assets") or {}
     kwargs = {"type": discord.ActivityType.listening, "name": "Spotify"}
+    # Discord reconnaît une présence Spotify via le sync_id (ID du morceau) + les
+    # flags SYNC|PLAY (valeur 48). Vérifié contre discord.py-self 2.1.0.
+    if spotify.get("songId"):
+        kwargs["sync_id"] = spotify["songId"]
+    try:
+        kwargs["flags"] = discord.ActivityFlags(sync=True, play=True)
+    except Exception:
+        pass
     if spotify.get("details"):
         kwargs["details"] = spotify["details"]
     if spotify.get("state"):
