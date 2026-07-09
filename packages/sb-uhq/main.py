@@ -25,7 +25,9 @@ from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
 PREFIX_COMMANDS = {"tag": tag, "mock": mock, "spoiler": spoiler}
 
-client = discord.Client()
+# Cache de messages élargi (défaut : 1000, tous salons confondus) pour que le
+# snipe retrouve le contenu des messages supprimés/édités le plus souvent possible.
+client = discord.Client(max_messages=5000)
 
 _ready_once = False
 _bridge_runner = None
@@ -86,18 +88,22 @@ async def on_message(message):
             logerr(f"[CMD] Erreur '{command_name}': {err}")
 
 
+# Événements raw : contrairement à on_message_delete/on_message_edit, ils se
+# déclenchent aussi pour les messages absents du cache interne (l'équivalent des
+# partials de la version JS), sans quoi la plupart des suppressions en serveur
+# ne seraient jamais loggées.
 @client.event
-async def on_message_delete(message):
+async def on_raw_message_delete(payload):
     try:
-        await msglog.handle_message_delete(message, client)
+        await msglog.handle_raw_message_delete(payload, client)
     except Exception as err:  # noqa: BLE001
         logerr(f"[MSGLOG] delete : {err}")
 
 
 @client.event
-async def on_message_edit(before, after):
+async def on_raw_message_edit(payload):
     try:
-        await msglog.handle_message_edit(before, after, client)
+        await msglog.handle_raw_message_edit(payload, client)
     except Exception as err:  # noqa: BLE001
         logerr(f"[MSGLOG] edit : {err}")
 

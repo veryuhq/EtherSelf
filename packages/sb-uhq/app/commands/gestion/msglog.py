@@ -140,6 +140,104 @@ async def handle_message_delete(message, client) -> None:
     }, scope_type)
 
 
+async def handle_raw_message_delete(payload, client) -> None:
+    """Point d'entrée branché sur on_raw_message_delete.
+
+    Contrairement à on_message_delete, cet événement se déclenche aussi pour les
+    messages absents du cache interne (messages antérieurs au démarrage ou évincés
+    du cache) — c'est le cas le plus fréquent sur les serveurs actifs. Le gateway
+    ne fournit alors ni contenu ni auteur : on logge une entrée minimale, comme le
+    faisait la version JS avec les partials dont le fetch échouait.
+    """
+    if payload.cached_message is not None:
+        await handle_message_delete(payload.cached_message, client)
+        return
+
+    created_ts = _ms(discord.utils.snowflake_time(payload.message_id))
+
+    if payload.guild_id is not None:
+        guild_id = str(payload.guild_id)
+        if guild_id not in get_whitelist():
+            return
+        _push_entry(guild_id, "deleted", {
+            "scope": "guild",
+            "guildId": guild_id,
+            "channelId": str(payload.channel_id),
+            "authorId": None,
+            "authorTag": "unknown",
+            "content": "",
+            "attachments": [],
+            "createdTimestamp": created_ts,
+            "deletedAt": _now_ms(),
+        })
+        return
+
+    channel = client.get_channel(payload.channel_id)
+    scope_type = _channel_scope_type(channel)
+    if scope_type not in ("DM", "GROUP_DM"):
+        return
+    recipients = [f"{_normalize_author_tag(u)} ({u.id})"
+                  for u in getattr(channel, "recipients", []) or []]
+    _push_entry(str(payload.channel_id), "deleted", {
+        "scope": scope_type.lower(),
+        "channelId": str(payload.channel_id),
+        "recipients": recipients,
+        "authorId": None,
+        "authorTag": "unknown",
+        "content": "",
+        "attachments": [],
+        "createdTimestamp": created_ts,
+        "deletedAt": _now_ms(),
+    }, scope_type)
+
+
+async def handle_raw_message_edit(payload, client) -> None:
+    """Point d'entrée branché sur on_raw_message_edit (payload.message = message à jour)."""
+    if payload.cached_message is not None:
+        await handle_message_edit(payload.cached_message, payload.message, client)
+        return
+
+    after = payload.message
+    author = getattr(after, "author", None)
+    if author and author.id == client.user.id:
+        return
+    # Sans version en cache, edited_at est le seul moyen de distinguer une vraie
+    # édition d'un MESSAGE_UPDATE technique (déroulé d'embed d'un lien, épinglage…).
+    if getattr(after, "edited_at", None) is None:
+        return
+    new_content = _extract_content(after)
+
+    if getattr(after, "guild", None):
+        if str(after.guild.id) not in get_whitelist():
+            return
+        _push_entry(str(after.guild.id), "edited", {
+            "scope": "guild",
+            "guildId": str(after.guild.id),
+            "channelId": str(after.channel.id),
+            "authorId": str(author.id) if author else None,
+            "authorTag": _normalize_author_tag(author),
+            "oldContent": "",
+            "newContent": new_content,
+            "createdTimestamp": _ms(getattr(after, "created_at", None)),
+            "editedAt": _now_ms(),
+        })
+        return
+
+    scope_type = _channel_scope_type(getattr(after, "channel", None))
+    if scope_type not in ("DM", "GROUP_DM"):
+        return
+    _push_entry(str(after.channel.id), "edited", {
+        "scope": scope_type.lower(),
+        "channelId": str(after.channel.id),
+        "authorId": str(author.id) if author else None,
+        "authorTag": _normalize_author_tag(author),
+        "oldContent": "",
+        "newContent": new_content,
+        "createdTimestamp": _ms(getattr(after, "created_at", None)),
+        "editedAt": _now_ms(),
+    }, scope_type)
+
+
 async def handle_message_edit(before, after, client) -> None:
     author = getattr(before, "author", None)
     if author and author.id == client.user.id:
