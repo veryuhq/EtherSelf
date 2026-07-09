@@ -49,7 +49,11 @@ ANDROID_SUPER_PROPERTIES = {
 
 
 def _encode_super_properties(properties: dict) -> str:
-    return base64.b64encode(json.dumps(properties).encode("utf-8")).decode("ascii")
+    # Séparateurs compacts (",", ":") pour reproduire à l'identique le JSON.stringify
+    # de Node : l'X-Super-Properties est l'empreinte client vue par Discord et doit
+    # correspondre au byte près à celle de l'ancien selfbot / d'un vrai client.
+    payload = json.dumps(properties, separators=(",", ":"))
+    return base64.b64encode(payload.encode("utf-8")).decode("ascii")
 
 
 def make_desktop_headers(token: str, extra: dict | None = None) -> dict:
