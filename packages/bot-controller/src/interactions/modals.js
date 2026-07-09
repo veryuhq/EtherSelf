@@ -225,7 +225,7 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     const tagContent = res?.data?.tags?.[name];
     if (!tagContent) return _error(interaction, `Tag \`${name}\` introuvable.`);
-    return interaction.reply({ content: `**Tag \`${name}\` :**\n${tagContent}`, ephemeral: true });
+    return interaction.reply({ content: tagContent, ephemeral: true });
   }
 
   // ── BOOKMARKS SALONS ──────────────────────────────────────────────────────
