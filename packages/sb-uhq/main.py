@@ -27,7 +27,9 @@ PREFIX_COMMANDS = {"tag": tag, "mock": mock, "spoiler": spoiler}
 
 # Cache de messages élargi (défaut : 1000, tous salons confondus) pour que le
 # snipe retrouve le contenu des messages supprimés/édités le plus souvent possible.
-client = discord.Client(max_messages=5000)
+# La version JS gardait ~200 messages PAR salon ; ici le cache est global, donc on
+# vise large (~20-60 Mo de RAM).
+client = discord.Client(max_messages=20000)
 
 _ready_once = False
 _bridge_runner = None
