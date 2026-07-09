@@ -9,28 +9,37 @@
 //                pm2 save && pm2 startup
 //
 //  ⚠️ Crée d'abord le virtualenv du selfbot :
-//       cd packages/sb-uhq
-//       python3 -m venv .venv
-//       .venv/bin/pip install -r requirements.txt
-//     puis pointe `interpreter` vers .venv/bin/python (voir ci-dessous).
+//       npm run setup:selfbot
+//     (équivaut à : cd packages/sb-uhq && python3 -m venv .venv
+//                   && .venv/bin/pip install -r requirements.txt)
+//
+//  Les chemins sont résolus en absolu via __dirname (dossier de ce fichier),
+//  car pm2 résout `interpreter` par rapport au dossier de LANCEMENT de pm2,
+//  pas par rapport au `cwd` de l'app. On évite ainsi l'erreur
+//  "Interpreter ./.venv/bin/python is NOT AVAILABLE in PATH".
 // ─────────────────────────────────────────────────────────────────────────────
+
+const path = require("path");
+
+const SB_DIR = path.join(__dirname, "packages", "sb-uhq");
+const BOT_DIR = path.join(__dirname, "packages", "bot-controller");
+const VENV_PYTHON = path.join(SB_DIR, ".venv", "bin", "python");
 
 module.exports = {
   apps: [
     {
       name: "EtherSelf-SB",
-      cwd: "./packages/sb-uhq",
+      cwd: SB_DIR,
       script: "main.py",
-      // Utilise le python du virtualenv du package (recommandé) :
-      interpreter: "./.venv/bin/python",
-      // Sans venv, remplace la ligne ci-dessus par : interpreter: "python3",
+      // Python du virtualenv du package, en chemin absolu (voir note ci-dessus).
+      interpreter: VENV_PYTHON,
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
     },
     {
       name: "EtherSelf-Bot",
-      cwd: "./packages/bot-controller",
+      cwd: BOT_DIR,
       script: "index.js",
       interpreter: "node",
       autorestart: true,
