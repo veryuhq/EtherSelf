@@ -65,8 +65,10 @@ def _expires_ms(quest) -> float:
 
 
 def _filter_valid(quests):
-    return [q for q in quests if q.get("user_status", {}).get("enrolled_at")
-            and not q.get("user_status", {}).get("completed_at")
+    # user_status peut être présent mais null (≠ absent) : (… or {}) est obligatoire,
+    # dict.get(k, {}) ne protège pas contre une valeur null.
+    return [q for q in quests if (q.get("user_status") or {}).get("enrolled_at")
+            and not (q.get("user_status") or {}).get("completed_at")
             and _expires_ms(q) > _now_ms()]
 
 
@@ -268,7 +270,7 @@ async def run_all(client) -> None:
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise RuntimeError(f"HTTP {res['status']}")
-        raw = res["data"]
+        raw = res["data"] or {}
     except Exception as err:  # noqa: BLE001
         logerr(f"[QUESTS] ❌ Impossible de récupérer les quêtes : {err}")
         return
@@ -368,7 +370,7 @@ async def execute(client, payload):
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")
-        raw = res["data"]
+        raw = res["data"] or {}
         quests = raw.get("quests") or []
         all_active = _filter_active(quests)
         todo = _filter_valid(quests)
@@ -397,7 +399,7 @@ async def execute(client, payload):
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")
-        raw = res["data"]
+        raw = res["data"] or {}
         quests = raw.get("quests") or []
         todo = _unique(_filter_valid(quests) + _filter_enrollable(quests))
         if not todo:
