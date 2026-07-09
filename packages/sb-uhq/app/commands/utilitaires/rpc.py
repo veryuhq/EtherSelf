@@ -289,7 +289,15 @@ def _build_presence(config, client):
 async def apply_presence(client, config) -> None:
     status, activities = _build_presence(config, client)
     try:
-        await client.change_presence(status=status, activities=activities)
+        # edit_settings=False : on applique le statut/les activités UNIQUEMENT à la
+        # session du selfbot (Desktop), sans écraser le réglage de statut GLOBAL du
+        # compte. Avec le défaut (True), change_presence appelle settings.edit(status=…)
+        # et propage le statut du RPC à tous les clients : se mettre en invisible sur
+        # un autre client (Web) était alors immédiatement annulé par le bot, qui te
+        # remettait en ligne. Découplé, le statut du compte (ex. invisible réglé côté
+        # Web) est préservé — tu apparais offline aux autres — pendant que la session
+        # Desktop conserve la valeur configurée dans le panel RPC.
+        await client.change_presence(status=status, activities=activities, edit_settings=False)
     except Exception as e:  # noqa: BLE001
         logerr(f"[RPC] Erreur change_presence : {e}")
 
