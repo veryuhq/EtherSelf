@@ -14,7 +14,7 @@ def escape_html(s) -> str:
     if not s:
         return ""
     return (str(s).replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;").replace('"', "&quot;"))
+            .replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;"))
 
 
 def format_ts(ts) -> str:
@@ -51,6 +51,41 @@ def resolve_url(val):
     if isinstance(val, str):
         return val or None
     return None
+
+
+# ── Sécurité du rendu (URLs + contextes JS inline) ───────────────────────────
+# escape_html NE SUFFIT PAS pour une valeur placée dans une chaîne JS d'un
+# attribut onerror/onclick : le parseur HTML décode l'attribut AVANT que le
+# moteur JS ne l'évalue, donc une entité comme &#39; y redevient une apostrophe
+# et peut sortir de la chaîne. On valide donc strictement les URLs (schéma +
+# absence de caractères de rupture) et on retire les caractères dangereux des
+# textes injectés dans ces contextes inline.
+
+_SAFE_URL_RE = re.compile(r'^(?:https?://|data:image/)[^\s"\'<>\\`]+$', re.IGNORECASE)
+_JS_UNSAFE = re.compile(r"['\"\\<>`\r\n\x00]")
+
+
+def safe_url(val) -> str:
+    """URL sûre pour un attribut src/href ET pour une chaîne JS inline.
+
+    Rejette tout schéma autre que http(s)/data:image et toute URL contenant un
+    guillemet, un chevron, un antislash ou une espace (schémas type javascript:
+    inclus). Retourne "" si invalide."""
+    v = resolve_url(val)
+    if not v:
+        return ""
+    v = str(v).strip()
+    if not _SAFE_URL_RE.match(v):
+        return ""
+    return v.replace("&", "&amp;")
+
+
+def js_text(s) -> str:
+    """Texte sûr à l'intérieur d'une chaîne JS d'un attribut inline.
+
+    Retire les caractères qui, une fois l'attribut décodé par le parseur HTML,
+    permettraient de sortir de la chaîne (' " \\) ou d'injecter du markup (< > `)."""
+    return _JS_UNSAFE.sub("", str(s or ""))
 
 
 # ── Messages système ──────────────────────────────────────────────────────────
@@ -349,18 +384,18 @@ def render_embed_fields(fields, mention_maps) -> str:
 def render_embed(e, mention_maps) -> str:
     if e.get("type") in ("gifv", "image"):
         if e.get("videoUrl"):
-            fallback = escape_html(e.get("thumbnailUrl") or e.get("imageUrl") or "")
+            fallback = safe_url(e.get("thumbnailUrl") or e.get("imageUrl") or "")
             return (f'<div class="attachment"><video class="attachment-img" '
-                    f'src="{escape_html(e["videoUrl"])}" autoplay loop muted playsinline '
+                    f'src="{safe_url(e["videoUrl"])}" autoplay loop muted playsinline '
                     f"onerror=\"this.outerHTML='<img class=\\'attachment-img\\' src=\\'{fallback}\\' "
                     f"alt=\\'gif\\' loading=\\'lazy\\'>'\"></video></div>")
         gif_url = e.get("imageUrl") or e.get("thumbnailUrl")
         if gif_url:
             return (f'<div class="attachment"><img class="attachment-img" '
-                    f'src="{escape_html(gif_url)}" alt="gif" loading="lazy"></div>')
+                    f'src="{safe_url(gif_url)}" alt="gif" loading="lazy"></div>')
         if e.get("url"):
             return (f'<div class="attachment"><a class="attachment-file" '
-                    f'href="{escape_html(e["url"])}" target="_blank" rel="noopener">🎞️ {escape_html(e["url"])}</a></div>')
+                    f'href="{safe_url(e["url"])}" target="_blank" rel="noopener">🎞️ {escape_html(e["url"])}</a></div>')
         return ""
 
     color = e.get("color")
@@ -369,12 +404,12 @@ def render_embed(e, mention_maps) -> str:
     if e.get("type") == "link":
         title = ""
         if e.get("title"):
-            inner = (f'<a href="{escape_html(e["url"])}" target="_blank" rel="noopener">'
+            inner = (f'<a href="{safe_url(e["url"])}" target="_blank" rel="noopener">'
                      f'{render_content(e["title"], mention_maps)}</a>') if e.get("url") \
                 else render_content(e["title"], mention_maps)
             title = f'<div class="embed-title">{inner}</div>'
         desc = f'<div class="embed-desc">{render_content(e["description"], mention_maps)}</div>' if e.get("description") else ""
-        img = (f'<div class="embed-image"><img src="{escape_html(e["imageUrl"])}" alt="" '
+        img = (f'<div class="embed-image"><img src="{safe_url(e["imageUrl"])}" alt="" '
                f"loading=\"lazy\" onerror=\"this.style.display='none'\"></div>") if e.get("imageUrl") else ""
         return (f'<div class="embed" style="{color_style}"><div class="embed-inner">'
                 f"{title}{desc}{img}</div></div>")
@@ -384,10 +419,10 @@ def render_embed(e, mention_maps) -> str:
     author = ""
     if e.get("author"):
         a = e["author"]
-        icon = (f'<img class="embed-author-icon" src="{escape_html(a["iconUrl"])}" alt="" '
+        icon = (f'<img class="embed-author-icon" src="{safe_url(a["iconUrl"])}" alt="" '
                 f"onerror=\"this.style.display='none'\">") if a.get("iconUrl") else ""
         if a.get("url"):
-            name = (f'<a class="embed-author-name" href="{escape_html(a["url"])}" target="_blank" '
+            name = (f'<a class="embed-author-name" href="{safe_url(a["url"])}" target="_blank" '
                     f'rel="noopener">{render_content(a.get("name"), mention_maps)}</a>')
         else:
             name = f'<span class="embed-author-name">{render_content(a.get("name"), mention_maps)}</span>'
@@ -395,23 +430,23 @@ def render_embed(e, mention_maps) -> str:
 
     title = ""
     if e.get("title"):
-        inner = (f'<a href="{escape_html(e["url"])}" target="_blank" rel="noopener">'
+        inner = (f'<a href="{safe_url(e["url"])}" target="_blank" rel="noopener">'
                  f'{render_content(e["title"], mention_maps)}</a>') if e.get("url") \
             else render_content(e["title"], mention_maps)
         title = f'<div class="embed-title">{inner}</div>'
 
     desc = f'<div class="embed-desc">{render_content(e["description"], mention_maps)}</div>' if e.get("description") else ""
     fields = render_embed_fields(e.get("fields"), mention_maps)
-    image = (f'<div class="embed-image"><img src="{escape_html(e["imageUrl"])}" alt="" '
+    image = (f'<div class="embed-image"><img src="{safe_url(e["imageUrl"])}" alt="" '
              f"loading=\"lazy\" onerror=\"this.style.display='none'\"></div>") if e.get("imageUrl") else ""
-    thumb = (f'<img class="embed-thumbnail" src="{escape_html(e["thumbnailUrl"])}" alt="" '
+    thumb = (f'<img class="embed-thumbnail" src="{safe_url(e["thumbnailUrl"])}" alt="" '
              f"onerror=\"this.style.display='none'\">") if e.get("thumbnailUrl") else ""
-    video = (f'<div class="embed-video"><video controls src="{escape_html(e["videoUrl"])}" '
+    video = (f'<div class="embed-video"><video controls src="{safe_url(e["videoUrl"])}" '
              f"onerror=\"this.style.display='none'\"></video></div>") if e.get("videoUrl") and e.get("type") != "gifv" else ""
 
     footer = ""
     if e.get("footer") or e.get("timestamp"):
-        ficon = (f'<img class="embed-footer-icon" src="{escape_html(e["footerIconUrl"])}" alt="" '
+        ficon = (f'<img class="embed-footer-icon" src="{safe_url(e["footerIconUrl"])}" alt="" '
                  f"onerror=\"this.style.display='none'\">") if e.get("footerIconUrl") else ""
         ftext = f"<span>{escape_html(e['footer'])}</span>" if e.get("footer") else ""
         sep = '<span class="embed-footer-sep">•</span>' if e.get("footer") and e.get("timestamp") else ""
@@ -426,13 +461,14 @@ def render_embed(e, mention_maps) -> str:
 def render_sticker(sticker) -> str:
     url = sticker_cdn_url(sticker)
     safe = escape_html(sticker.get("name") or "sticker")
+    safe_js = js_text(sticker.get("name") or "sticker")
     if not url:
         return (f'<div class="sticker sticker-lottie" title="{safe}">'
                 f'<span class="sticker-lottie-label">🎭 {safe}</span>'
                 f'<span class="sticker-lottie-hint">Sticker animé (Lottie)</span></div>')
-    return (f'<div class="sticker"><img class="sticker-img" src="{escape_html(url)}" alt="{safe}" '
+    return (f'<div class="sticker"><img class="sticker-img" src="{safe_url(url)}" alt="{safe}" '
             f'title="{safe}" loading="lazy" '
-            f"onerror=\"this.parentElement.innerHTML='<span class=\\'sticker-error\\'>🎭 {safe}</span>'\"></div>")
+            f"onerror=\"this.parentElement.innerHTML='<span class=\\'sticker-error\\'>🎭 {safe_js}</span>'\"></div>")
 
 
 _RE_IMG = re.compile(r"\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$", re.IGNORECASE)
@@ -466,22 +502,23 @@ def render_message(m, mention_maps) -> str:
     for att in m.get("attachments") or []:
         url = att.get("url") or ""
         name = escape_html(att.get("name") or url)
+        name_js = js_text(att.get("name") or url)
         if _RE_IMG.search(url):
             attachments.append(
-                f'<div class="attachment"><img class="attachment-img" src="{escape_html(url)}" '
+                f'<div class="attachment"><img class="attachment-img" src="{safe_url(url)}" '
                 f'alt="{escape_html(att.get("name") or "image")}" loading="lazy" '
-                f"onerror=\"this.outerHTML='<a class=\\'attachment-file\\' href=\\'{escape_html(url)}\\' "
-                f"target=\\'_blank\\'>📎 {name}</a>'\"></div>")
+                f"onerror=\"this.outerHTML='<a class=\\'attachment-file\\' href=\\'{safe_url(url)}\\' "
+                f"target=\\'_blank\\'>📎 {name_js}</a>'\"></div>")
         elif _RE_VID.search(url):
             attachments.append(f'<div class="attachment"><video class="attachment-video" controls '
-                               f'src="{escape_html(url)}"></video></div>')
+                               f'src="{safe_url(url)}"></video></div>')
         elif _RE_AUD.search(url):
             attachments.append(f'<div class="attachment"><audio class="attachment-audio" controls '
-                               f'src="{escape_html(url)}"></audio>'
+                               f'src="{safe_url(url)}"></audio>'
                                f'<span class="attachment-audio-name">🎵 {name}</span></div>')
         else:
             attachments.append(f'<div class="attachment"><a class="attachment-file" '
-                               f'href="{escape_html(url)}" target="_blank" rel="noopener">📎 {name}</a></div>')
+                               f'href="{safe_url(url)}" target="_blank" rel="noopener">📎 {name}</a></div>')
     attachments_html = "".join(attachments)
 
     embeds_html = "".join(render_embed(e, mention_maps) for e in (m.get("embeds") or []))
@@ -497,15 +534,15 @@ def render_message(m, mention_maps) -> str:
         chips = []
         for r in m["reactions"]:
             if r.get("emojiId"):
-                emoji = (f'<img class="reaction-emoji" src="{emoji_cdn_url(r["emojiId"], r.get("animated", False))}" '
+                emoji = (f'<img class="reaction-emoji" src="{safe_url(emoji_cdn_url(r["emojiId"], r.get("animated", False)))}" '
                          f'alt="{escape_html(r.get("emojiName") or "")}" '
-                         f"onerror=\"this.replaceWith(document.createTextNode('{escape_html(r.get('emojiName') or '?')}'))\">")
+                         f"onerror=\"this.replaceWith(document.createTextNode('{js_text(r.get('emojiName') or '?')}'))\">")
             else:
                 emoji = escape_html(r.get("emoji"))
             chips.append(f'<span class="reaction">{emoji} {r["count"]}</span>')
         reactions_html = f'<div class="reactions">{"".join(chips)}</div>'
 
-    initials = escape_html((m.get("authorTag") or "?")[0].upper())
+    initials = js_text((m.get("authorTag") or "?")[0].upper()) or "?"
     bot_class = " bot" if m.get("isBot") else ""
     bot_badge = '<span class="badge-bot">BOT</span>' if m.get("isBot") else ""
     edited = '<span class="edited">(édité)</span>' if m.get("editedAt") else ""
@@ -517,7 +554,7 @@ def render_message(m, mention_maps) -> str:
         f"font-family=%22sans-serif%22>{initials}</text></svg>")
 
     return (f'<div class="msg{bot_class}" id="msg-{m["id"]}">'
-            f'<img class="avatar" src="{avatar_url}" alt="{escape_html(m["authorTag"])}" loading="lazy" '
+            f'<img class="avatar" src="{safe_url(avatar_url)}" alt="{escape_html(m["authorTag"])}" loading="lazy" '
             f"onerror=\"this.src='{fallback_svg}'\">"
             f'<div class="msg-body"><div class="msg-header">'
             f'<span class="author">{escape_html(m["authorTag"])}</span>{bot_badge}'

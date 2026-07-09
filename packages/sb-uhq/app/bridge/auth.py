@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 import os
 import re
 import time
@@ -67,6 +68,10 @@ def verify_signed_request(headers, body: str = "") -> bool:
         ts_num = float(timestamp)
     except (TypeError, ValueError):
         return False
+    # Rejette explicitement nan/inf : `nan > MAX_SKEW_MS` vaut False et laisserait
+    # sinon passer un horodatage "nan" (le côté JS rejette déjà via Number.isFinite).
+    if not math.isfinite(ts_num):
+        return False
     if abs(_now_ms() - ts_num) > MAX_SKEW_MS:
         return False
 
@@ -74,3 +79,29 @@ def verify_signed_request(headers, body: str = "") -> bool:
     if not _HEX64.match(str(signature)):
         return False
     return hmac.compare_digest(str(signature), expected)
+
+
+# ── Anti-rejeu ───────────────────────────────────────────────────────────────
+# Une signature valide = HMAC(timestamp.body). Deux actions distinctes ont des
+# timestamps distincts, donc des signatures distinctes : seul un rejeu byte-à-byte
+# réutilise la même signature. On mémorise les signatures vues pendant la fenêtre
+# de dérive et on rejette les répétitions.
+
+_seen_signatures: dict[str, float] = {}
+
+
+def register_signature(signature: str | None) -> bool:
+    """Retourne True si la signature est neuve, False si c'est un rejeu."""
+    now = _now_ms()
+    if len(_seen_signatures) > 10_000:
+        for key, expiry in list(_seen_signatures.items()):
+            if expiry <= now:
+                _seen_signatures.pop(key, None)
+    sig = str(signature or "")
+    if not sig:
+        return False
+    expiry = _seen_signatures.get(sig)
+    if expiry and expiry > now:
+        return False
+    _seen_signatures[sig] = now + MAX_SKEW_MS
+    return True

@@ -49,6 +49,27 @@ function verifySignedRequest({ headers = {}, body = "" }) {
   return /^[a-f0-9]{64}$/i.test(String(signature)) && timingSafeEqualString(signature, expected);
 }
 
+// ── Anti-rejeu ───────────────────────────────────────────────────────────────
+// Symétrique du selfbot : on mémorise les signatures vues pendant la fenêtre de
+// dérive et on rejette les répétitions (un rejeu byte-à-byte réutilise la même
+// signature ; deux requêtes distinctes ont des timestamps donc signatures distincts).
+const _seenSignatures = new Map();
+
+function registerSignature(signature) {
+  const now = Date.now();
+  if (_seenSignatures.size > 10000) {
+    for (const [key, expiry] of _seenSignatures) {
+      if (expiry <= now) _seenSignatures.delete(key);
+    }
+  }
+  const sig = String(signature ?? "");
+  if (!sig) return false;
+  const expiry = _seenSignatures.get(sig);
+  if (expiry && expiry > now) return false;
+  _seenSignatures.set(sig, now + MAX_SKEW_MS);
+  return true;
+}
+
 function makeRateLimiter({ windowMs, max, keyFn = () => "global" }) {
   const buckets = new Map();
   return (req, res, next) => {
@@ -73,5 +94,6 @@ module.exports = {
   signBody,
   signedHeaders,
   verifySignedRequest,
+  registerSignature,
   makeRateLimiter,
 };

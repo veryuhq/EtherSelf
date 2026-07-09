@@ -15,7 +15,7 @@ from aiohttp import web
 
 from ..func.logbus import logerr
 from ..router.action_router import dispatch
-from .auth import get_secret_buffer, verify_signed_request
+from .auth import get_secret_buffer, register_signature, verify_signed_request
 
 BRIDGE_PORT = int(os.environ.get("BRIDGE_PORT", "3000"))
 
@@ -49,6 +49,10 @@ def _client_key(request: web.Request) -> str:
     return request.remote or "local"
 
 
+def _signature_of(request: web.Request) -> str:
+    return request.headers.get("X-Bridge-Signature", "")
+
+
 async def _read_raw(request: web.Request) -> str:
     raw = await request.read()
     return raw.decode("utf-8", errors="replace")
@@ -69,6 +73,10 @@ def start_bridge_server(client) -> web.AppRunner:
         if not verify_signed_request(request.headers, raw):
             return web.json_response(
                 {"success": False, "error": "Forbidden — signature invalide."}, status=403)
+
+        if not register_signature(_signature_of(request)):
+            return web.json_response(
+                {"success": False, "error": "Requête déjà utilisée (rejeu détecté)."}, status=409)
 
         if not _general.allow(_client_key(request)):
             return web.json_response(
@@ -106,6 +114,10 @@ def start_bridge_server(client) -> web.AppRunner:
         if not verify_signed_request(request.headers, raw):
             return web.json_response(
                 {"success": False, "error": "Forbidden — signature invalide."}, status=403)
+
+        if not register_signature(_signature_of(request)):
+            return web.json_response(
+                {"success": False, "error": "Requête déjà utilisée (rejeu détecté)."}, status=409)
 
         ws_ping = None
         try:

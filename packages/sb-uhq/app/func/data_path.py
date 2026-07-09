@@ -22,7 +22,10 @@ def read_json(path: Path, default):
         return default
 
 
-def write_json(path: Path, data, *, mode: int | None = None) -> None:
+def write_json(path: Path, data, *, mode: int | None = 0o600) -> None:
+    # Défaut 0600 : les fichiers de data/ contiennent des données privées
+    # (contenu de messages supprimés/édités, liste d'amis, config, tokens de
+    # session) et ne doivent pas être lisibles par les autres comptes de l'hôte.
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)

@@ -21,7 +21,7 @@ const selects = require("./src/interactions/selects");
 const panel   = require("./src/commands/panel");
 
 const { healthCheck }                                       = require("./src/bridge/client");
-const { getSecretBuffer, verifySignedRequest }               = require("./src/bridge/auth");
+const { getSecretBuffer, verifySignedRequest, registerSignature } = require("./src/bridge/auth");
 const { container, textDisplay, separator, actionRow, btn } = require("./src/utils/components");
 
 const snipe   = require("./src/panels/snipe");
@@ -119,6 +119,21 @@ function readBody(req, maxBytes = 50 * 1024 * 1024) {
   });
 }
 
+// Répertoire data/ du selfbot : seule racine dont /file accepte de lire un
+// `filepath` local. Empêche qu'une requête signée puisse exfiltrer un fichier
+// arbitraire de l'hôte (defense-in-depth au-delà du HMAC).
+const SB_DATA_DIR = process.env.SB_DATA_DIR
+  ? path.resolve(process.env.SB_DATA_DIR)
+  : path.resolve(__dirname, "..", "sb-uhq", "data");
+
+function assertInSbData(localFilepath) {
+  const resolved = path.resolve(String(localFilepath ?? ""));
+  if (resolved !== SB_DATA_DIR && !resolved.startsWith(`${SB_DATA_DIR}${path.sep}`)) {
+    throw new Error("Chemin de fichier hors du répertoire autorisé.");
+  }
+  return resolved;
+}
+
 function safeTmpFile(filename) {
   const base = path.basename(String(filename ?? "")).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
   if (!base || base === "." || base === "..") throw new Error("Nom de fichier invalide.");
@@ -187,6 +202,10 @@ const logServer = http.createServer(async (req, res) => {
   // ── Auth ──────────────────────────────────────────────────────────────────
   if (!verifySignedRequest({ headers: req.headers, body: rawBody })) {
     res.writeHead(403).end();
+    return;
+  }
+  if (!registerSignature(req.headers["x-bridge-signature"] ?? req.headers["X-Bridge-Signature"])) {
+    res.writeHead(409).end();
     return;
   }
   if (!checkHttpRateLimit(`${req.socket.remoteAddress}:${req.url}`, 100, 60_000)) {
@@ -288,7 +307,9 @@ const logServer = http.createServer(async (req, res) => {
       if (localFilepath) {
         // Chemin local : les deux process tournent sur le même VPS,
         // on lit directement le fichier sans passer par base64 en mémoire.
-        fs.copyFileSync(localFilepath, tmpPath);
+        // Confiné au répertoire data/ du selfbot (anti-exfiltration).
+        const srcPath = assertInSbData(localFilepath);
+        fs.copyFileSync(srcPath, tmpPath);
         fs.chmodSync(tmpPath, 0o600);
         usedLocalPath = true;
       } else {
