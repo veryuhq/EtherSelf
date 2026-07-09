@@ -133,8 +133,11 @@ async def _create_permanent_invite(guild):
     # Les salons d'annonces sont des TextChannel (is_news()) dans discord.py-self.
     channels = [c for c in guild.channels if isinstance(c, discord.TextChannel)]
 
+    # discord.py-self expose la propriété system_channel (objet), pas system_channel_id.
+    sys_id = guild.system_channel.id if guild.system_channel else None
+
     def sort_key(c):
-        if c.id == guild.system_channel_id:
+        if c.id == sys_id:
             return (-1, 0)
         return (0, getattr(c, "position", 0))
 
