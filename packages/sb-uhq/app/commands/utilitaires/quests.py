@@ -270,7 +270,7 @@ async def run_all(client) -> None:
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise RuntimeError(f"HTTP {res['status']}")
-        raw = res["data"]
+        raw = res["data"] or {}
     except Exception as err:  # noqa: BLE001
         logerr(f"[QUESTS] ❌ Impossible de récupérer les quêtes : {err}")
         return
@@ -370,7 +370,7 @@ async def execute(client, payload):
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")
-        raw = res["data"]
+        raw = res["data"] or {}
         quests = raw.get("quests") or []
         all_active = _filter_active(quests)
         todo = _filter_valid(quests)
@@ -399,7 +399,7 @@ async def execute(client, payload):
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")
-        raw = res["data"]
+        raw = res["data"] or {}
         quests = raw.get("quests") or []
         todo = _unique(_filter_valid(quests) + _filter_enrollable(quests))
         if not todo:
