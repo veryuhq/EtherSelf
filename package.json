@@ -3,12 +3,12 @@
   "version": "2026.4.1",
   "private": true,
   "workspaces": [
-    "packages/bot-controller",
-    "packages/sb-uhq"
+    "packages/bot-controller"
   ],
   "scripts": {
     "start:controller": "npm --workspace=packages/bot-controller start",
-    "start:selfbot": "npm --workspace=packages/sb-uhq start",
+    "start:selfbot": "cd packages/sb-uhq && python3 main.py",
+    "setup:selfbot": "cd packages/sb-uhq && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt",
     "clean:data": "node scripts/clean_data.js",
     "lines:count": "node scripts/lines_count.js",
     "deploy": "npm --workspace=packages/bot-controller run deploy"
