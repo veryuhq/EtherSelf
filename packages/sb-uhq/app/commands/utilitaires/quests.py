@@ -65,8 +65,10 @@ def _expires_ms(quest) -> float:
 
 
 def _filter_valid(quests):
-    return [q for q in quests if q.get("user_status", {}).get("enrolled_at")
-            and not q.get("user_status", {}).get("completed_at")
+    # user_status peut être présent mais null (≠ absent) : (… or {}) est obligatoire,
+    # dict.get(k, {}) ne protège pas contre une valeur null.
+    return [q for q in quests if (q.get("user_status") or {}).get("enrolled_at")
+            and not (q.get("user_status") or {}).get("completed_at")
             and _expires_ms(q) > _now_ms()]
 
 
