@@ -104,11 +104,20 @@ async def on_message_edit(before, after):
 
 @client.event
 async def on_private_channel_create(channel):
-    # Anti-Group DM (discord.py-self émet cet évènement pour les nouveaux groupes).
+    # Anti-Group DM — discord.py-self émet private_channel_create(channel).
     try:
         await antigroup.handle_channel_create(client, channel)
     except Exception as err:  # noqa: BLE001
-        logerr(f"[ANTIGROUP] channelCreate : {err}")
+        logerr(f"[ANTIGROUP] private_channel_create : {err}")
+
+
+@client.event
+async def on_group_join(channel, user):
+    # Fallback : ajout à un groupe DM existant → group_join(channel, user).
+    try:
+        await antigroup.handle_channel_create(client, channel)
+    except Exception as err:  # noqa: BLE001
+        logerr(f"[ANTIGROUP] group_join : {err}")
 
 
 def main():
