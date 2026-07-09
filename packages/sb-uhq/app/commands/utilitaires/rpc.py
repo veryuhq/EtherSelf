@@ -4,13 +4,16 @@ Port de src/self/commands/utilitaires/rpc.js. La logique de configuration est id
 seule l'application de la présence utilise l'API discord.py-self (change_presence).
 
 NOTE discord.py-self : discord.js-selfbot exposait des classes dédiées (RichPresence,
-SpotifyRPC, CustomStatus). Ici on construit des discord.Activity / discord.CustomActivity.
-La fidélité du rendu Spotify dépend de la version de discord.py-self (à valider en runtime).
+SpotifyRPC, CustomStatus). discord.py-self fournit lui aussi une classe dédiée
+`discord.Spotify` (cf. examples/spotify_presence.py) que l'on utilise ici pour un rendu
+Spotify fidèle ; les Rich Presence classiques et le Custom Status passent respectivement
+par discord.Activity / discord.CustomActivity.
 """
 
 from __future__ import annotations
 
 import asyncio
+import datetime
 import re
 
 import discord
@@ -168,49 +171,60 @@ def _build_rich(act, application_id):
         return discord.Activity(type=kwargs["type"], name=act.get("name") or "…")
 
 
-def _build_spotify(spotify):
-    """Best-effort : discord.py-self ne fournit pas de SpotifyRPC public.
+def _split_artists(state) -> list:
+    """Découpe le sous-titre (state) en liste d'artistes (séparateurs , ; retour ligne)."""
+    value = str(state or "").strip()
+    if not value:
+        return []
+    return [p.strip() for p in re.split(r"[;\n,]+", value) if p.strip()]
 
-    On construit une activité d'écoute avec les métadonnées Spotify disponibles.
+
+def _build_spotify(spotify, client):
+    """Construit une présence Spotify via la classe dédiée `discord.Spotify`.
+
+    Voir dolfies/discord.py-self examples/spotify_presence.py. On mappe la config :
+      details          -> title (nom du morceau)
+      state            -> artists (découpé)
+      songId/albumId   -> track_id / album_id
+      artistIds        -> artist_ids
+      assets.largeText -> album ; assets.largeImage -> album_cover_url
+      timestamps       -> start_time / duration
     """
     assets = spotify.get("assets") or {}
-    kwargs = {"type": discord.ActivityType.listening, "name": "Spotify"}
-    # Discord reconnaît une présence Spotify via le sync_id (ID du morceau) + les
-    # flags SYNC|PLAY (valeur 48). Vérifié contre discord.py-self 2.1.0.
-    if spotify.get("songId"):
-        kwargs["sync_id"] = spotify["songId"]
-    try:
-        kwargs["flags"] = discord.ActivityFlags(sync=True, play=True)
-    except Exception:
-        pass
-    if spotify.get("details"):
-        kwargs["details"] = spotify["details"]
-    if spotify.get("state"):
-        kwargs["state"] = spotify["state"]
-    if spotify.get("applicationId"):
-        kwargs["application_id"] = int(spotify["applicationId"])
-    if spotify.get("url"):
-        kwargs["url"] = spotify["url"]
-    asset_payload = {}
-    if assets.get("largeImage"):
-        asset_payload["large_image"] = assets["largeImage"]
-    if assets.get("largeText"):
-        asset_payload["large_text"] = assets["largeText"]
-    if assets.get("smallImage"):
-        asset_payload["small_image"] = assets["smallImage"]
-    if assets.get("smallText"):
-        asset_payload["small_text"] = assets["smallText"]
-    if asset_payload:
-        kwargs["assets"] = asset_payload
     ts = spotify.get("timestamps") or {}
-    ts_payload = {k: v for k, v in (("start", ts.get("start")), ("end", ts.get("end"))) if v}
-    if ts_payload:
-        kwargs["timestamps"] = ts_payload
+
+    title = spotify.get("details") or "Titre inconnu"
+    artists = _split_artists(spotify.get("state")) or ["Artiste inconnu"]
+    artist_ids = [a for a in (spotify.get("artistIds") or []) if a] or None
+
+    # timestamps stockés en millisecondes (start/end). On en déduit start_time + durée.
+    start_ms, end_ms = ts.get("start"), ts.get("end")
+    start_time = discord.utils.MISSING
+    if start_ms:
+        start_time = datetime.datetime.fromtimestamp(start_ms / 1000, tz=datetime.timezone.utc)
+    if start_ms and end_ms and end_ms > start_ms:
+        duration = datetime.timedelta(milliseconds=end_ms - start_ms)
+    else:
+        duration = datetime.timedelta(minutes=3)
+
+    kwargs = {
+        "title": title,
+        "track_id": spotify.get("songId"),
+        "track_type": "track",
+        "artists": artists,
+        "artist_ids": artist_ids,
+        "album": assets.get("largeText"),
+        "album_id": spotify.get("albumId"),
+        "album_cover_url": assets.get("largeImage"),
+        "start_time": start_time,
+        "duration": duration,
+        "party_owner_id": client.user.id if client and client.user else None,
+    }
     try:
-        return discord.Activity(**kwargs)
+        return discord.Spotify(**kwargs)
     except Exception as e:  # noqa: BLE001
         logerr(f"[RPC] Erreur buildSpotifyPresence : {e}")
-        return discord.Activity(type=discord.ActivityType.listening, name="Spotify")
+        return discord.Activity(type=discord.ActivityType.listening, name=title)
 
 
 def _extract_spotify_id(raw, kind) -> str | None:
@@ -255,7 +269,7 @@ def _parse_timestamp(raw):
         raise ValueError("Timestamp invalide. Utilise un UNIX timestamp (secondes/ms) ou une date ISO.")
 
 
-def _build_presence(config):
+def _build_presence(config, client):
     activities = []
     if config["csEnabled"] and config["customStatuses"]:
         cs = config["customStatuses"][config["csCurrentIdx"] % len(config["customStatuses"])]
@@ -265,7 +279,7 @@ def _build_presence(config):
         except Exception:
             activities.append(discord.CustomActivity(name=cs.get("text") or ""))
     if config["spotify"].get("enabled") and config["spotify"].get("songId"):
-        activities.append(_build_spotify(config["spotify"]))
+        activities.append(_build_spotify(config["spotify"], client))
     if config["enabled"] and config["activities"]:
         act = config["activities"][config["currentIdx"] % len(config["activities"])]
         activities.append(_build_rich(act, config["applicationId"]))
@@ -273,7 +287,7 @@ def _build_presence(config):
 
 
 async def apply_presence(client, config) -> None:
-    status, activities = _build_presence(config)
+    status, activities = _build_presence(config, client)
     try:
         await client.change_presence(status=status, activities=activities)
     except Exception as e:  # noqa: BLE001
