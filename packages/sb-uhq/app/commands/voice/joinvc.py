@@ -44,7 +44,9 @@ async def _connect(channel) -> None:
     if existing:
         await existing.move_to(channel)
     else:
-        await channel.connect(self_deaf=True, self_mute=False)
+        # self_deaf doit rester False : sur un selfbot, l'état vocal s'applique au
+        # compte entier — se rendre sourd ici rend l'utilisateur sourd dans ses appels.
+        await channel.connect(self_deaf=False, self_mute=False)
 
 
 async def auto_rejoin(client) -> None:
