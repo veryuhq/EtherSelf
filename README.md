@@ -8,7 +8,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-v18+-339933?style=flat-square&logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)
 ![selfbot](https://img.shields.io/badge/selfbot-discord.py--self-ED4245?style=flat-square)
-![license](https://img.shields.io/badge/licence-MIT-yellow?style=flat-square)
+![license](https://img.shields.io/badge/licence-PolyForm%20Noncommercial%201.0.0-yellow?style=flat-square)
 
 </div>
 
@@ -252,4 +252,4 @@ Au démarrage, le bot controller t'envoie automatiquement un DM confirmant que t
 
 ## 📄 Licence
 
-**MIT** — fais-en ce que tu veux, mais assume les conséquences vis-à-vis de Discord toi-même.
+**[PolyForm Noncommercial License 1.0.0](./LICENSE)** — usage privé, modification et distribution autorisés **à des fins non commerciales uniquement** (interdiction de se faire de l'argent avec). Fourni **sans aucune garantie ni responsabilité**. Et dans tous les cas : assume les conséquences vis-à-vis de Discord toi-même.
