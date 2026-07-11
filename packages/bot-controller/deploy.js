@@ -9,6 +9,10 @@ const commands = [
     .setName("panel")
     .setDescription("🎛️ Ouvre le panneau de contrôle du selfbot")
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName("purgelogs")
+    .setDescription("🧹 Supprime tous les messages du bot dans tes MPs")
+    .toJSON(),
 ];
 
 const rest = new REST({ version: "10" }).setToken(process.env.BOT_TOKEN);

@@ -18,7 +18,8 @@ const {
 const buttons = require("./src/interactions/buttons");
 const modals  = require("./src/interactions/modals");
 const selects = require("./src/interactions/selects");
-const panel   = require("./src/commands/panel");
+const panel     = require("./src/commands/panel");
+const purgelogs = require("./src/commands/purgelogs");
 
 const { healthCheck }                                       = require("./src/bridge/client");
 const { getSecretBuffer, verifySignedRequest, registerSignature } = require("./src/bridge/auth");
@@ -96,6 +97,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.commands = new Collection();
 client.commands.set(panel.data.name, panel);
+client.commands.set(purgelogs.data.name, purgelogs);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  HELPERS
