@@ -18,10 +18,8 @@ from ..commands.voice import joinvc
 ACTIONS = {
     # ── AFK ──
     "afk.toggle": lambda c, p: afk.execute(c, {"action": "toggle"}),
-    "afk.toggleSpecial": lambda c, p: afk.execute(c, {"action": "toggleSpecial"}),
     "afk.setReason": lambda c, p: afk.execute(c, {"action": "setReason", "reason": p.get("reason")}),
     "afk.setMsgNormal": lambda c, p: afk.execute(c, {"action": "setMsgNormal", "message": p.get("message")}),
-    "afk.setMsgSpecial": lambda c, p: afk.execute(c, {"action": "setMsgSpecial", "message": p.get("message")}),
     "afk.addExclusion": lambda c, p: afk.execute(c, {"action": "addExclusion", "userId": p.get("userId")}),
     "afk.removeExclusion": lambda c, p: afk.execute(c, {"action": "removeExclusion", "userId": p.get("userId")}),
     "afk.getState": lambda c, p: afk.execute(c, {"action": "getState"}),

@@ -107,12 +107,6 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(afk.build(res?.data ?? {}));
   }
-  if (id === "modal:afk_msg_special") {
-    const msg = interaction.fields.getTextInputValue("msg");
-    const res = await sendAction("afk.setMsgSpecial", { message: msg || null });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(afk.build(res?.data ?? {}));
-  }
   if (id === "modal:afk_excl_add") {
     const userId = interaction.fields.getTextInputValue("userId").trim();
     const res = await sendAction("afk.addExclusion", { userId });

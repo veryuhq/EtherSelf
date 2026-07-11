@@ -135,7 +135,6 @@ async function handle(interaction) {
 
   // ── AFK ───────────────────────────────────────────────────────────────────
   if (id === "afk:toggle") { const res = await sendAction("afk.toggle"); return interaction.update(afk.build(res?.data ?? {})); }
-  if (id === "afk:toggleSpecial") { const res = await sendAction("afk.toggleSpecial"); return interaction.update(afk.build(res?.data ?? {})); }
   if (id === "afk:setReason") {
     const res = await sendAction("afk.getState");
     return interaction.showModal(modal("modal:afk_reason", "Raison AFK", [
@@ -146,12 +145,6 @@ async function handle(interaction) {
     const res = await sendAction("afk.getState");
     return interaction.showModal(modal("modal:afk_msg_normal", "Message AFK normal", [
       { id: "msg", label: "Message (vide = défaut)", placeholder: "Je suis AFK…", value: res?.data?.messageNormal ?? "", required: false, long: true },
-    ]));
-  }
-  if (id === "afk:setMsgSpecial") {
-    const res = await sendAction("afk.getState");
-    return interaction.showModal(modal("modal:afk_msg_special", "Message AFK spécial", [
-      { id: "msg", label: "Message (vide = message par défaut)", placeholder: "Message spécial…", value: res?.data?.messageSpecial ?? "", required: false, long: true },
     ]));
   }
   if (id === "afk:addExclusion") {

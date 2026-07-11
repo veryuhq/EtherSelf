@@ -9,12 +9,10 @@ AFK_FILE = data_path("config", "afk.json")
 
 _DEFAULT = {
     "enabled": False,
-    "special": False,
     "reason": "",
     "excluded": [],
     "notified": [],
     "messageNormal": None,
-    "messageSpecial": None,
 }
 
 
@@ -35,6 +33,7 @@ async def execute(client, payload):
 
     if action == "toggle":
         data["enabled"] = not data.get("enabled")
+        data["notified"] = []
         if data["enabled"]:
             current_name = getattr(client.user, "global_name", None) or client.user.name
             data["_originalGlobalName"] = current_name
@@ -53,11 +52,6 @@ async def execute(client, payload):
                 logerr(f"[AFK] Impossible de restaurer le globalName : {err}")
         return data
 
-    if action == "toggleSpecial":
-        data["special"] = not data.get("special")
-        _save(data)
-        return data
-
     if action == "setReason":
         data["reason"] = payload.get("reason") or ""
         _save(data)
@@ -65,11 +59,6 @@ async def execute(client, payload):
 
     if action == "setMsgNormal":
         data["messageNormal"] = payload.get("message") or None
-        _save(data)
-        return data
-
-    if action == "setMsgSpecial":
-        data["messageSpecial"] = payload.get("message") or None
         _save(data)
         return data
 
@@ -99,7 +88,8 @@ async def handle_incoming_message(message, client) -> None:
         return
     if message.author.id == client.user.id:
         return
-    if message.guild:
+    # DM et Group DM uniquement — jamais dans les serveurs.
+    if message.guild is not None:
         return
     if getattr(message.author, "bot", False):
         return
@@ -113,9 +103,7 @@ async def handle_incoming_message(message, client) -> None:
     if author_id in data["notified"]:
         return
 
-    if data.get("special") and data.get("messageSpecial"):
-        msg = data["messageSpecial"]
-    elif data.get("messageNormal"):
+    if data.get("messageNormal"):
         msg = data["messageNormal"]
     else:
         reason = f" — {data['reason']}" if data.get("reason") else ""
