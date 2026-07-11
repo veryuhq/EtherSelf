@@ -17,7 +17,7 @@ module.exports = {
   async execute(interaction) {
     if (OWNER_ID && interaction.user.id !== OWNER_ID) {
       return interaction.reply({
-        content: "❌ Tu n'as pas la permission d'utiliser cette commande.",
+        content: "`❌` Tu n'as pas la permission d'utiliser cette commande.",
         ephemeral: true,
       });
     }
@@ -25,11 +25,11 @@ module.exports = {
     const owner = await interaction.client.users.fetch(OWNER_ID ?? interaction.user.id).catch(() => null);
     const dm    = owner ? await owner.createDM().catch(() => null) : null;
     if (!dm) {
-      return interaction.reply({ content: "❌ Impossible d'ouvrir le salon MP.", ephemeral: true });
+      return interaction.reply({ content: "`❌` Impossible d'ouvrir le salon MP.", ephemeral: true });
     }
 
     await interaction.reply({
-      content: "🧹 Les messages du bot vont maintenant être supprimés…",
+      content: "`🧹` Les messages du bot vont maintenant être supprimés…",
       ephemeral: true,
     });
 
