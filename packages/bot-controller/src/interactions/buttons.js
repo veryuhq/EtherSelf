@@ -144,7 +144,7 @@ async function handle(interaction) {
   if (id === "afk:setMsgNormal") {
     const res = await sendAction("afk.getState");
     return interaction.showModal(modal("modal:afk_msg_normal", "Message AFK normal", [
-      { id: "msg", label: "Message (vide = défaut)", placeholder: "Je suis AFK…", value: res?.data?.messageNormal ?? "", required: false, long: true },
+      { id: "msg", label: "Message ({reason} = raison, vide = défaut)", placeholder: "Je suis AFK ({reason})…", value: res?.data?.messageNormal ?? "", required: false, long: true },
     ]));
   }
   if (id === "afk:addExclusion") {

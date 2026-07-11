@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from ...func.data_path import data_path, read_json, write_json
 from ...func.logbus import logerr
 
@@ -22,6 +24,31 @@ def _load() -> dict:
 
 def _save(data) -> None:
     write_json(AFK_FILE, data)
+
+
+def _build_message(data: dict) -> str:
+    """Construit le message AFK à envoyer.
+
+    - Si un message personnalisé est défini, le placeholder ``{reason}`` y est
+      remplacé par la raison configurée. Sans raison, le placeholder est retiré
+      proprement (parenthèses/crochets vides et espaces superflus nettoyés).
+    - Sinon, message par défaut ``Je suis AFK — <raison>.``.
+    """
+    reason = (data.get("reason") or "").strip()
+    custom = data.get("messageNormal")
+
+    if custom:
+        if reason:
+            return custom.replace("{reason}", reason)
+        # Pas de raison : on retire le placeholder et les résidus éventuels.
+        text = custom.replace("{reason}", "")
+        text = re.sub(r"[([{][\s—–-]*[)\]}]", "", text)  # () / [] / {} vides
+        text = re.sub(r"[ \t]+([,.;:!?])", r"\1", text)   # espace avant ponctuation
+        text = re.sub(r"[ \t]{2,}", " ", text)
+        return text.strip()
+
+    suffix = f" — {reason}" if reason else ""
+    return f"Je suis AFK{suffix}."
 
 
 async def execute(client, payload):
@@ -103,11 +130,7 @@ async def handle_incoming_message(message, client) -> None:
     if author_id in data["notified"]:
         return
 
-    if data.get("messageNormal"):
-        msg = data["messageNormal"]
-    else:
-        reason = f" — {data['reason']}" if data.get("reason") else ""
-        msg = f"Je suis AFK{reason}."
+    msg = _build_message(data)
 
     try:
         await message.channel.send(msg)
