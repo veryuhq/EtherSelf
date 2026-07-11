@@ -111,6 +111,26 @@ async function fetchAndBuild(panelKey) {
  * @param {import("discord.js").StringSelectMenuInteraction} interaction
  */
 async function handle(interaction) {
+  // ── menu:* — boutons regroupés en menu déroulant ──────────────────────────
+  // Quand un panel dépasse 3 boutons d'action, ceux-ci sont regroupés dans un
+  // select (les boutons de navigation, de pagination et les bascules à état
+  // restent des boutons). La valeur choisie correspond au custom_id du bouton
+  // d'origine : on la redispatche vers le handler de boutons pour réutiliser
+  // toute sa logique existante (modals, updates, etc.).
+  if (interaction.customId.startsWith("menu:")) {
+    const selected = interaction.values?.[0];
+    if (!selected) return;
+    const { handle: handleButton } = require("./buttons");
+    const proxy = new Proxy(interaction, {
+      get(target, prop) {
+        if (prop === "customId") return selected;
+        const value = target[prop];
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    return handleButton(proxy);
+  }
+
   // ── rpc:actions ──────────────────────────────────────────────────────────
   if (interaction.customId === "rpc:actions") {
     const id = interaction.values[0];

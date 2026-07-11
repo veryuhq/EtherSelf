@@ -1,7 +1,6 @@
 "use strict";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
   const { joined = false, channelId = null, channelName = null, guildName = null } = data;
@@ -10,15 +9,21 @@ function build(data = {}) {
     ? "`🟢` **Connecté** dans **" + (channelName ?? channelId) + "**" + (guildName ? ` — *${guildName}*` : "")
     : "`🔴` **Non connecté**";
 
+  const vcActions = [
+    { label: "🔊  Rejoindre", value: "joinvc:join", description: "Rejoindre un salon vocal" },
+  ];
+  if (joined) {
+    vcActions.push(
+      { label: "🔄  Changer de salon", value: "joinvc:move",  description: "Changer de salon vocal" },
+      { label: "🔇  Quitter",          value: "joinvc:leave", description: "Quitter le salon vocal" },
+    );
+  }
+
   return replyV2(
     container([
       textDisplay(`# 🔊 Salon vocal\n${status}`),
-      separator(),
-      actionRow([
-        btn("🔊  Rejoindre",         "joinvc:join",  ButtonStyle.Success),
-        btn("🔄  Changer de salon",  "joinvc:move",  ButtonStyle.Primary,  null, !joined),
-        btn("🔇  Quitter",           "joinvc:leave", ButtonStyle.Danger,   null, !joined),
-      ]),
+      separator(1, false),
+      selectMenu("menu:joinvc", "📋  Choisis une action…", vcActions),
       separator(),
       navRow(null, null, true),
     ], 0x9B59B6)

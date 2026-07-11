@@ -160,6 +160,18 @@ function buildCs(data = {}) {
 
   const noStatuses = !customStatuses.length;
 
+  const csActions = [
+    { label: "➕  Ajouter", value: "rpc:csAdd", description: "Ajouter un custom status" },
+  ];
+  if (!noStatuses) {
+    csActions.push(
+      { label: "✏️  Modifier",  value: "rpc:csEdit",   description: "Modifier un custom status" },
+      { label: "➖  Supprimer", value: "rpc:csRemove", description: "Supprimer un custom status" },
+      { label: "🗑️  Vider",    value: "rpc:csClear",  description: "Supprimer tous les statuts" },
+    );
+  }
+  csActions.push({ label: "⏱️  Intervalle", value: "rpc:setCsInterval", description: "Régler l'intervalle de rotation" });
+
   const csList = customStatuses.length
     ? customStatuses.map((cs, i) => {
         const emoji = cs.emoji ? `${cs.emoji} ` : "";
@@ -182,16 +194,10 @@ function buildCs(data = {}) {
           "rpc:csToggle",
           csEnabled ? ButtonStyle.Danger : ButtonStyle.Success
         ),
-        btn("➕  Ajouter",   "rpc:csAdd",    ButtonStyle.Primary),
-        btn("✏️  Modifier",  "rpc:csEdit",   ButtonStyle.Secondary, null, noStatuses),
-        btn("➖  Supprimer", "rpc:csRemove", ButtonStyle.Danger,    null, noStatuses),
-        btn("🗑️  Vider",    "rpc:csClear",  ButtonStyle.Danger,    null, noStatuses),
       ]),
       separator(1, false),
 
-      actionRow([
-        btn("⏱️  Intervalle", "rpc:setCsInterval", ButtonStyle.Secondary),
-      ]),
+      selectMenu("menu:rpc_cs", "📋  Choisis une action…", csActions),
 
       separator(),
 

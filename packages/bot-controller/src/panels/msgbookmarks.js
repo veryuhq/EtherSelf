@@ -1,7 +1,6 @@
 "use strict";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
   const { bookmarks = [] } = data;
@@ -18,11 +17,11 @@ function build(data = {}) {
     container([
       textDisplay(`# 💬 Bookmarks messages\n**Messages sauvegardés (${bookmarks.length}) :**\n${list}`),
       separator(),
-      actionRow([
-        btn("➕  Ajouter",         "msgbm:add",    ButtonStyle.Success),
-        btn("➖  Supprimer",       "msgbm:remove", ButtonStyle.Danger),
-        btn("📝  Ajouter note",    "msgbm:note",   ButtonStyle.Secondary),
-        btn("🗑️  Tout effacer",    "msgbm:clear",  ButtonStyle.Danger),
+      selectMenu("menu:msgbm", "📋  Choisis une action…", [
+        { label: "➕  Ajouter",      value: "msgbm:add",    description: "Ajouter un bookmark message" },
+        { label: "➖  Supprimer",    value: "msgbm:remove", description: "Supprimer un bookmark" },
+        { label: "📝  Ajouter note", value: "msgbm:note",   description: "Ajouter ou modifier une note" },
+        { label: "🗑️  Tout effacer", value: "msgbm:clear",  description: "Effacer tous les bookmarks" },
       ]),
       separator(),
       navRow(null, null, true),

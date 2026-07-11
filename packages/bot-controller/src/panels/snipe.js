@@ -1,7 +1,7 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
   const { whitelist = [], guilds = [], snapshotSchedules = [], snapshotSchedulesRunning = false } = data;
@@ -31,21 +31,16 @@ function build(data = {}) {
         `**Snapshots périodiques (${snapshotSchedules.length}) :** ${snapshotSchedulesRunning ? "`🟢` Actif" : "`🔴` Inactif"}\n${scheduleList}`
       ),
       separator(),
-      actionRow([
-        btn("➕  Ajouter serveur",  "snipe:add",    ButtonStyle.Success),
-        btn("➖  Retirer serveur",  "snipe:remove", ButtonStyle.Danger),
+      selectMenu("menu:snipe", "📋  Choisis une action…", [
+        { label: "➕  Ajouter serveur",    value: "snipe:add",                   description: "Whitelister un serveur" },
+        { label: "➖  Retirer serveur",    value: "snipe:remove",                description: "Retirer un serveur de la whitelist" },
+        { label: "👀  Voir supprimés",     value: "snipe:viewDeleted",           description: "Consulter les messages supprimés" },
+        { label: "✏️  Voir édités",        value: "snipe:viewEdited",            description: "Consulter les messages édités" },
+        { label: "📸  Snapshot salon",     value: "snipe:snapshot",              description: "Archiver un salon maintenant" },
+        { label: "🔁  Ajouter périodique", value: "snipe:snapshotPeriodicAdd",   description: "Programmer un snapshot périodique" },
+        { label: "🗑️  Retirer périodique", value: "snipe:snapshotPeriodicRemove", description: "Retirer un snapshot périodique" },
       ]),
-      separator(),
-      actionRow([
-        btn("👀  Voir supprimés",  "snipe:viewDeleted", ButtonStyle.Primary),
-        btn("✏️  Voir édités",     "snipe:viewEdited",  ButtonStyle.Primary),
-      ]),
-      separator(),
-      actionRow([
-        btn("📸  Snapshot salon",       "snipe:snapshot",               ButtonStyle.Secondary),
-        btn("🔁  Ajouter périodique",   "snipe:snapshotPeriodicAdd",    ButtonStyle.Success),
-        btn("🗑️  Retirer périodique",   "snipe:snapshotPeriodicRemove", ButtonStyle.Danger),
-      ]),
+      separator(1, false),
       actionRow([
         btn(snapshotSchedulesRunning ? "⏸️  Stop périodiques" : "▶️  Start périodiques", "snipe:snapshotPeriodicToggle", snapshotSchedulesRunning ? ButtonStyle.Danger : ButtonStyle.Success, null, snapshotSchedules.length === 0),
       ]),

@@ -5,7 +5,7 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 // ── Panel principal ───────────────────────────────────────────────────────────
 
@@ -61,13 +61,13 @@ function build(data = {}) {
           "quests:toggle",
           enabled ? ButtonStyle.Danger : ButtonStyle.Success
         ),
-        btn("⏱️  Intervalle",      "quests:setInterval", ButtonStyle.Secondary),
-        btn("🔄  Actualiser",      "quests:refresh",     ButtonStyle.Primary),
       ]),
-      separator(),
-      actionRow([
-        btn("▶️  Compléter maintenant", "quests:run",     ButtonStyle.Success),
-        btn("📜  Historique",           "quests:history", ButtonStyle.Secondary),
+      separator(1, false),
+      selectMenu("menu:quests", "📋  Choisis une action…", [
+        { label: "⏱️  Intervalle",           value: "quests:setInterval", description: "Régler l'intervalle de complétion auto" },
+        { label: "🔄  Actualiser",           value: "quests:refresh",     description: "Rafraîchir la liste des quêtes" },
+        { label: "▶️  Compléter maintenant", value: "quests:run",         description: "Lancer la complétion des quêtes" },
+        { label: "📜  Historique",           value: "quests:history",     description: "Voir l'historique des complétions" },
       ]),
       separator(),
       navRow(null, null, true),

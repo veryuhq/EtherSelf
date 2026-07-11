@@ -1,7 +1,7 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 // ── Vue principale ────────────────────────────────────────────────────────────
 
@@ -33,13 +33,11 @@ function build(data = {}) {
     container([
       textDisplay(`# 🗑️ Purge\n${status}`),
       separator(),
-      actionRow([
-        btn("🗑️  Purger un salon",     "purge:confirm:channel", ButtonStyle.Danger),
-        btn("🏠  Purger un serveur",   "purge:confirm:guild",   ButtonStyle.Danger),
-      ]),
-      actionRow([
-        btn("💬  Purger tous les DMs", "purge:confirm:dms",     ButtonStyle.Danger),
-        btn("🌐  Purger les serveurs", "purge:confirm:guilds",  ButtonStyle.Danger),
+      selectMenu("menu:purge", "📋  Choisis une action…", [
+        { label: "🗑️  Purger un salon",     value: "purge:confirm:channel", description: "Supprimer tes messages dans un salon" },
+        { label: "🏠  Purger un serveur",   value: "purge:confirm:guild",   description: "Supprimer tes messages dans un serveur" },
+        { label: "💬  Purger tous les DMs", value: "purge:confirm:dms",     description: "Supprimer tes messages dans tous les DMs" },
+        { label: "🌐  Purger les serveurs", value: "purge:confirm:guilds",  description: "Supprimer tes messages dans tous les serveurs" },
       ]),
       separator(),
       navRow(null, null, true),

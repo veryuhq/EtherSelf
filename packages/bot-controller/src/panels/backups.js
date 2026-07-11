@@ -1,7 +1,7 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  HUB BACKUPS
@@ -168,6 +168,16 @@ function buildClone(data = {}) {
     cloneSettings ? "`⚙️` Paramètres" : null,
   ].filter(Boolean).join("  ·  ") || "*Aucune option sélectionnée*";
 
+  const cloneActions = [
+    { label: "📤  Source",    value: "clone:setSource",  description: "Définir le serveur source (à copier)" },
+    { label: "📥  Cible",     value: "clone:setTarget",  description: "Définir le serveur cible (à modifier)" },
+    { label: "🗂️  Serveurs",  value: "clone:listGuilds", description: "Lister tes serveurs" },
+  ];
+  if (canRun) {
+    cloneActions.push({ label: "▶️  Lancer le clonage", value: "clone:run", description: "Démarrer le clonage" });
+  }
+  cloneActions.push({ label: "📜  Historique", value: "clone:history", description: "Voir l'historique des clonages" });
+
   return replyV2(
     container([
       textDisplay(
@@ -179,22 +189,13 @@ function buildClone(data = {}) {
       ),
       separator(),
       actionRow([
-        btn("📤  Source",    "clone:setSource",  ButtonStyle.Primary),
-        btn("📥  Cible",     "clone:setTarget",  ButtonStyle.Primary),
-        btn("🗂️  Serveurs", "clone:listGuilds", ButtonStyle.Secondary),
-      ]),
-      separator(1, false),
-      actionRow([
         btn(cloneRoles    ? "🎭  Rôles ✅"   : "🎭  Rôles ❌",   "clone:toggleRoles",    cloneRoles    ? ButtonStyle.Success : ButtonStyle.Secondary),
         btn(cloneChannels ? "💬  Salons ✅"  : "💬  Salons ❌",  "clone:toggleChannels", cloneChannels ? ButtonStyle.Success : ButtonStyle.Secondary),
         btn(cloneEmojis   ? "😀  Emojis ✅"  : "😀  Emojis ❌",  "clone:toggleEmojis",   cloneEmojis   ? ButtonStyle.Success : ButtonStyle.Secondary),
         btn(cloneSettings ? "⚙️  Params ✅"  : "⚙️  Params ❌", "clone:toggleSettings", cloneSettings ? ButtonStyle.Success : ButtonStyle.Secondary),
       ]),
-      separator(),
-      actionRow([
-        btn("▶️  Lancer le clonage", "clone:run",     ButtonStyle.Danger,    null, !canRun),
-        btn("📜  Historique",         "clone:history", ButtonStyle.Secondary),
-      ]),
+      separator(1, false),
+      selectMenu("menu:clone", "📋  Choisis une action…", cloneActions),
       separator(),
       navRow("panel:backups", "Backups"),
     ], 0xE67E22)

@@ -1,18 +1,18 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 function build() {
   return replyV2(
     container([
       textDisplay("# ⚙️ Configuration\nGère les paramètres globaux du selfbot."),
       separator(),
-      actionRow([
-        btn("✏️  Préfixe", "config:prefix", ButtonStyle.Primary),
-        btn("🔐  Token selfbot", "config:token", ButtonStyle.Primary),
-        btn("🔁  Redémarrage", "config:restart", ButtonStyle.Primary),
-        btn("📊  Infos système", "config:sysinfo", ButtonStyle.Secondary),
+      selectMenu("menu:config", "📋  Choisis une action…", [
+        { label: "✏️  Préfixe",       value: "config:prefix",  description: "Changer le préfixe des commandes" },
+        { label: "🔐  Token selfbot", value: "config:token",   description: "Modifier le token du selfbot" },
+        { label: "🔁  Redémarrage",   value: "config:restart", description: "Redémarrer le selfbot et le bot" },
+        { label: "📊  Infos système", value: "config:sysinfo", description: "Voir les informations système" },
       ]),
       separator(),
       navRow(null, null, true),

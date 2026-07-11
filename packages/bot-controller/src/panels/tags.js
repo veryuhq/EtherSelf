@@ -1,7 +1,6 @@
 "use strict";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
   const { tags = {}, prefix = "." } = data;
@@ -18,13 +17,11 @@ function build(data = {}) {
         `-# 💡 Pour envoyer un tag dans un salon, tape \`${prefix}tag <nom>\` dans n'importe quel salon.`
       ),
       separator(),
-      actionRow([
-        btn("➕  Créer",    "tags:add",    ButtonStyle.Success),
-        btn("✏️  Modifier", "tags:edit",   ButtonStyle.Primary),
-        btn("➖  Supprimer","tags:remove", ButtonStyle.Danger),
-      ]),
-      actionRow([
-        btn("👁️  Voir un tag", "tags:view", ButtonStyle.Secondary),
+      selectMenu("menu:tags", "📋  Choisis une action…", [
+        { label: "➕  Créer",       value: "tags:add",    description: "Créer un nouveau tag" },
+        { label: "✏️  Modifier",    value: "tags:edit",   description: "Modifier un tag existant" },
+        { label: "➖  Supprimer",   value: "tags:remove", description: "Supprimer un tag" },
+        { label: "👁️  Voir un tag", value: "tags:view",   description: "Afficher le contenu d'un tag" },
       ]),
       separator(),
       navRow(null, null, true),

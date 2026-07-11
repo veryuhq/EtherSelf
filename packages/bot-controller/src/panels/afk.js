@@ -1,7 +1,7 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
 
 function build(data = {}) {
   const { enabled = false, special = false, reason = "", excluded = [], notified = [] } = data;
@@ -20,15 +20,12 @@ function build(data = {}) {
         btn(special ? "⚫  Désactiver Spécial" : "🟡  Activer Spécial","afk:toggleSpecial", special ? ButtonStyle.Secondary: ButtonStyle.Primary),
       ]),
       separator(),
-      actionRow([
-        btn("📌  Changer la raison",      "afk:setReason",    ButtonStyle.Secondary),
-        btn("💬  Message normal",          "afk:setMsgNormal", ButtonStyle.Secondary),
-        btn("⭐  Message spécial",         "afk:setMsgSpecial",ButtonStyle.Secondary),
-      ]),
-      separator(),
-      actionRow([
-        btn("➕  Ajouter exclusion",       "afk:addExclusion",    ButtonStyle.Secondary),
-        btn("➖  Retirer exclusion",       "afk:removeExclusion", ButtonStyle.Secondary),
+      selectMenu("menu:afk", "📋  Choisis une action…", [
+        { label: "📌  Changer la raison",  value: "afk:setReason",      description: "Modifier la raison AFK" },
+        { label: "💬  Message normal",     value: "afk:setMsgNormal",   description: "Configurer le message AFK normal" },
+        { label: "⭐  Message spécial",    value: "afk:setMsgSpecial",  description: "Configurer le message AFK spécial" },
+        { label: "➕  Ajouter exclusion",  value: "afk:addExclusion",   description: "Exclure un utilisateur, serveur ou groupe" },
+        { label: "➖  Retirer exclusion",  value: "afk:removeExclusion", description: "Retirer une exclusion existante" },
       ]),
       separator(),
       navRow(null, null, true),
