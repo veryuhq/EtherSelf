@@ -78,6 +78,12 @@ Une fonctionnalité traverse presque toujours les deux packages, dans cet ordre 
 
 - Commits en français, format `type(scope): description` — ex. `feat(vocal): lecture d'un fichier audio dans le salon vocal`, `fix(vocal): ne plus se rendre sourd…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
+- **Historique linéaire** : pas de commits de merge (`Merge branch …`). Intégrer une branche avec un rebase puis un merge fast-forward, jamais un merge non-ff. Configurer le dépôt en conséquence :
+  ```sh
+  git config merge.ff only     # refuse de créer un commit de merge
+  git config pull.rebase true  # rebase au lieu de merger au pull
+  ```
+  Pour fusionner une branche de feature dans `main` : `git checkout main && git rebase <branche>` (ou `git merge --ff-only <branche>` après avoir rebasé la branche sur `main`).
 
 ## Limites et interdits
 
