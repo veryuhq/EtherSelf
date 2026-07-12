@@ -11,8 +11,6 @@ const {
   GatewayIntentBits,
   Collection,
   AttachmentBuilder,
-  FileBuilder,
-  MessageFlags,
 } = require("discord.js");
 
 const buttons = require("./src/interactions/buttons");
@@ -23,7 +21,7 @@ const purgelogs = require("./src/commands/purgelogs");
 
 const { healthCheck }                                       = require("./src/bridge/client");
 const { getSecretBuffer, verifySignedRequest, registerSignature } = require("./src/bridge/auth");
-const { container, textDisplay, separator, actionRow, btn } = require("./src/utils/components");
+const { container, textDisplay, separator, actionRow, btn, fileComponent, replyV2 } = require("./src/utils/components");
 
 const snipe   = require("./src/panels/snipe");
 const backups = require("./src/panels/backups");
@@ -178,14 +176,11 @@ function buildSnapshotEmbed(meta, attachment, attachmentName) {
     `*Ouvre le fichier HTML joint dans ton navigateur pour consulter l'archive.*`,
   ].filter(l => l !== null).join("\n");
 
-  const fileComponent = new FileBuilder().setURL(`attachment://${attachmentName}`);
-
   return {
-    flags: MessageFlags.IsComponentsV2,
-    components: [
-      { type: 17, accent_color: 0x2ECC71, components: [{ type: 10, content: lines }] },
-      fileComponent,
-    ],
+    ...replyV2(
+      container([textDisplay(lines)], 0x2ECC71),
+      fileComponent(attachmentName),
+    ),
     files: [attachment],
   };
 }
@@ -329,8 +324,7 @@ const logServer = http.createServer(async (req, res) => {
       }
       // Fichier générique
       else {
-        const fileComponent = new FileBuilder().setURL(`attachment://${filenameSafe}`);
-        msgPayload = { flags: MessageFlags.IsComponentsV2, components: [fileComponent], files: [attachment] };
+        msgPayload = { ...replyV2(fileComponent(filenameSafe)), files: [attachment] };
       }
 
       if (channelId) {
@@ -390,20 +384,17 @@ client.once("ready", () => {
       if (online) {
         const owner = await client.users.fetch(OWNER_ID).catch(() => null);
         if (!owner) return;
-        await owner.send({
-          flags: 1 << 15,
-          components: [
-            container([
-              textDisplay(
-                `## ✅ Tout est en ligne !\n` +
-                `> \`💻\` **Bot contrôleur :** connecté\n` +
-                `> \`👤\` **Selfbot :** \`${data?.user ?? "?"}\`\n` +
-                `> \`⏱️\` **Uptime selfbot :** \`${Math.floor(data?.uptime ?? 0)}s\`\n` +
-                `> \`🏓\` **Ping WS :** \`${data?.ping ?? "?"}ms\``
-              ),
-            ], 0x2ECC71),
-          ],
-        }).catch(() => {});
+        await owner.send(replyV2(
+          container([
+            textDisplay(
+              `## ✅ Tout est en ligne !\n` +
+              `> \`💻\` **Bot contrôleur :** connecté\n` +
+              `> \`👤\` **Selfbot :** \`${data?.user ?? "?"}\`\n` +
+              `> \`⏱️\` **Uptime selfbot :** \`${Math.floor(data?.uptime ?? 0)}s\`\n` +
+              `> \`🏓\` **Ping WS :** \`${data?.ping ?? "?"}ms\``
+            ),
+          ], 0x2ECC71),
+        )).catch(() => {});
         return;
       }
 
@@ -415,19 +406,16 @@ client.once("ready", () => {
 
       const owner = await client.users.fetch(OWNER_ID).catch(() => null);
       if (!owner) return;
-      await owner.send({
-        flags: 1 << 15,
-        components: [
-          container([
-            textDisplay(
-              `## ⚠️ Selfbot injoignable\n` +
-              `> \`💻\` **Bot contrôleur :** connecté\n` +
-              `> \`👤\` **Selfbot :** hors ligne après ${MAX_RETRIES} tentatives\n\n` +
-              `*Vérifie que le selfbot est bien démarré.*`
-            ),
-          ], 0xE74C3C),
-        ],
-      }).catch(() => {});
+      await owner.send(replyV2(
+        container([
+          textDisplay(
+            `## ⚠️ Selfbot injoignable\n` +
+            `> \`💻\` **Bot contrôleur :** connecté\n` +
+            `> \`👤\` **Selfbot :** hors ligne après ${MAX_RETRIES} tentatives\n\n` +
+            `*Vérifie que le selfbot est bien démarré.*`
+          ),
+        ], 0xE74C3C),
+      )).catch(() => {});
     };
 
     setTimeout(() => tryHealthCheck(), RETRY_DELAY);

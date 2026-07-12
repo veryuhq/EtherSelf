@@ -22,6 +22,11 @@ function separator(spacing = 1, divider = true) {
   return { type: 14, spacing, divider };
 }
 
+/** File (type 13) — affiche un fichier attaché, à référencer par son nom d'attachment */
+function fileComponent(attachmentName) {
+  return { type: 13, file: { url: `attachment://${attachmentName}` } };
+}
+
 /** ActionRow (type 1) */
 function actionRow(components) {
   return { type: 1, components };
@@ -109,6 +114,7 @@ module.exports = {
   container,
   textDisplay,
   separator,
+  fileComponent,
   actionRow,
   btn,
   selectMenu,

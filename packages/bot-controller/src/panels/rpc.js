@@ -277,7 +277,7 @@ function buildSpotify(data = {}) {
       separator(),
       separator(1, false),
       textDisplay("**Actions Spotify RPC :**"),
-      { type: 1, components: [{ type: 3, custom_id: "rpc:spotifyActions", placeholder: "Choisis une action…", min_values: 1, max_values: 1, options: actionOptions }] },
+      selectMenu("rpc:spotifyActions", "Choisis une action…", actionOptions),
       separator(),
       actionRow([
         btn("🎮  Rich Presence", "panel:rpc",     ButtonStyle.Primary),
