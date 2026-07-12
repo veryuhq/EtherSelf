@@ -66,6 +66,60 @@ Une fonctionnalité traverse presque toujours les deux packages, dans cet ordre 
 3. **Node** : créer `src/panels/<module>.js` avec `build(data)` en s'inspirant d'un panel existant (`afk.js` est un bon modèle).
 4. **Node** : brancher les `customId` (`module:action`) dans `src/interactions/buttons.js` / `selects.js` / `modals.js`, ajouter l'entrée au menu de `panels/home.js` si besoin.
 
+## Référence discord.js — Display Components (Components V2) & Modals
+
+Condensé des guides officiels discord.js (« Display Components » et « Modals »).
+Dans ce repo on ne passe **pas** par les builders (`ContainerBuilder`, `ModalBuilder`…) :
+les panels construisent le JSON brut via les helpers de `utils/components.js`. Cette
+section sert à connaître les règles, les limites et les types numériques sous-jacents.
+
+### Display Components (messages du panel)
+
+Activés par le flag `IsComponentsV2` (`1 << 15`) — déjà géré par `ephemeralV2()` / `replyV2()`.
+
+Caveats à respecter :
+- Avec ce flag, **interdiction** d'envoyer `content`, `poll`, `embeds` ou `stickers`.
+- On ne peut pas revenir en arrière (opt-out) en éditant un message déjà en Components V2.
+- **40 composants max** par message (les composants imbriqués comptent), **4000 caractères max** cumulés sur tous les Text Display.
+- Tout fichier attaché doit être référencé explicitement par un composant (`attachment://nom.ext` dans Thumbnail, Media Gallery ou File).
+- Les mentions dans un Text Display notifient réellement — contrôler avec `allowedMentions`.
+
+Types de composants (numéro = champ `type` du JSON, helper local s'il existe) :
+
+| Composant | type | Helper | Notes |
+|---|---|---|---|
+| ActionRow | 1 | `actionRow()` | conteneur de boutons/selects |
+| Button | 2 | `btn()` | |
+| StringSelect | 3 | `selectMenu()` | toujours enveloppé dans un ActionRow |
+| TextInput | 4 | via `modal()` | modals uniquement ; style 1 = Short, 2 = Paragraph |
+| Text Display | 10 | `textDisplay()` | markdown, remplace `content` |
+| Section | 9 | — | 1–3 Text Display + 1 accessoire (bouton **ou** thumbnail) ; sans accessoire, utiliser Text Display |
+| Thumbnail | 11 | — | uniquement en accessoire de Section ; alt text + spoiler possibles |
+| Media Gallery | 12 | — | grille de 1 à 10 médias, alt text/spoiler par item |
+| File | 13 | — | affiche un fichier attaché ; pas d'alt text, spoiler possible |
+| Separator | 14 | `separator()` | `spacing` 1 (small) / 2 (large), `divider` bool ; invisible seul |
+| Container | 17 | `container()` | boîte arrondie + `accent_color` optionnel, enfants : Text Display / ActionRow / Section / Separator / Media Gallery / File ; spoiler = floute tout |
+| Label | 18 | via `modal()` | modals uniquement, enveloppe un composant interactif |
+| FileUpload | 19 | via `modal()` | modals uniquement |
+
+Le champ `id` (entier 32 bits) est distinct de `custom_id` : il identifie un composant
+dans le message (utile pour retrouver/remplacer un composant). Discord l'auto-remplit
+à partir de 1 si absent ; `0` = vide.
+
+### Modals
+
+- Un modal = `custom_id` (≤ 100 caractères) + `title` + **max 5 composants top-level**, chacun étant un **Label (18)** ou un **Text Display (10)**.
+- Un Label a un `label` (≤ 45 car.), une `description` optionnelle (≤ 100 car.) et **un** composant enfant : TextInput (4), select menu (3, 5–8) ou FileUpload (19).
+- TextInput : `style` 1 (Short) / 2 (Paragraph), `min_length`/`max_length`, `value` (préremplissage), `required` (défaut `true`).
+- Select menu en modal : propriété `required` en plus (défaut `true`).
+- FileUpload : `min_values` (0–10) / `max_values` (≤ 10), `required` ; impossible de valider taille/extension côté Discord, le fichier se télécharge depuis le CDN (ne jamais exécuter ce qu'un utilisateur upload).
+- **`showModal()` doit être la toute première réponse à l'interaction** — un modal ne se défère pas.
+- Soumission : `interaction.isModalSubmit()`, puis `interaction.fields.getTextInputValue(id)`, `.getStringSelectValues(id)`, `.getUploadedFiles(id)`. Champ texte vide → `""`, select sans sélection → `[]`.
+- Un `ModalSubmitInteraction` répond comme une commande (`reply`, `deferReply`, `editReply`, `followUp`…) ; si le modal venait d'un bouton/select, `update()` / `deferUpdate()` permettent de modifier le message d'origine (pattern utilisé par les re-renders de panels).
+
+Le helper `modal()` local applique déjà la règle : champs texte seuls → format ActionRow
+historique ; dès qu'un champ `file` est présent, tous les champs passent au format Label (18).
+
 ## Style de code
 
 - **Tout en français** : commentaires, docstrings, messages du panel, erreurs, README.
