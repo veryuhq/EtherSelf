@@ -54,26 +54,25 @@ function selectMenu(customId, placeholder, options, minValues = 1, maxValues = 1
   };
 }
 
-/** Modal */
+/** Modal — chaque champ est enveloppé dans un Label (type 18), le format
+ *  standard des modals : label (≤ 45 car.) + description optionnelle
+ *  (≤ 100 car.) + un composant enfant (TextInput type 4). */
 function modal(customId, title, fields) {
-  return {
-    custom_id: customId,
-    title,
-    components: fields.map(f => ({
-      type: 1,
-      components: [{
-        type:        4,
-        custom_id:   f.id,
-        label:       f.label,
-        style:       f.long ? 2 : 1,
-        placeholder: f.placeholder ?? "",
-        value:       f.value ?? "",
-        required:    f.required ?? true,
-        min_length:  f.minLength ?? 0,
-        max_length:  f.maxLength ?? 1000,
-      }],
-    })),
-  };
+  const components = fields.map(f => {
+    const component = {
+      type:        4,
+      custom_id:   f.id,
+      style:       f.long ? 2 : 1,
+      placeholder: f.placeholder ?? "",
+      value:       f.value ?? "",
+      required:    f.required ?? true,
+      min_length:  f.minLength ?? 0,
+      max_length:  f.maxLength ?? 1000,
+    };
+    return { type: 18, label: f.label, description: f.description, component };
+  });
+
+  return { custom_id: customId, title, components };
 }
 
 /**

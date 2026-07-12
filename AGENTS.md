@@ -117,8 +117,8 @@ dans le message (utile pour retrouver/remplacer un composant). Discord l'auto-re
 - Soumission : `interaction.isModalSubmit()`, puis `interaction.fields.getTextInputValue(id)`, `.getStringSelectValues(id)`, `.getUploadedFiles(id)`. Champ texte vide → `""`, select sans sélection → `[]`.
 - Un `ModalSubmitInteraction` répond comme une commande (`reply`, `deferReply`, `editReply`, `followUp`…) ; si le modal venait d'un bouton/select, `update()` / `deferUpdate()` permettent de modifier le message d'origine (pattern utilisé par les re-renders de panels).
 
-Le helper `modal()` local applique déjà la règle : champs texte seuls → format ActionRow
-historique ; dès qu'un champ `file` est présent, tous les champs passent au format Label (18).
+Le helper `modal()` local applique déjà la règle : chaque champ (texte ou `file: true`)
+est enveloppé dans un Label (18), le format standard des modals.
 
 ## Style de code
 
