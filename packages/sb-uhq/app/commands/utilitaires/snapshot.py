@@ -146,10 +146,15 @@ async def _fetch_all_messages(channel, limit=0) -> list:
         effective = 0
 
     messages = []
-    async for msg in channel.history(limit=effective or None, oldest_first=True):
-        messages.append(msg)
     if effective > 0:
-        return messages[-effective:]
+        # Du plus récent au plus ancien pour obtenir les N DERNIERS messages,
+        # puis inversion pour retrouver l'ordre chronologique.
+        async for msg in channel.history(limit=effective):
+            messages.append(msg)
+        messages.reverse()
+    else:
+        async for msg in channel.history(limit=None, oldest_first=True):
+            messages.append(msg)
     return messages
 
 
