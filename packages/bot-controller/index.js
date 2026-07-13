@@ -21,7 +21,7 @@ const purgelogs = require("./src/commands/purgelogs");
 
 const { healthCheck }                                       = require("./src/bridge/client");
 const { getSecretBuffer, verifySignedRequest, registerSignature } = require("./src/bridge/auth");
-const { container, textDisplay, separator, actionRow, btn, fileComponent, replyV2 } = require("./src/utils/components");
+const { container, textDisplay, separator, actionRow, btn, fileComponent, logLines, replyV2 } = require("./src/utils/components");
 
 const snipe   = require("./src/panels/snipe");
 const backups = require("./src/panels/backups");
@@ -151,6 +151,38 @@ function redactLogText(text) {
     .replace(/(Authorization\s*[:=]\s*)\S+/gi, "$1[redacted]");
 }
 
+// Niveaux de log détectés dans le texte relayé par le selfbot, pour colorer
+// le container. Ordre = priorité (une erreur l'emporte sur un succès).
+const LOG_LEVELS = [
+  { test: /❌|\berror\b|\berreur\b|échec|exception|traceback/i, emoji: "❌", label: "Erreur",        color: 0xE74C3C },
+  { test: /⚠️|\bwarn(?:ing)?\b|attention/i,                     emoji: "⚠️", label: "Avertissement", color: 0xE67E22 },
+  { test: /✅|succès|connecté|démarré|prêt/i,                    emoji: "✅", label: "Succès",        color: 0x2ECC71 },
+];
+
+function buildLogMessage(text) {
+  const level = LOG_LEVELS.find(l => l.test.test(text))
+    ?? { emoji: "📡", label: "Info", color: 0x5865F2 };
+
+  // 4000 caractères max cumulés sur les Text Display d'un message Components V2 :
+  // on tronque ligne par ligne pour ne jamais couper une ligne en plein milieu.
+  const lines = logLines(text).split("\n");
+  const kept  = [];
+  let budget  = 3800;
+  for (const line of lines) {
+    if (line.length + 1 > budget) { kept.push("> *…tronqué…*"); break; }
+    kept.push(line);
+    budget -= line.length + 1;
+  }
+
+  return replyV2(
+    container([
+      textDisplay(`### ${level.emoji} Log selfbot — ${level.label}\n-# <t:${Math.floor(Date.now() / 1000)}:T>`),
+      separator(),
+      textDisplay(kept.join("\n")),
+    ], level.color)
+  );
+}
+
 const httpRateBuckets = new Map();
 function checkHttpRateLimit(key, max, windowMs) {
   const now = Date.now();
@@ -214,10 +246,12 @@ const logServer = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/log") {
     try {
       const { text } = JSON.parse(rawBody || "{}");
-      const safeText = redactLogText(text).slice(0, 1900);
+      // 3500 : marge sous les 4000 caractères cumulés des Text Display,
+      // buildLogMessage() tronque ensuite proprement ligne par ligne.
+      const safeText = redactLogText(text).slice(0, 3500);
       if (safeText && client.isReady()) {
         const owner = await client.users.fetch(OWNER_ID).catch(() => null);
-        if (owner) await owner.send(`\`\`\`ini\n${safeText}\n\`\`\``).catch(() => {});
+        if (owner) await owner.send(buildLogMessage(safeText)).catch(() => {});
       }
       res.writeHead(200).end();
     } catch { res.writeHead(400).end(); }

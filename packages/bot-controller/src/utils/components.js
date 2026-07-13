@@ -76,6 +76,18 @@ function modal(customId, title, fields) {
 }
 
 /**
+ * Formate un texte de log multi-lignes pour affichage dans un Container :
+ * chaque ligne devient une citation en code inline (`> \`ligne\``), le rendu
+ * "logs" du repo (plus de bloc de code ```).
+ */
+function logLines(text) {
+  return String(text ?? "")
+    .split("\n")
+    .map(line => (line.trim() ? `> \`${line.replace(/`/g, "'")}\`` : "> "))
+    .join("\n");
+}
+
+/**
  * Barre de navigation commune.
  * @param {string|null} backId      - customId du bouton "◀ Retour" (null = pas de retour)
  * @param {string}      backLabel   - label du bouton retour
@@ -118,6 +130,7 @@ module.exports = {
   btn,
   selectMenu,
   modal,
+  logLines,
   navRow,
   ephemeralV2,
   replyV2,

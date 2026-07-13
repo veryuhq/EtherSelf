@@ -1,7 +1,7 @@
 "use strict";
 
 const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
+const { container, textDisplay, separator, actionRow, btn, selectMenu, logLines, navRow, replyV2 } = require("../utils/components");
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  HUB BACKUPS
@@ -219,7 +219,7 @@ function buildCloneRunning(data = {}) {
   const filled  = total > 0 ? Math.round((current / total) * BAR_LEN) : 0;
   const bar     = "█".repeat(filled) + "░".repeat(BAR_LEN - filled);
   const pctLine = total > 0 ? `\`${bar}\` **${current}/${total}** *(${Math.round((current / total) * 100)}%)*` : `\`🔄\` Démarrage…`;
-  const logsSection = logs ? `\n### Logs\n\`\`\`\n${logs}\n\`\`\`` : "";
+  const logsSection = logs ? `\n### Logs\n${logLines(logs)}` : "";
 
   return replyV2(
     container([
@@ -257,7 +257,7 @@ function buildCloneResult(data = {}) {
     accentColor = 0xE74C3C;
     statusLine  = `\`❌\` **Erreur lors du clonage**\n> ${error ?? "Erreur inconnue."}`;
   }
-  const logsSection = logs ? `\n### Derniers logs\n\`\`\`\n${logs}\n\`\`\`` : "";
+  const logsSection = logs ? `\n### Derniers logs\n${logLines(logs)}` : "";
 
   return replyV2(
     container([
