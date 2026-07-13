@@ -20,7 +20,7 @@ function build(data = {}) {
       separator(),
       selectMenu("menu:afk", "📋  Choisis une action…", [
         { label: "📌  Changer la raison",  value: "afk:setReason",      description: "Modifier la raison AFK" },
-        { label: "💬  Message normal",     value: "afk:setMsgNormal",   description: "Configurer le message AFK normal" },
+        { label: "💬  Message AFK",        value: "afk:setMessage",     description: "Configurer le message AFK" },
         { label: "➕  Ajouter exclusion",  value: "afk:addExclusion",   description: "Exclure un utilisateur, serveur ou groupe" },
         { label: "➖  Retirer exclusion",  value: "afk:removeExclusion", description: "Retirer une exclusion existante" },
       ]),

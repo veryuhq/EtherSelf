@@ -101,9 +101,9 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(afk.build(res?.data ?? {}));
   }
-  if (id === "modal:afk_msg_normal") {
+  if (id === "modal:afk_msg") {
     const msg = interaction.fields.getTextInputValue("msg");
-    const res = await sendAction("afk.setMsgNormal", { message: msg || null });
+    const res = await sendAction("afk.setMessage", { message: msg || null });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(afk.build(res?.data ?? {}));
   }

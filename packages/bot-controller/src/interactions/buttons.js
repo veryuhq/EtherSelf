@@ -141,10 +141,10 @@ async function handle(interaction) {
       { id: "reason", label: "Raison", placeholder: "Je suis absent…", value: res?.data?.reason ?? "", required: false },
     ]));
   }
-  if (id === "afk:setMsgNormal") {
+  if (id === "afk:setMessage") {
     const res = await sendAction("afk.getState");
-    return interaction.showModal(modal("modal:afk_msg_normal", "Message AFK normal", [
-      { id: "msg", label: "Message ({reason} = raison, vide = défaut)", placeholder: "Je suis AFK ({reason})…", value: res?.data?.messageNormal ?? "", required: false, long: true },
+    return interaction.showModal(modal("modal:afk_msg", "Message AFK", [
+      { id: "msg", label: "Message ({reason} = raison, vide = défaut)", placeholder: "Je suis AFK ({reason})…", value: res?.data?.message ?? "", required: false, long: true },
     ]));
   }
   if (id === "afk:addExclusion") {

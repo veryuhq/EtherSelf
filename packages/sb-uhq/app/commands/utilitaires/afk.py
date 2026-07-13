@@ -14,12 +14,16 @@ _DEFAULT = {
     "reason": "",
     "excluded": [],
     "notified": [],
-    "messageNormal": None,
+    "message": None,
 }
 
 
 def _load() -> dict:
-    return read_json(AFK_FILE, dict(_DEFAULT))
+    data = read_json(AFK_FILE, dict(_DEFAULT))
+    # Migration : l'ancien champ "messageNormal" devient "message".
+    if "messageNormal" in data:
+        data.setdefault("message", data.pop("messageNormal"))
+    return data
 
 
 def _save(data) -> None:
@@ -35,7 +39,7 @@ def _build_message(data: dict) -> str:
     - Sinon, message par défaut ``Je suis AFK — <raison>.``.
     """
     reason = (data.get("reason") or "").strip()
-    custom = data.get("messageNormal")
+    custom = data.get("message")
 
     if custom:
         if reason:
@@ -84,8 +88,8 @@ async def execute(client, payload):
         _save(data)
         return data
 
-    if action == "setMsgNormal":
-        data["messageNormal"] = payload.get("message") or None
+    if action == "setMessage":
+        data["message"] = payload.get("message") or None
         _save(data)
         return data
 
