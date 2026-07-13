@@ -111,7 +111,7 @@ async function handle(interaction) {
     const panel = await fetchAndBuild("config");
     await interaction.update(panel);
     await interaction.followUp({
-      content: "`✅` Redémarrage PM2 planifié dans 5 secondes pour \`${sbName}\` et \`${ctrlName}\`.",
+      content: `\`✅\` Redémarrage PM2 planifié dans 5 secondes pour \`${sbName}\` et \`${ctrlName}\`.`,
       ephemeral: true,
     });
 
