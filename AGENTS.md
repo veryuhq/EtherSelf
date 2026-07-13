@@ -130,7 +130,11 @@ est enveloppé dans un Label (18), le format standard des modals.
 
 ## Git
 
-- Commits en français, format `type(scope): description` — ex. `feat(vocal): lecture d'un fichier audio dans le salon vocal`, `fix(vocal): ne plus se rendre sourd…`.
+- **Conventional Commits obligatoires** ([spécification 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/)) : chaque commit suit strictement le format `type(scope): description` — aucun commit hors format n'est accepté.
+  - Types autorisés : `feat`, `fix`, `refactor`, `docs`, `chore`, `perf`, `style`, `test`, `build`, `ci`, `revert`.
+  - Le `scope` est fortement recommandé (module ou package concerné : `vocal`, `afk`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
+  - Breaking change : suffixe `!` après le type/scope (ex. `refactor(bridge)!: …`) et/ou footer `BREAKING CHANGE:` expliquant la rupture.
+  - Ex. `feat(vocal): lecture d'un fichier audio dans le salon vocal`, `fix(vocal): ne plus se rendre sourd…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
 - **Historique linéaire** : pas de commits de merge (`Merge branch …`). Intégrer une branche avec un rebase puis un merge fast-forward, jamais un merge non-ff. Configurer le dépôt en conséquence :
   ```sh
