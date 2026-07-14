@@ -1,9 +1,7 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
-
-function build() {
+export function build(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay("# ⚙️ Configuration\nGère les paramètres globaux du selfbot."),
@@ -20,8 +18,7 @@ function build() {
   );
 }
 
-
-function buildRestartConfirm() {
+export function buildRestartConfirm(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay("# 🔁 Redémarrage PM2\nVeux-tu redémarrer **le selfbot et le bot** maintenant ?"),
@@ -36,8 +33,7 @@ function buildRestartConfirm() {
   );
 }
 
-
-function buildTokenUpdated() {
+export function buildTokenUpdated(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay("# ✅ Token mis à jour\nLe token selfbot (`sb-uhq/.env` → `TOKEN`) a été modifié avec succès."),
@@ -52,5 +48,3 @@ function buildTokenUpdated() {
     ], 0x57F287)
   );
 }
-
-module.exports = { build, buildRestartConfirm, buildTokenUpdated };

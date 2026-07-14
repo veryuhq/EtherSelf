@@ -1,9 +1,27 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+export interface PingData {
+  ping?: number | string;
+}
 
-function build() {
+export interface UptimeData {
+  formatted?: string;
+  uptime?: number;
+}
+
+export interface HostinfoData {
+  hostname?: string;
+  distro?: string;
+  arch?: string;
+  kernel?: string;
+  nodeVer?: string;
+  cpu?: { model?: string; count?: number };
+  memory?: { used?: string; total?: string; percent?: number | string };
+  uptime?: string;
+}
+
+export function build(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay("# 📊 Informations système\nChoisis ce que tu veux consulter :"),
@@ -19,7 +37,7 @@ function build() {
   );
 }
 
-function buildPing(data = {}) {
+export function buildPing(data: PingData = {}): V2MessagePayload {
   const { ping = "…" } = data;
   return replyV2(
     container([
@@ -34,8 +52,8 @@ function buildPing(data = {}) {
   );
 }
 
-function buildUptime(data = {}) {
-  const { formatted = "…", uptime = 0 } = data;
+export function buildUptime(data: UptimeData = {}): V2MessagePayload {
+  const { formatted = "…" } = data;
   return replyV2(
     container([
       textDisplay(`# ⏱️ Uptime\n**Processus selfbot :** \`${formatted}\``),
@@ -49,7 +67,7 @@ function buildUptime(data = {}) {
   );
 }
 
-function buildHostinfo(data = {}) {
+export function buildHostinfo(data: HostinfoData = {}): V2MessagePayload {
   const {
     hostname = "?", distro = "?", arch = "?", kernel = "?",
     nodeVer = "?", cpu = {}, memory = {},
@@ -77,5 +95,3 @@ function buildHostinfo(data = {}) {
     ], 0x2ECC71)
   );
 }
-
-module.exports = { build, buildPing, buildUptime, buildHostinfo };

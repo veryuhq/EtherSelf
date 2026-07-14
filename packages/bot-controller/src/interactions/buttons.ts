@@ -1,52 +1,36 @@
-"use strict";
+import { promisify } from "util";
+import { execFile } from "child_process";
+import type { MessageComponentInteraction } from "discord.js";
 
-const { promisify } = require("util");
-const { execFile } = require("child_process");
-const execFileAsync = promisify(execFile);
-
-const { sendAction }    = require("../bridge/client");
-const { modal }         = require("../utils/components");
-const { fetchAndBuild } = require("./selects");
-const { getCloneConfig } = require("../store/clone-config");
+import { sendAction } from "../bridge/client";
+import { modal } from "../utils/components";
+import { fetchAndBuild } from "./fetch-and-build";
+import { getCloneConfig } from "../store/clone-config";
+import { registerProgressJob, registerCloneJob } from "../store/jobs";
 
 // Panels
-const home      = require("../panels/home");
-const prefix    = require("../panels/prefix");
-const afk       = require("../panels/afk");
-const snipe     = require("../panels/snipe");
-const tags      = require("../panels/tags");
-const bookmarks = require("../panels/bookmarks");
-const msgbm     = require("../panels/msgbookmarks");
-const antigroup = require("../panels/antigroup");
-const autobump  = require("../panels/autobump");
-const joinvc    = require("../panels/joinvc");
-const purge     = require("../panels/purge");
-const sysinfo   = require("../panels/sysinfo");
-const rpc       = require("../panels/rpc");
-const quests    = require("../panels/quests");
-const backups   = require("../panels/backups");
-const config    = require("../panels/config");
+import * as afk       from "../panels/afk";
+import * as snipe     from "../panels/snipe";
+import * as msgbm     from "../panels/msgbookmarks";
+import * as antigroup from "../panels/antigroup";
+import * as autobump  from "../panels/autobump";
+import * as joinvc    from "../panels/joinvc";
+import * as purge     from "../panels/purge";
+import * as sysinfo   from "../panels/sysinfo";
+import * as rpc       from "../panels/rpc";
+import * as quests    from "../panels/quests";
+import * as backups   from "../panels/backups";
+import * as config    from "../panels/config";
+
+const execFileAsync = promisify(execFile);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getProgressHelpers() { return require("../../index.js"); }
-
-function makeJobId(prefix = "job") {
+function makeJobId(prefix = "job"): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function resolveGuildName(guildId) {
-  try {
-    const res = await sendAction("backups.listGuilds");
-    const guild = (res?.data?.guilds ?? []).find(g => g.id === guildId);
-    return guild?.name ?? null;
-  } catch { return null; }
-}
-
-/**
- * @param {import("discord.js").ButtonInteraction} interaction
- */
-function validatePm2Name(name) {
+function validatePm2Name(name: string): string {
   const value = String(name ?? "").trim();
   if (!/^[A-Za-z0-9._-]+$/.test(value)) {
     throw new Error("Nom PM2 invalide : seuls lettres, chiffres, points, tirets et underscores sont autorisés.");
@@ -54,16 +38,21 @@ function validatePm2Name(name) {
   return value;
 }
 
-async function handle(interaction) {
+/**
+ * Route les clics de boutons du panel. Accepte aussi les interactions de
+ * select proxyfiées par selects.ts (menu:* → redispatch avec le customId
+ * du bouton d'origine).
+ */
+export async function handle(interaction: MessageComponentInteraction): Promise<unknown> {
   const id = interaction.customId;
 
   // ── Navigation ────────────────────────────────────────────────────────────
   if (id === "panel:home") {
     const panel = await fetchAndBuild("home");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
-  const NAV_MAP = {
+  const NAV_MAP: Record<string, string> = {
     "panel:config":       "config",
     "panel:afk":          "afk",
     "panel:snipe":        "snipe",
@@ -84,12 +73,12 @@ async function handle(interaction) {
   };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
   if (id === "config:prefix") {
     const panel = await fetchAndBuild("prefix");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
   if (id === "config:token") {
     return interaction.showModal(modal("modal:token", "Modifier le token du selfbot", [
@@ -102,14 +91,14 @@ async function handle(interaction) {
   }
   if (id === "config:restart:skip" || id === "config:token:restart:skip") {
     const panel = await fetchAndBuild("config");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
   if (id === "config:restart:confirm" || id === "config:token:restart") {
     const sbName = validatePm2Name(process.env.PM2_SB_NAME || "EtherSelf-SB");
     const ctrlName = validatePm2Name(process.env.PM2_CTRL_NAME || "EtherSelf-Bot");
 
     const panel = await fetchAndBuild("config");
-    await interaction.update(panel);
+    await interaction.update(panel!);
     await interaction.followUp({
       content: `\`✅\` Redémarrage PM2 planifié dans 5 secondes pour \`${sbName}\` et \`${ctrlName}\`.`,
       ephemeral: true,
@@ -122,7 +111,7 @@ async function handle(interaction) {
   }
   if (id === "config:sysinfo") {
     const panel = await fetchAndBuild("sysinfo");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
   // ── PREFIX ────────────────────────────────────────────────────────────────
@@ -183,7 +172,10 @@ async function handle(interaction) {
   }
   if (id.startsWith("snipe:page:")) {
     const parts = id.split(":");
-    const type = parts[2], page = parseInt(parts[3], 10), searchMode = parts[4], scopeId = parts[5];
+    const type = parts[2];
+    const page = parseInt(parts[3], 10);
+    const searchMode = parts[4];
+    const scopeId = parts[5];
     let res;
     if (searchMode === "guild") res = await sendAction("snipe.getMessagesByGuild", { guildId: scopeId, type });
     else if (searchMode === "user") res = await sendAction("snipe.getMessagesByUser", { userId: scopeId, type });
@@ -239,7 +231,7 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
     const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
   // ── TAGS ──────────────────────────────────────────────────────────────────
@@ -383,7 +375,7 @@ async function handle(interaction) {
     const activities = state?.data?.activities ?? [];
     const hint = activities.length === 1 ? (() => {
       const btns = activities[0].buttons ?? [];
-      return btns.length ? btns.map((b, i) => `${i + 1}: ${b.label}`).join(" / ") : "aucun bouton";
+      return btns.length ? btns.map((b: { label: string }, i: number) => `${i + 1}: ${b.label}`).join(" / ") : "aucun bouton";
     })() : null;
     return interaction.showModal(modal("modal:rpc_editButtons", "Gérer les boutons RPC", [
       { id: "index",        label: activities.length === 1 ? "Numéro de l'activité" : `Numéro de l'activité (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
@@ -530,18 +522,19 @@ async function handle(interaction) {
   if (id === "purge:confirm:guilds") { return interaction.update(purge.buildConfirm({ scope: "guilds" })); }
 
   if (id.startsWith("purge:run:channel:")) {
-    const parts = id.split(":"); const channelId = parts[3]; const amount = parseInt(parts[4] ?? "0", 10) || 0;
+    const parts = id.split(":");
+    const channelId = parts[3];
+    const amount = parseInt(parts[4] ?? "0", 10) || 0;
     const jobId = makeJobId("purge");
     await interaction.update(purge.buildProgress({ scope: "channel", queue: [], activeLabel: `<#${channelId}>`, doneCount: 0, total: 1, totalDeleted: 0, done: false, cancelled: false, jobId }));
-    const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
     sendAction("purge.channel", { channelId, amount: amount || undefined, jobId }).catch(() => {});
     return;
   }
   if (id.startsWith("purge:run:guild:")) {
-    const guildId = id.split(":")[3]; const jobId = makeJobId("purge");
+    const guildId = id.split(":")[3];
+    const jobId = makeJobId("purge");
     await interaction.update(purge.buildProgress({ scope: "guild", queue: [], activeLabel: null, doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
-    const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
     sendAction("purge.guild", { guildId, jobId }).catch(() => {});
     return;
@@ -549,7 +542,6 @@ async function handle(interaction) {
   if (id === "purge:run:dms") {
     const jobId = makeJobId("purge");
     await interaction.update(purge.buildProgress({ scope: "dms", queue: [], activeLabel: null, doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
-    const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
     sendAction("purge.dms", { jobId }).catch(() => {});
     return;
@@ -557,7 +549,6 @@ async function handle(interaction) {
   if (id === "purge:run:guilds") {
     const jobId = makeJobId("purge");
     await interaction.update(purge.buildProgress({ scope: "guilds", queue: [], activeLabel: null, doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
-    const { registerProgressJob } = getProgressHelpers();
     registerProgressJob(jobId, interaction);
     sendAction("purge.guilds", { jobId }).catch(() => {});
     return;
@@ -651,13 +642,13 @@ async function handle(interaction) {
 
   // ── BACKUPS : amis ────────────────────────────────────────────────────────
   if (id === "backups:friends_refresh") {
-    await interaction.update(backups.buildFriends({ guilds: [], savedAt: null, count: 0, page: 0, _loading: true }));
+    await interaction.update(backups.buildFriends({ friends: [], savedAt: null, count: 0, page: 0, _loading: true }));
     const res = await sendAction("backups.friends.backup");
     if (!res?.success) return interaction.editReply({ content: `❌ ${res?.error}` }).catch(() => {});
     return interaction.editReply(backups.buildFriends({ ...res.data, page: 0 })).catch(() => {});
   }
   if (id === "backups:friends_clear") {
-    const res = await sendAction("backups.friends.clearBackup");
+    await sendAction("backups.friends.clearBackup");
     const hub = await sendAction("backups.guilds.get").catch(() => null);
     return interaction.update(backups.build({
       friendsCount: null, friendsSavedAt: null,
@@ -679,7 +670,7 @@ async function handle(interaction) {
     return interaction.editReply(backups.buildGuilds({ ...res.data, page: 0 })).catch(() => {});
   }
   if (id === "backups:guilds_clear") {
-    const res = await sendAction("backups.guilds.clearBackup");
+    await sendAction("backups.guilds.clearBackup");
     const hub2 = await sendAction("backups.friends.get").catch(() => null);
     return interaction.update(backups.build({
       guildsCount: null, guildsSavedAt: null,
@@ -713,7 +704,6 @@ async function handle(interaction) {
     const cfg = getCloneConfig(interaction.user.id);
     const jobId = makeJobId("clone");
     await interaction.update(backups.buildCloneRunning({ sourceGuild: cfg.sourceGuildName ?? cfg.sourceGuildId ?? "?", targetGuild: cfg.targetGuildName ?? cfg.targetGuildId ?? "?", jobId }));
-    const { registerCloneJob } = getProgressHelpers();
     registerCloneJob(jobId, interaction);
     sendAction("backups.clone.run", { sourceGuildId: cfg.sourceGuildId, targetGuildId: cfg.targetGuildId, cloneRoles: cfg.cloneRoles ?? true, cloneChannels: cfg.cloneChannels ?? true, cloneEmojis: cfg.cloneEmojis ?? true, cloneSettings: cfg.cloneSettings ?? true, jobId }).catch(() => {});
     return;
@@ -730,8 +720,6 @@ async function handle(interaction) {
   if (id === "clone:listGuilds") { const res = await sendAction("backups.listGuilds"); return interaction.update(backups.buildCloneGuildList(res?.data ?? {})); }
 }
 
-function _error(interaction, message = "Une erreur est survenue.") {
-  return interaction.reply({ content: `❌ ${message}`, ephemeral: true });
+function _error(interaction: MessageComponentInteraction, message: string | undefined = "Une erreur est survenue."): Promise<unknown> {
+  return interaction.reply({ content: `❌ ${message ?? "Une erreur est survenue."}`, ephemeral: true });
 }
-
-module.exports = { handle };

@@ -1,8 +1,17 @@
-"use strict";
+import { container, textDisplay, separator, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { container, textDisplay, separator, selectMenu, navRow, replyV2 } = require("../utils/components");
+export interface MessageBookmark {
+  content?: string;
+  note?: string | null;
+  url?: string | null;
+  authorTag?: string;
+}
 
-function build(data = {}) {
+export interface MsgBookmarksData {
+  bookmarks?: MessageBookmark[];
+}
+
+export function build(data: MsgBookmarksData = {}): V2MessagePayload {
   const { bookmarks = [] } = data;
   const list = bookmarks.length
     ? bookmarks.map((b, i) => {
@@ -28,5 +37,3 @@ function build(data = {}) {
     ], 0x9B59B6)
   );
 }
-
-module.exports = { build };

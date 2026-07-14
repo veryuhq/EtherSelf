@@ -1,8 +1,11 @@
-"use strict";
+import { container, textDisplay, separator, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { container, textDisplay, separator, selectMenu, navRow, replyV2 } = require("../utils/components");
+export interface TagsData {
+  tags?: Record<string, string>;
+  prefix?: string;
+}
 
-function build(data = {}) {
+export function build(data: TagsData = {}): V2MessagePayload {
   const { tags = {}, prefix = "." } = data;
   const keys = Object.keys(tags);
   const list = keys.length
@@ -28,5 +31,3 @@ function build(data = {}) {
     ], 0xEB459E)
   );
 }
-
-module.exports = { build };

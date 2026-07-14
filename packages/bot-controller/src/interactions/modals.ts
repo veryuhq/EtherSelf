@@ -1,57 +1,53 @@
-"use strict";
+import type { ModalMessageModalSubmitInteraction, ModalSubmitInteraction } from "discord.js";
 
-const { sendAction }    = require("../bridge/client");
-const { modal }         = require("../utils/components");
-const { fetchAndBuild } = require("./selects");
-const { getCloneConfig } = require("../store/clone-config");
+import { sendAction } from "../bridge/client";
+import { fetchAndBuild } from "./fetch-and-build";
+import { getCloneConfig } from "../store/clone-config";
+import { registerSnapshotJob } from "../store/jobs";
 
 // Panels
-const home      = require("../panels/home");
-const prefix    = require("../panels/prefix");
-const afk       = require("../panels/afk");
-const snipe     = require("../panels/snipe");
-const tags      = require("../panels/tags");
-const bookmarks = require("../panels/bookmarks");
-const msgbm     = require("../panels/msgbookmarks");
-const antigroup = require("../panels/antigroup");
-const autobump  = require("../panels/autobump");
-const joinvc    = require("../panels/joinvc");
-const purge     = require("../panels/purge");
-const sysinfo   = require("../panels/sysinfo");
-const rpc       = require("../panels/rpc");
-const quests    = require("../panels/quests");
-const backups   = require("../panels/backups");
-const configPanel = require("../panels/config");
+import * as prefix      from "../panels/prefix";
+import * as afk         from "../panels/afk";
+import * as snipe       from "../panels/snipe";
+import * as tags        from "../panels/tags";
+import * as bookmarks   from "../panels/bookmarks";
+import * as msgbm       from "../panels/msgbookmarks";
+import * as autobump    from "../panels/autobump";
+import * as joinvc      from "../panels/joinvc";
+import * as purge       from "../panels/purge";
+import * as rpc         from "../panels/rpc";
+import * as quests      from "../panels/quests";
+import * as backups     from "../panels/backups";
+import * as configPanel from "../panels/config";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getProgressHelpers() { return require("../../index.js"); }
-
-function makeJobId(prefix = "job") {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function makeJobId(prefixStr = "job"): string {
+  return `${prefixStr}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function resolveGuildName(guildId) {
+async function resolveGuildName(guildId: string): Promise<string | null> {
   try {
     const res = await sendAction("backups.listGuilds");
-    const guild = (res?.data?.guilds ?? []).find(g => g.id === guildId);
+    const guild = ((res?.data?.guilds ?? []) as Array<{ id: string; name?: string }>).find((g) => g.id === guildId);
     return guild?.name ?? null;
   } catch { return null; }
 }
 
-/**
- * @param {import("discord.js").ModalSubmitInteraction} interaction
- */
-async function handle(interaction) {
+export async function handle(interaction: ModalSubmitInteraction): Promise<unknown> {
+  // Tous les modals du panel sont ouverts depuis un message de panel :
+  // isFromMessage() garantit l'accès typé à update() pour re-render en place.
+  if (!interaction.isFromMessage()) return;
+
   const id = interaction.customId;
 
   // ── Navigation ────────────────────────────────────────────────────────────
   if (id === "panel:home") {
     const panel = await fetchAndBuild("home");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
-  const NAV_MAP = {
+  const NAV_MAP: Record<string, string> = {
     "panel:config":       "config",
     "panel:afk":          "afk",
     "panel:snipe":        "snipe",
@@ -72,10 +68,10 @@ async function handle(interaction) {
   };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
-  // ── PREFIX ────────────────────────────────────────────────────────────────
+  // ── CONFIG ────────────────────────────────────────────────────────────────
   if (id === "modal:token") {
     const token = interaction.fields.getTextInputValue("token").trim();
     const ownerIdConfirm = interaction.fields.getTextInputValue("ownerId").trim();
@@ -87,6 +83,7 @@ async function handle(interaction) {
     return interaction.update(configPanel.buildTokenUpdated());
   }
 
+  // ── PREFIX ────────────────────────────────────────────────────────────────
   if (id === "modal:prefix") {
     const newPrefix = interaction.fields.getTextInputValue("prefix").trim();
     const res = await sendAction("prefix.set", { prefix: newPrefix });
@@ -127,7 +124,7 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
     const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
   if (id === "modal:snipe_remove") {
     const guildId = interaction.fields.getTextInputValue("guildId").trim();
@@ -135,7 +132,7 @@ async function handle(interaction) {
     if (!res?.success) return _error(interaction, res?.error);
     // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
     const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
   if (id === "modal:snipe_view:deleted" || id === "modal:snipe_view:edited") {
     const type  = id.endsWith("deleted") ? "deleted" : "edited";
@@ -163,7 +160,6 @@ async function handle(interaction) {
 
     await interaction.update(snipe.buildSnapshotRunning({ channelId }));
 
-    const { registerSnapshotJob } = getProgressHelpers();
     registerSnapshotJob(jobId, interaction);
 
     sendAction("snapshot.run", { channelId, limit, sendToChannelId, jobId }).catch(() => {});
@@ -179,14 +175,14 @@ async function handle(interaction) {
     const res = await sendAction("snapshot.periodic.add", { channelId, interval, limit, sendToChannelId });
     if (!res?.success) return _error(interaction, res?.error);
     const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
   if (id === "modal:snipe_snapshot_periodic_remove") {
     const channelId = interaction.fields.getTextInputValue("channelId").trim();
     const res = await sendAction("snapshot.periodic.remove", { channelId });
     if (!res?.success) return _error(interaction, res?.error);
     const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel);
+    return interaction.update(panel!);
   }
 
   // ── TAGS ──────────────────────────────────────────────────────────────────
@@ -417,9 +413,10 @@ async function handle(interaction) {
     const albumId    = interaction.fields.getTextInputValue("albumId").trim() || null;
     const artistIds  = interaction.fields.getTextInputValue("artistIds").trim() || null;
     const display    = interaction.fields.getTextInputValue("display").trim() || null;
-    let details = null, state = null;
+    let details: string | null = null;
+    let state: string | null = null;
     if (display) {
-      const parts = display.split("|").map(s => s.trim());
+      const parts = display.split("|").map((s) => s.trim());
       details = parts[0] || null;
       state   = parts[1] || null;
     }
@@ -512,8 +509,6 @@ async function handle(interaction) {
   }
 }
 
-function _error(interaction, message = "Une erreur est survenue.") {
-  return interaction.reply({ content: `❌ ${message}`, ephemeral: true });
+function _error(interaction: ModalMessageModalSubmitInteraction, message: string | undefined = "Une erreur est survenue."): Promise<unknown> {
+  return interaction.reply({ content: `❌ ${message ?? "Une erreur est survenue."}`, ephemeral: true });
 }
-
-module.exports = { handle };

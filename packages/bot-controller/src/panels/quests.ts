@@ -2,14 +2,41 @@
 // https://github.com/aiko-chan-ai/Discord-Quest-Auto-Completion-Selfbot
 // Merci à aiko-chan....et à Claude !
 
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
+export interface Quest {
+  name: string;
+  game: string;
+  completed?: boolean;
+  enrolled?: boolean;
+  taskName?: string | null;
+  expiresAt?: string | number;
+  progress?: Record<string, { value: number }>;
+}
+
+export interface QuestsData {
+  quests?: Quest[];
+  stats?: { total?: number; todo?: number; enroll?: number; completed?: number };
+  blockedUntil?: string | number | null;
+  config?: { enabled?: boolean; intervalMin?: number };
+}
+
+export interface QuestHistoryEntry {
+  success?: boolean;
+  questName?: string;
+  taskName?: string | null;
+  timestamp?: string | number;
+  error?: string;
+}
+
+export interface QuestsHistoryData {
+  history?: QuestHistoryEntry[];
+}
 
 // ── Panel principal ───────────────────────────────────────────────────────────
 
-function build(data = {}) {
+export function build(data: QuestsData = {}): V2MessagePayload {
   const {
     quests       = [],
     stats        = {},
@@ -21,18 +48,18 @@ function build(data = {}) {
   const enabled     = config.enabled     ?? false;
   const intervalMin = config.intervalMin ?? 360;
 
-  let questList;
+  let questList: string;
   if (!quests.length) {
     questList = "*Aucune quête active en ce moment.*";
   } else {
-    questList = quests.map(q => {
+    questList = quests.map((q) => {
       const statusEmoji = q.completed ? "`✅`" : q.enrolled ? "`⏳`" : "`📋`";
-      const expiry      = new Date(q.expiresAt).toLocaleDateString("fr-FR");
+      const expiry      = new Date(q.expiresAt ?? 0).toLocaleDateString("fr-FR");
 
       let progressStr = "";
-      if (!q.completed && q.taskName && q.progress[q.taskName]) {
-        const p = q.progress[q.taskName];
-        progressStr = ` — \`${Math.floor(p.value)}s\``;
+      const progress = q.taskName ? q.progress?.[q.taskName] : undefined;
+      if (!q.completed && progress) {
+        progressStr = ` — \`${Math.floor(progress.value)}s\``;
       }
 
       return `${statusEmoji} **${q.name}** (${q.game})${progressStr}\n> ↳ Tâche: \`${q.taskName ?? "?"}\` — expire le ${expiry}`;
@@ -77,7 +104,7 @@ function build(data = {}) {
 
 // ── Panel "en cours" ──────────────────────────────────────────────────────────
 
-function buildRunning() {
+export function buildRunning(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay(
@@ -95,13 +122,13 @@ function buildRunning() {
 
 // ── Panel historique ──────────────────────────────────────────────────────────
 
-function buildHistory(data = {}) {
+export function buildHistory(data: QuestsHistoryData = {}): V2MessagePayload {
   const { history = [] } = data;
 
   const list = history.length
     ? history.slice(-15).reverse().map((entry) => {
         const emoji = entry.success ? "✅" : "❌";
-        const time  = new Date(entry.timestamp).toLocaleString("fr-FR");
+        const time  = new Date(entry.timestamp ?? 0).toLocaleString("fr-FR");
         const error = entry.success ? "" : `\n> ⚠️ *${entry.error}*`;
         return `${emoji} **${entry.questName}** — \`${entry.taskName ?? "?"}\`\n> ${time}${error}`;
       }).join("\n\n")
@@ -122,5 +149,3 @@ function buildHistory(data = {}) {
     ], 0x5865F2)
   );
 }
-
-module.exports = { build, buildRunning, buildHistory };

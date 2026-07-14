@@ -1,14 +1,56 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
+export type SnipeType = "deleted" | "edited";
+export type SnipeSearchMode = "channel" | "guild" | "user";
 
-function build(data = {}) {
+export interface SnapshotSchedule {
+  channelId: string;
+  intervalLabel?: string;
+  limit?: number;
+  sendToChannelId?: string | null;
+  nextRunAt?: number | null;
+}
+
+export interface SnipeData {
+  whitelist?: string[];
+  guilds?: Array<{ id: string; name?: string }>;
+  snapshotSchedules?: SnapshotSchedule[];
+  snapshotSchedulesRunning?: boolean;
+}
+
+export interface SnipedMessage {
+  content?: string;
+  oldContent?: string;
+  newContent?: string;
+  authorTag?: string;
+  authorId?: string;
+  channelId?: string;
+  channelName?: string;
+  createdTimestamp?: number;
+  deletedAt?: number;
+  editedAt?: number;
+}
+
+export interface SnipeResultsData {
+  messages?: SnipedMessage[];
+  type?: SnipeType;
+  page?: number;
+  searchMode?: SnipeSearchMode;
+  channelId?: string | null;
+  channelName?: string | null;
+  guildId?: string | null;
+  guildName?: string | null;
+  userId?: string | null;
+  userTag?: string | null;
+}
+
+export function build(data: SnipeData = {}): V2MessagePayload {
   const { whitelist = [], guilds = [], snapshotSchedules = [], snapshotSchedulesRunning = false } = data;
 
   const list = whitelist.length
     ? whitelist.map((id, i) => {
-        const guild = guilds.find(g => g.id === id);
+        const guild = guilds.find((g) => g.id === id);
         const name  = guild?.name ?? null;
         return `\`${i + 1}.\` ${name ? `**${name}** (\`${id}\`)` : `\`${id}\``}`;
       }).join("\n")
@@ -16,7 +58,7 @@ function build(data = {}) {
 
   const scheduleList = snapshotSchedules.length
     ? snapshotSchedules.slice(0, 8).map((job, i) => {
-        const limit = job.limit > 0 ? `${job.limit} msg` : "tout";
+        const limit = (job.limit ?? 0) > 0 ? `${job.limit} msg` : "tout";
         const target = job.sendToChannelId ? `<#${job.sendToChannelId}>` : "DM";
         const next = job.nextRunAt ? `<t:${Math.floor(job.nextRunAt / 1000)}:R>` : "bientôt";
         return `\`${i + 1}.\` <#${job.channelId}> — **${job.intervalLabel ?? "intervalle ?"}** — ${limit} — ${target} — prochain ${next}`;
@@ -32,12 +74,12 @@ function build(data = {}) {
       ),
       separator(),
       selectMenu("menu:snipe", "📋  Choisis une action…", [
-        { label: "➕  Ajouter serveur",    value: "snipe:add",                   description: "Whitelister un serveur" },
-        { label: "➖  Retirer serveur",    value: "snipe:remove",                description: "Retirer un serveur de la whitelist" },
-        { label: "👀  Voir supprimés",     value: "snipe:viewDeleted",           description: "Consulter les messages supprimés" },
-        { label: "✏️  Voir édités",        value: "snipe:viewEdited",            description: "Consulter les messages édités" },
-        { label: "📸  Snapshot salon",     value: "snipe:snapshot",              description: "Archiver un salon maintenant" },
-        { label: "🔁  Ajouter périodique", value: "snipe:snapshotPeriodicAdd",   description: "Programmer un snapshot périodique" },
+        { label: "➕  Ajouter serveur",    value: "snipe:add",                    description: "Whitelister un serveur" },
+        { label: "➖  Retirer serveur",    value: "snipe:remove",                 description: "Retirer un serveur de la whitelist" },
+        { label: "👀  Voir supprimés",     value: "snipe:viewDeleted",            description: "Consulter les messages supprimés" },
+        { label: "✏️  Voir édités",        value: "snipe:viewEdited",             description: "Consulter les messages édités" },
+        { label: "📸  Snapshot salon",     value: "snipe:snapshot",               description: "Archiver un salon maintenant" },
+        { label: "🔁  Ajouter périodique", value: "snipe:snapshotPeriodicAdd",    description: "Programmer un snapshot périodique" },
         { label: "🗑️  Retirer périodique", value: "snipe:snapshotPeriodicRemove", description: "Retirer un snapshot périodique" },
       ]),
       separator(1, false),
@@ -50,7 +92,7 @@ function build(data = {}) {
   );
 }
 
-function buildResults(data = {}) {
+export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
   const {
     messages    = [],
     type        = "deleted",
@@ -73,8 +115,8 @@ function buildResults(data = {}) {
   const label      = type === "deleted" ? "supprimés" : "édités";
 
   // ── En-tête selon le mode de recherche ───────────────────────────────────
-  let scopeDisplay;
-  let backButtonId;
+  let scopeDisplay: string;
+  let backButtonId: string;
   if (searchMode === "guild") {
     scopeDisplay = guildName
       ? `**${guildName}**`
@@ -99,7 +141,7 @@ function buildResults(data = {}) {
   }
 
   // ── Corps ─────────────────────────────────────────────────────────────────
-  let body;
+  let body: string;
   if (!messages.length) {
     body = "*Aucun message snipé ici.*";
   } else {
@@ -162,9 +204,8 @@ function buildResults(data = {}) {
 
 /**
  * Panel affiché pendant l'exécution du snapshot (long, asynchrone).
- * @param {{ channelId: string, channelName?: string }} data
  */
-function buildSnapshotRunning(data = {}) {
+export function buildSnapshotRunning(data: { channelId?: string; channelName?: string | null } = {}): V2MessagePayload {
   const { channelName = null, channelId = "" } = data;
   const display = channelName ? `#${channelName}` : `\`${channelId}\``;
 
@@ -186,9 +227,10 @@ function buildSnapshotRunning(data = {}) {
 
 /**
  * Panel de résultat du snapshot.
- * @param {{ channelName: string, messageCount: number, sent: boolean, error?: string }} data
  */
-function buildSnapshotResult(data = {}) {
+export function buildSnapshotResult(
+  data: { channelName?: string; messageCount?: number; sent?: boolean; error?: string | null } = {},
+): V2MessagePayload {
   const { channelName = "?", messageCount = 0, sent = false, error = null } = data;
 
   const statusLine = error
@@ -214,5 +256,3 @@ function buildSnapshotResult(data = {}) {
     ], 0xED4245)
   );
 }
-
-module.exports = { build, buildResults, buildSnapshotRunning, buildSnapshotResult };

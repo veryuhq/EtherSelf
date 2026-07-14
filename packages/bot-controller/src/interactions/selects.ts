@@ -1,116 +1,14 @@
-"use strict";
+import type { MessageComponentInteraction, StringSelectMenuInteraction } from "discord.js";
 
-const { sendAction } = require("../bridge/client");
-const { modal } = require("../utils/components");
+import { sendAction } from "../bridge/client";
+import { modal } from "../utils/components";
+import { fetchAndBuild } from "./fetch-and-build";
+import { handle as handleButton } from "./buttons";
 
 // Panels
-const home        = require("../panels/home");
-const config      = require("../panels/config");
-const prefix      = require("../panels/prefix");
-const afk         = require("../panels/afk");
-const snipe       = require("../panels/snipe");
-const tags        = require("../panels/tags");
-const bookmarks   = require("../panels/bookmarks");
-const msgbm       = require("../panels/msgbookmarks");
-const antigroup   = require("../panels/antigroup");
-const autobump    = require("../panels/autobump");
-const joinvc      = require("../panels/joinvc");
-const purge       = require("../panels/purge");
-const sysinfo     = require("../panels/sysinfo");
-const rpc         = require("../panels/rpc");
-const quests      = require("../panels/quests");
-const backups     = require("../panels/backups");
-const { getCloneConfig } = require("../store/clone-config");
+import * as rpc from "../panels/rpc";
 
-async function fetchAndBuild(panelKey) {
-  const fetchers = {
-    home:         () => sendAction("prefix.get"),
-    config:       () => null,
-    prefix:       () => sendAction("prefix.get"),
-    afk:          () => sendAction("afk.getState"),
-    snipe:        async () => {
-      const [whitelistRes, schedulesRes] = await Promise.all([
-        sendAction("snipe.getWhitelist"),
-        sendAction("snapshot.periodic.list"),
-      ]);
-      return {
-        ...(whitelistRes?.data ?? {}),
-        snapshotSchedules: schedulesRes?.data?.jobs ?? [],
-        snapshotSchedulesRunning: schedulesRes?.data?.running ?? false,
-      };
-    },
-    tags:         async () => {
-      const [tagsRes, prefixRes] = await Promise.all([sendAction("tag.list"), sendAction("prefix.get")]);
-      return { tags: tagsRes?.data?.tags ?? {}, prefix: prefixRes?.data?.prefix ?? "." };
-    },
-    bookmarks:    () => sendAction("bookmark.list"),
-    msgbookmarks: () => sendAction("msgbm.list"),
-    antigroup:    () => sendAction("antigroup.getState"),
-    autobump:     () => sendAction("autobump.list"),
-    joinvc:       () => sendAction("voice.getState"),
-    rpc:          () => sendAction("rpc.getState"),
-    rpc_cs:       () => sendAction("rpc.getState"),
-    rpc_spotify:  () => sendAction("rpc.getState"),
-    quests:       () => sendAction("quests.list"),
-    backups:      async () => {
-      const [res, res2] = await Promise.allSettled([
-        sendAction("backups.guilds.get"),
-        sendAction("backups.friends.get"),
-      ]);
-      const gData = res.status === "fulfilled" ? res.value?.data : null;
-      const fData = res2.status === "fulfilled" ? res2.value?.data : null;
-      return {
-        guildsCount:    gData?.count    ?? null,
-        guildsSavedAt:  gData?.savedAt  ?? null,
-        friendsCount:   fData?.count    ?? null,
-        friendsSavedAt: fData?.savedAt  ?? null,
-      };
-    },
-  };
-
-  const builders = {
-    home:         (d) => home.build(d),
-    config:       ()  => config.build(),
-    prefix:       (d) => prefix.build(d),
-    afk:          (d) => afk.build(d),
-    snipe:        (d) => snipe.build(d),
-    tags:         (d) => tags.build(d),
-    bookmarks:    (d) => bookmarks.build(d),
-    msgbookmarks: (d) => msgbm.build(d),
-    antigroup:    (d) => antigroup.build(d),
-    autobump:     (d) => autobump.build(d),
-    joinvc:       (d) => joinvc.build(d),
-    purge:        ()  => purge.build(),
-    sysinfo:      ()  => sysinfo.build(),
-    rpc:          (d) => rpc.build(d),
-    rpc_cs:       (d) => rpc.buildCs(d),
-    rpc_spotify:  (d) => rpc.buildSpotify(d),
-    rpc_hub:      ()  => rpc.buildHub(),
-    quests:       (d) => quests.build(d),
-    backups:      (d) => backups.build(d ?? {}),
-  };
-
-  if (!builders[panelKey]) return null;
-
-  let data = {};
-  if (fetchers[panelKey]) {
-    const res = await fetchers[panelKey]();
-    if (panelKey === "tags" || panelKey === "backups" || panelKey === "snipe") {
-      data = res ?? {};
-    } else if (res === null) {
-      data = {};
-    } else {
-      data = res?.data ?? {};
-    }
-  }
-
-  return builders[panelKey](data);
-}
-
-/**
- * @param {import("discord.js").StringSelectMenuInteraction} interaction
- */
-async function handle(interaction) {
+export async function handle(interaction: StringSelectMenuInteraction): Promise<unknown> {
   // ── menu:* — boutons regroupés en menu déroulant ──────────────────────────
   // Quand un panel dépasse 3 boutons d'action, ceux-ci sont regroupés dans un
   // select (les boutons de navigation, de pagination et les bascules à état
@@ -120,14 +18,13 @@ async function handle(interaction) {
   if (interaction.customId.startsWith("menu:")) {
     const selected = interaction.values?.[0];
     if (!selected) return;
-    const { handle: handleButton } = require("./buttons");
     const proxy = new Proxy(interaction, {
       get(target, prop) {
         if (prop === "customId") return selected;
-        const value = target[prop];
-        return typeof value === "function" ? value.bind(target) : value;
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value;
       },
-    });
+    }) as MessageComponentInteraction;
     return handleButton(proxy);
   }
 
@@ -216,7 +113,7 @@ async function handle(interaction) {
       const activities = state?.data?.activities ?? [];
       const hint = activities.length === 1 ? (() => {
         const btns = activities[0].buttons ?? [];
-        return btns.length ? btns.map((b, i) => `${i + 1}: ${b.label}`).join(" / ") : "aucun bouton";
+        return btns.length ? btns.map((b: { label: string }, i: number) => `${i + 1}: ${b.label}`).join(" / ") : "aucun bouton";
       })() : null;
       return interaction.showModal(modal("modal:rpc_editButtons", "Gérer les boutons RPC", [
         { id: "index", label: activities.length === 1 ? "Numéro de l'activité" : `Numéro de l'activité (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
@@ -360,5 +257,3 @@ async function handle(interaction) {
 
   return interaction.editReply(panel);
 }
-
-module.exports = { handle, fetchAndBuild };

@@ -1,15 +1,20 @@
-"use strict";
+import { container, textDisplay, separator, selectMenu, navRow, replyV2, type SelectOption, type V2MessagePayload } from "../utils/components";
 
-const { container, textDisplay, separator, selectMenu, navRow, replyV2 } = require("../utils/components");
+export interface JoinVcData {
+  joined?: boolean;
+  channelId?: string | null;
+  channelName?: string | null;
+  guildName?: string | null;
+}
 
-function build(data = {}) {
+export function build(data: JoinVcData = {}): V2MessagePayload {
   const { joined = false, channelId = null, channelName = null, guildName = null } = data;
 
   const status = joined
     ? "`🟢` **Connecté** dans **" + (channelName ?? channelId) + "**" + (guildName ? ` — *${guildName}*` : "")
     : "`🔴` **Non connecté**";
 
-  const vcActions = [
+  const vcActions: SelectOption[] = [
     { label: "🔊  Rejoindre", value: "joinvc:join", description: "Rejoindre un salon vocal" },
   ];
   if (joined) {
@@ -29,5 +34,3 @@ function build(data = {}) {
     ], 0x9B59B6)
   );
 }
-
-module.exports = { build };

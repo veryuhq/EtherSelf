@@ -1,30 +1,38 @@
-"use strict";
+import path from "path";
+import dotenv from "dotenv";
 
-require("dotenv").config({ path: require("path").join(__dirname, ".env"), override: true });
+// Racine du package (les fichiers compilés vivent dans dist/, les sources dans src/ :
+// dans les deux cas la racine est un niveau au-dessus).
+const PKG_ROOT = path.resolve(__dirname, "..");
 
-const http = require("http");
-const os   = require("os");
-const fs   = require("fs");
-const path = require("path");
-const {
-  Client,
-  GatewayIntentBits,
-  Collection,
+dotenv.config({ path: path.join(PKG_ROOT, ".env"), override: true });
+
+import http from "http";
+import os from "os";
+import fs from "fs";
+import {
+  ActivityType,
   AttachmentBuilder,
-} = require("discord.js");
+  Client,
+  Collection,
+  GatewayIntentBits,
+} from "discord.js";
+import type { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 
-const buttons = require("./src/interactions/buttons");
-const modals  = require("./src/interactions/modals");
-const selects = require("./src/interactions/selects");
-const panel     = require("./src/commands/panel");
-const purgelogs = require("./src/commands/purgelogs");
+import * as buttons from "./interactions/buttons";
+import * as modals from "./interactions/modals";
+import * as selects from "./interactions/selects";
+import * as panel from "./commands/panel";
+import * as purgelogs from "./commands/purgelogs";
 
-const { healthCheck }                                       = require("./src/bridge/client");
-const { getSecretBuffer, verifySignedRequest, registerSignature } = require("./src/bridge/auth");
-const { container, textDisplay, separator, actionRow, btn, fileComponent, logLines, replyV2 } = require("./src/utils/components");
+import { healthCheck } from "./bridge/client";
+import { getSecretBuffer, verifySignedRequest, registerSignature } from "./bridge/auth";
+import { container, textDisplay, separator, fileComponent, logLines, replyV2, type V2MessagePayload } from "./utils/components";
+import { updateProgressJob, cleanProgressJob, getCloneJob, cleanCloneJob, getSnapshotJob, cleanSnapshotJob } from "./store/jobs";
 
-const snipe   = require("./src/panels/snipe");
-const backups = require("./src/panels/backups");
+import * as snipe from "./panels/snipe";
+import * as backups from "./panels/backups";
+import * as purgePanel from "./panels/purge";
 
 const OWNER_ID      = process.env.OWNER_ID;
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET ?? "";
@@ -34,78 +42,29 @@ if (!OWNER_ID) throw new Error("OWNER_ID est obligatoire pour verrouiller les in
 getSecretBuffer(BRIDGE_SECRET);
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  STORE — jobs de progression purge
-// ─────────────────────────────────────────────────────────────────────────────
-
-const progressJobs = new Map();
-
-function registerProgressJob(jobId, interaction) {
-  progressJobs.set(jobId, { interaction, lastUpdate: 0 });
-}
-
-async function updateProgressJob(jobId, panelPayload, force = false) {
-  const job = progressJobs.get(jobId);
-  if (!job) return;
-  const now = Date.now();
-  if (!force && now - job.lastUpdate < 2000) return;
-  job.lastUpdate = now;
-  try { await job.interaction.editReply(panelPayload); } catch { /* interaction expirée */ }
-}
-
-function cleanProgressJob(jobId) { progressJobs.delete(jobId); }
-
-module.exports.registerProgressJob = registerProgressJob;
-module.exports.cleanProgressJob    = cleanProgressJob;
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STORE — jobs de clonage
-// ─────────────────────────────────────────────────────────────────────────────
-
-const cloneJobs = new Map();
-
-function registerCloneJob(jobId, interaction) {
-  cloneJobs.set(jobId, { interaction, lastUpdate: 0 });
-}
-
-function cleanCloneJob(jobId) { cloneJobs.delete(jobId); }
-
-module.exports.registerCloneJob = registerCloneJob;
-module.exports.cleanCloneJob    = cleanCloneJob;
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  STORE — jobs de snapshot
-// ─────────────────────────────────────────────────────────────────────────────
-
-const snapshotJobs = new Map();
-
-function registerSnapshotJob(jobId, interaction) {
-  snapshotJobs.set(jobId, { interaction });
-}
-
-function cleanSnapshotJob(jobId) { snapshotJobs.delete(jobId); }
-
-module.exports.registerSnapshotJob = registerSnapshotJob;
-module.exports.cleanSnapshotJob    = cleanSnapshotJob;
-
-// ─────────────────────────────────────────────────────────────────────────────
 //  CLIENT
 // ─────────────────────────────────────────────────────────────────────────────
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.commands = new Collection();
-client.commands.set(panel.data.name, panel);
-client.commands.set(purgelogs.data.name, purgelogs);
+interface SlashCommand {
+  data: Pick<SlashCommandBuilder, "name">;
+  execute(interaction: ChatInputCommandInteraction): Promise<unknown>;
+}
+
+const commands = new Collection<string, SlashCommand>();
+commands.set(panel.data.name, panel);
+commands.set(purgelogs.data.name, purgelogs);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function readBody(req, maxBytes = 50 * 1024 * 1024) {
+function readBody(req: http.IncomingMessage, maxBytes = 50 * 1024 * 1024): Promise<string> {
   return new Promise((resolve, reject) => {
-    const chunks = [];
+    const chunks: Buffer[] = [];
     let total = 0;
-    req.on("data", chunk => {
+    req.on("data", (chunk: Buffer) => {
       total += chunk.length;
       if (total > maxBytes) {
         reject(new Error("Body trop volumineux."));
@@ -124,9 +83,9 @@ function readBody(req, maxBytes = 50 * 1024 * 1024) {
 // arbitraire de l'hôte (defense-in-depth au-delà du HMAC).
 const SB_DATA_DIR = process.env.SB_DATA_DIR
   ? path.resolve(process.env.SB_DATA_DIR)
-  : path.resolve(__dirname, "..", "sb-uhq", "data");
+  : path.resolve(PKG_ROOT, "..", "sb-uhq", "data");
 
-function assertInSbData(localFilepath) {
+function assertInSbData(localFilepath: unknown): string {
   const resolved = path.resolve(String(localFilepath ?? ""));
   if (resolved !== SB_DATA_DIR && !resolved.startsWith(`${SB_DATA_DIR}${path.sep}`)) {
     throw new Error("Chemin de fichier hors du répertoire autorisé.");
@@ -134,7 +93,7 @@ function assertInSbData(localFilepath) {
   return resolved;
 }
 
-function safeTmpFile(filename) {
+function safeTmpFile(filename: unknown): { tmpRoot: string; tmpPath: string; safeName: string } {
   const base = path.basename(String(filename ?? "")).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
   if (!base || base === "." || base === "..") throw new Error("Nom de fichier invalide.");
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "etherself-"));
@@ -143,7 +102,7 @@ function safeTmpFile(filename) {
   return { tmpRoot, tmpPath, safeName: base };
 }
 
-function redactLogText(text) {
+function redactLogText(text: unknown): string {
   return String(text ?? "")
     .replace(/(discord(?:app)?\.com\/(?:gifts|gift)\/)[A-Za-z0-9]{12,}/gi, "$1[redacted]")
     .replace(/(discord\.gift\/)[A-Za-z0-9]{12,}/gi, "$1[redacted]")
@@ -159,15 +118,15 @@ const LOG_LEVELS = [
   { test: /✅|succès|connecté|démarré|prêt/i,                    emoji: "✅", label: "Succès",        color: 0x2ECC71 },
 ];
 
-function buildLogMessage(text) {
-  const level = LOG_LEVELS.find(l => l.test.test(text))
+function buildLogMessage(text: string): V2MessagePayload {
+  const level = LOG_LEVELS.find((l) => l.test.test(text))
     ?? { emoji: "📡", label: "Info", color: 0x5865F2 };
 
   // 4000 caractères max cumulés sur les Text Display d'un message Components V2 :
   // on tronque ligne par ligne pour ne jamais couper une ligne en plein milieu.
   const lines = logLines(text).split("\n");
-  const kept  = [];
-  let budget  = 3800;
+  const kept: string[] = [];
+  let budget = 3800;
   for (const line of lines) {
     if (line.length + 1 > budget) { kept.push("> *…tronqué…*"); break; }
     kept.push(line);
@@ -183,8 +142,8 @@ function buildLogMessage(text) {
   );
 }
 
-const httpRateBuckets = new Map();
-function checkHttpRateLimit(key, max, windowMs) {
+const httpRateBuckets = new Map<string, { count: number; resetAt: number }>();
+function checkHttpRateLimit(key: string, max: number, windowMs: number): boolean {
   const now = Date.now();
   const current = httpRateBuckets.get(key);
   const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + windowMs };
@@ -193,7 +152,15 @@ function checkHttpRateLimit(key, max, windowMs) {
   return bucket.count <= max;
 }
 
-function buildSnapshotEmbed(meta, attachment, attachmentName) {
+interface SnapshotFileMeta {
+  channelName?: string;
+  guildName?: string | null;
+  messageCount?: number;
+  filename?: string;
+  fileSizeKb?: number;
+}
+
+function buildSnapshotEmbed(meta: SnapshotFileMeta, attachment: AttachmentBuilder, attachmentName: string): V2MessagePayload {
   const { channelName, guildName, messageCount, filename, fileSizeKb } = meta;
   const now = new Date().toLocaleString("fr-FR");
 
@@ -206,7 +173,7 @@ function buildSnapshotEmbed(meta, attachment, attachmentName) {
     `> \`🕐\` **Généré le :** ${now}`,
     ``,
     `*Ouvre le fichier HTML joint dans ton navigateur pour consulter l'archive.*`,
-  ].filter(l => l !== null).join("\n");
+  ].filter((l) => l !== null).join("\n");
 
   return {
     ...replyV2(
@@ -223,7 +190,7 @@ function buildSnapshotEmbed(meta, attachment, attachmentName) {
 
 const logServer = http.createServer(async (req, res) => {
   let rawBody = "";
-  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+  if (["POST", "PUT", "PATCH"].includes(req.method ?? "")) {
     try { rawBody = await readBody(req); }
     catch { res.writeHead(413).end(); return; }
   }
@@ -233,7 +200,7 @@ const logServer = http.createServer(async (req, res) => {
     res.writeHead(403).end();
     return;
   }
-  if (!registerSignature(req.headers["x-bridge-signature"] ?? req.headers["X-Bridge-Signature"])) {
+  if (!registerSignature(req.headers["x-bridge-signature"])) {
     res.writeHead(409).end();
     return;
   }
@@ -263,8 +230,7 @@ const logServer = http.createServer(async (req, res) => {
     try {
       const { jobId, done, ...progressData } = JSON.parse(rawBody || "{}");
       if (!jobId) { res.writeHead(400).end(); return; }
-      const { buildProgress } = require("./src/panels/purge");
-      await updateProgressJob(jobId, buildProgress({ ...progressData, done: done === true }), done === true);
+      await updateProgressJob(jobId, purgePanel.buildProgress({ ...progressData, done: done === true }), done === true);
       if (done) cleanProgressJob(jobId);
       res.writeHead(200).end();
     } catch { res.writeHead(400).end(); }
@@ -277,10 +243,10 @@ const logServer = http.createServer(async (req, res) => {
       const { jobId, done, error, summary, ...progressData } = JSON.parse(rawBody || "{}");
       if (!jobId) { res.writeHead(400).end(); return; }
 
-      const job = cloneJobs.get(jobId);
+      const job = getCloneJob(jobId);
       if (!job) { res.writeHead(200).end(); return; }
 
-      let panelPayload;
+      let panelPayload: V2MessagePayload;
       if (done && summary)  panelPayload = backups.buildCloneResult(summary);
       else if (done && error) panelPayload = backups.buildCloneResult({ success: false, error });
       else panelPayload = backups.buildCloneRunning(progressData);
@@ -304,7 +270,7 @@ const logServer = http.createServer(async (req, res) => {
       const { jobId, error, channelName, messageCount, sent } = body;
 
       if (jobId) {
-        const job = snapshotJobs.get(jobId);
+        const job = getSnapshotJob(jobId);
         if (job) {
           const panelPayload = snipe.buildSnapshotResult({
             channelName:  channelName ?? "?",
@@ -323,8 +289,7 @@ const logServer = http.createServer(async (req, res) => {
 
   // ── POST /file ────────────────────────────────────────────────────────────
   if (req.method === "POST" && req.url === "/file") {
-    let tmpPath = null;
-    let usedLocalPath = false;
+    let tmpPath: string | null = null;
     try {
       const body = JSON.parse(rawBody || "{}");
       const { filename, base64, filepath: localFilepath, meta, channelId } = body;
@@ -342,7 +307,6 @@ const logServer = http.createServer(async (req, res) => {
         const srcPath = assertInSbData(localFilepath);
         fs.copyFileSync(srcPath, tmpPath);
         fs.chmodSync(tmpPath, 0o600);
-        usedLocalPath = true;
       } else {
         fs.writeFileSync(tmpPath, Buffer.from(base64, "base64"), { mode: 0o600 });
       }
@@ -350,7 +314,7 @@ const logServer = http.createServer(async (req, res) => {
       const filenameSafe = tmpInfo.safeName;
       const attachment = new AttachmentBuilder(tmpPath, { name: filenameSafe });
 
-      let msgPayload;
+      let msgPayload: V2MessagePayload;
 
       // Snapshot HTML
       if (meta && typeof meta === "object") {
@@ -363,7 +327,7 @@ const logServer = http.createServer(async (req, res) => {
 
       if (channelId) {
         const targetChannel = await client.channels.fetch(channelId).catch(() => null);
-        if (!targetChannel) { res.writeHead(404).end(); return; }
+        if (!targetChannel || !targetChannel.isSendable()) { res.writeHead(404).end(); return; }
         await targetChannel.send(msgPayload);
       } else {
         if (!OWNER_ID) { res.writeHead(500).end(); return; }
@@ -374,7 +338,7 @@ const logServer = http.createServer(async (req, res) => {
 
       res.writeHead(200).end();
     } catch (err) {
-      console.error("[CONTROLLER] /file erreur :", err.message);
+      console.error("[CONTROLLER] /file erreur :", (err as Error).message);
       res.writeHead(500).end();
     } finally {
       // Nettoyage du fichier tmp créé par le bot-controller.
@@ -395,11 +359,11 @@ const logServer = http.createServer(async (req, res) => {
 //  EVENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-client.once("ready", () => {
-  console.log(`[CONTROLLER] ✅  Connecté en tant que ${client.user.tag}`);
+client.once("clientReady", (readyClient) => {
+  console.log(`[CONTROLLER] ✅  Connecté en tant que ${readyClient.user.tag}`);
 
-  client.user.setPresence({
-    activities: [{ name: "UHQ", type: 1, url: "https://twitch.tv/veryuhq" }],
+  readyClient.user.setPresence({
+    activities: [{ name: "UHQ", type: ActivityType.Streaming, url: "https://twitch.tv/veryuhq" }],
     status: "online",
   });
 
@@ -412,7 +376,7 @@ client.once("ready", () => {
     const MAX_RETRIES = 5;
     const RETRY_DELAY = 5000;
 
-    const tryHealthCheck = async (attempt = 1) => {
+    const tryHealthCheck = async (attempt = 1): Promise<void> => {
       const { online, data } = await healthCheck();
 
       if (online) {
@@ -464,7 +428,7 @@ client.on("interactionCreate", async (interaction) => {
 
   try {
     if (interaction.isChatInputCommand()) {
-      const cmd = client.commands.get(interaction.commandName);
+      const cmd = commands.get(interaction.commandName);
       if (cmd) await cmd.execute(interaction);
       return;
     }
@@ -473,9 +437,11 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isStringSelectMenu()) { await selects.handle(interaction); return; }
   } catch (err) {
     console.error("[CONTROLLER] Erreur interaction :", err);
-    const errMsg = { content: `❌ Erreur : \`${err.message}\``, ephemeral: true };
-    if (interaction.deferred || interaction.replied) interaction.followUp(errMsg).catch(() => {});
-    else if (interaction.isRepliable()) interaction.reply(errMsg).catch(() => {});
+    const errMsg = { content: `❌ Erreur : \`${(err as Error).message}\``, ephemeral: true };
+    if (interaction.isRepliable()) {
+      if (interaction.deferred || interaction.replied) interaction.followUp(errMsg).catch(() => {});
+      else interaction.reply(errMsg).catch(() => {});
+    }
   }
 });
 

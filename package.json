@@ -6,6 +6,7 @@
     "packages/bot-controller"
   ],
   "scripts": {
+    "build:controller": "npm --workspace=packages/bot-controller run build",
     "start:controller": "npm --workspace=packages/bot-controller start",
     "start:selfbot": "cd packages/sb-uhq && .venv/bin/python main.py",
     "setup:selfbot": "cd packages/sb-uhq && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt",

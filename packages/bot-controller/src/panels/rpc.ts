@@ -1,9 +1,46 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type SelectOption, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
+export interface RpcActivity {
+  type?: string;
+  name: string;
+  details?: string | null;
+  state?: string | null;
+  url?: string | null;
+  platform?: string | null;
+  assets?: { largeImage?: string | null; largeText?: string | null; smallImage?: string | null; smallText?: string | null };
+  timestamps?: { start?: number | null; end?: number | null };
+  buttons?: Array<{ label: string; url?: string }>;
+}
 
-const TYPE_LABELS = {
+export interface SpotifyConfig {
+  enabled?: boolean;
+  songId?: string | null;
+  albumId?: string | null;
+  artistIds?: string[];
+  details?: string | null;
+  state?: string | null;
+  assets?: { largeImage?: string | null; largeText?: string | null; smallImage?: string | null; smallText?: string | null };
+  timestamps?: { start?: number | null; end?: number | null };
+  applicationId?: string | null;
+  platform?: string | null;
+  url?: string | null;
+}
+
+export interface RpcData {
+  enabled?: boolean;
+  mode?: string;
+  status?: string;
+  activities?: RpcActivity[];
+  intervalSec?: number;
+  applicationId?: string | null;
+  customStatuses?: Array<{ emoji?: string | null; text?: string }>;
+  csEnabled?: boolean;
+  csIntervalSec?: number;
+  spotify?: SpotifyConfig;
+}
+
+const TYPE_LABELS: Record<string, string> = {
   playing:   "🎮 Playing",
   streaming: "📺 Streaming",
   listening: "🎧 Listening",
@@ -11,21 +48,21 @@ const TYPE_LABELS = {
   competing: "🏆 Competing",
 };
 
-const STATUS_LABELS = {
+const STATUS_LABELS: Record<string, string> = {
   online:    "`🟢` En ligne",
   idle:      "`🌙` Inactif",
   dnd:       "`🔴` Ne pas déranger",
   invisible: "`⚫` Invisible",
 };
 
-function short(value, max = 48) {
+function short(value: string | null | undefined, max = 48): string {
   if (!value) return "—";
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
 // ── Panel hub : choix RPC ou Custom Status ────────────────────────────────────
 
-function buildHub() {
+export function buildHub(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay(
@@ -34,9 +71,9 @@ function buildHub() {
       ),
       separator(),
       actionRow([
-        btn("🎮  Rich Presence", "panel:rpc",    ButtonStyle.Primary),
+        btn("🎮  Rich Presence", "panel:rpc",         ButtonStyle.Primary),
         btn("🎵  Spotify RPC",   "panel:rpc_spotify", ButtonStyle.Primary),
-        btn("💬  Custom Status", "panel:rpc_cs", ButtonStyle.Primary),
+        btn("💬  Custom Status", "panel:rpc_cs",      ButtonStyle.Primary),
       ]),
       separator(1, false),
       actionRow([
@@ -48,7 +85,7 @@ function buildHub() {
 
 // ── Panel principal : Rich Presence ──────────────────────────────────────────
 
-function build(data = {}) {
+export function build(data: RpcData = {}): V2MessagePayload {
   const {
     enabled       = false,
     mode          = "static",
@@ -58,15 +95,13 @@ function build(data = {}) {
     applicationId = null,
   } = data;
 
-  const noActivities = !activities.length;
-
   const appIdLine = applicationId
     ? `\`🔑\` **App ID :** \`${applicationId}\``
     : `\`⚠️\` **App ID :** *non défini — boutons non cliquables !*`;
 
   const activityList = activities.length
     ? activities.map((a, i) => {
-        const typeLabel = TYPE_LABELS[a.type] ?? a.type;
+        const typeLabel = TYPE_LABELS[a.type ?? ""] ?? a.type;
         const url = a.type === "streaming" && a.url
           ? ` — *${a.url.slice(0, 40)}${a.url.length > 40 ? "…" : ""}*`
           : "";
@@ -93,7 +128,7 @@ function build(data = {}) {
     ? `Rotation (toutes les \`${intervalSec}s\`)`
     : "Statique (1ère activité)";
 
-  const actionOptions = [
+  const actionOptions: SelectOption[] = [
     { label: enabled ? "🔴  Désactiver" : "🟢  Activer", value: "toggle", description: enabled ? "Désactive le Rich Presence" : "Active le Rich Presence" },
     { label: "🔑  App ID", value: "setAppId", description: "Définir l'Application ID Discord" },
     { label: "➕  Ajouter", value: "addActivity", description: "Ajouter une activité Rich Presence" },
@@ -151,7 +186,7 @@ function build(data = {}) {
 
 // ── Panel secondaire : Custom Status ─────────────────────────────────────────
 
-function buildCs(data = {}) {
+export function buildCs(data: RpcData = {}): V2MessagePayload {
   const {
     customStatuses = [],
     csEnabled      = false,
@@ -160,7 +195,7 @@ function buildCs(data = {}) {
 
   const noStatuses = !customStatuses.length;
 
-  const csActions = [
+  const csActions: SelectOption[] = [
     { label: "➕  Ajouter", value: "rpc:csAdd", description: "Ajouter un custom status" },
   ];
   if (!noStatuses) {
@@ -213,7 +248,7 @@ function buildCs(data = {}) {
 
 // ── Panel secondaire : Spotify RPC ───────────────────────────────────────────
 
-function buildSpotify(data = {}) {
+export function buildSpotify(data: RpcData = {}): V2MessagePayload {
   const { spotify = {} } = data;
 
   const spotifyEnabled   = !!spotify.enabled;
@@ -226,7 +261,7 @@ function buildSpotify(data = {}) {
   const trackLine  = spotifySongId  ? `\`${short(spotifySongId,  28)}\`` : "*manquant*";
   const albumLine  = spotifyAlbumId ? `\`${short(spotifyAlbumId, 28)}\`` : "*non défini*";
   const artistLine = spotifyArtistIds.length
-    ? spotifyArtistIds.map(id => `\`${short(id, 20)}\``).join(", ")
+    ? spotifyArtistIds.map((id) => `\`${short(id, 20)}\``).join(", ")
     : "*non défini*";
 
   const detailsLine = spotify.details ? short(spotify.details, 52) : "*non défini*";
@@ -237,7 +272,7 @@ function buildSpotify(data = {}) {
   const sImg = spotifyAssets.smallImage ? `\`${short(spotifyAssets.smallImage, 28)}\`` : "*—*";
   const sTxt = spotifyAssets.smallText  ? short(spotifyAssets.smallText,  28) : "—";
 
-  const fmtTs = (ts) => ts ? `\`${new Date(ts).toISOString().slice(11, 19)}\`` : "`—`";
+  const fmtTs = (ts: number | null | undefined) => ts ? `\`${new Date(ts).toISOString().slice(11, 19)}\`` : "`—`";
   const timingLine = (spotifyTimestamps.start || spotifyTimestamps.end)
     ? `${fmtTs(spotifyTimestamps.start)} → ${fmtTs(spotifyTimestamps.end)}`
     : "*non configuré*";
@@ -259,7 +294,7 @@ function buildSpotify(data = {}) {
     `\`💻\` **Plateforme :** ${platformLine}\n` +
     `\`🔗\` **URL :** ${urlLine}`;
 
-  const actionOptions = [
+  const actionOptions: SelectOption[] = [
     { label: spotifyEnabled ? "🔴  Désactiver" : "🟢  Activer", value: "spotifyToggle",     description: spotifyEnabled ? "Désactiver Spotify RPC" : "Activer Spotify RPC" },
     { label: "⚙️  Base (track / album / artistes)",             value: "spotifyBase",       description: "IDs Spotify, titre et sous-titre" },
     { label: "🖼️  Assets (images)",                             value: "spotifyAssets",     description: "Images large et small" },
@@ -288,5 +323,3 @@ function buildSpotify(data = {}) {
     ], 0x7289DA)
   );
 }
-
-module.exports = { build, buildCs, buildHub, buildSpotify };

@@ -1,9 +1,18 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+export interface AntigroupData {
+  enabled?: boolean;
+}
 
-function build(data = {}) {
+export interface LeaveAllResultData {
+  left?: number;
+  failed?: number;
+  total?: number | null;
+  details?: Array<{ id: string; success: boolean; error?: string }>;
+}
+
+export function build(data: AntigroupData = {}): V2MessagePayload {
   const { enabled = false } = data;
   return replyV2(
     container([
@@ -27,7 +36,7 @@ function build(data = {}) {
   );
 }
 
-function buildConfirmLeaveAll() {
+export function buildConfirmLeaveAll(): V2MessagePayload {
   return replyV2(
     container([
       textDisplay(
@@ -44,14 +53,11 @@ function buildConfirmLeaveAll() {
   );
 }
 
-/**
- * @param {{ left: number, failed: number, total: number, details: Array }} data
- */
-function buildLeaveAllResult(data = {}) {
+export function buildLeaveAllResult(data: LeaveAllResultData = {}): V2MessagePayload {
   const { left = 0, failed = 0, total = 0, details = [] } = data;
 
-  let statusLine;
-  if (total === 0) {
+  let statusLine: string;
+  if (total === 0 || total === null) {
     statusLine = "`ℹ️` **Aucun groupe DM trouvé dans le cache.**\n*Si tu es dans des groupes, essaie de les ouvrir dans Discord avant de relancer.*";
   } else if (failed === 0) {
     statusLine = `\`✅\` **${left}** groupe(s) quitté(s) avec succès.`;
@@ -59,8 +65,8 @@ function buildLeaveAllResult(data = {}) {
     statusLine =
       `\`⚠️\` **${left}** groupe(s) quitté(s) — **${failed}** échec(s).\n\n` +
       details
-        .filter(d => !d.success)
-        .map(d => `> ❌ \`${d.id}\` — ${d.error ?? "Erreur inconnue"}`)
+        .filter((d) => !d.success)
+        .map((d) => `> ❌ \`${d.id}\` — ${d.error ?? "Erreur inconnue"}`)
         .join("\n");
   }
 
@@ -68,7 +74,7 @@ function buildLeaveAllResult(data = {}) {
     container([
       textDisplay(
         `# 🚪 Résultat — Quitter les groupes\n` +
-        `\`📊\` **${left}** quitté(s) sur **${total}** groupe(s) détecté(s)\n\n` +
+        `\`📊\` **${left}** quitté(s) sur **${total ?? 0}** groupe(s) détecté(s)\n\n` +
         `${statusLine}`
       ),
       separator(),
@@ -79,5 +85,3 @@ function buildLeaveAllResult(data = {}) {
     ], 0xE67E22)
   );
 }
-
-module.exports = { build, buildConfirmLeaveAll, buildLeaveAllResult };

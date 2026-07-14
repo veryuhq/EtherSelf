@@ -1,14 +1,41 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type ButtonComponent, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2 } = require("../utils/components");
+export type PurgeScope = "channel" | "guild" | "dms" | "guilds";
+
+export interface PurgeData {
+  deleted?: number | null;
+  pending?: boolean;
+  scope?: PurgeScope | null;
+}
+
+export interface PurgeConfirmData {
+  scope?: PurgeScope;
+  channelId?: string | null;
+  guildId?: string | null;
+  guildName?: string | null;
+  amount?: number | null;
+}
+
+export interface PurgeProgressData {
+  scope?: PurgeScope;
+  guildName?: string | null;
+  queue?: Array<{ id: string; label: string }>;
+  activeLabel?: string | null;
+  doneCount?: number;
+  total?: number;
+  totalDeleted?: number;
+  done?: boolean;
+  cancelled?: boolean;
+  jobId?: string | null;
+}
 
 // ── Vue principale ────────────────────────────────────────────────────────────
 
-function build(data = {}) {
+export function build(data: PurgeData = {}): V2MessagePayload {
   const { deleted = null, pending = false, scope = null } = data;
 
-  let status;
+  let status: string;
   if (pending) {
     const scopeLabel =
       scope === "dms"    ? "tous les DMs" :
@@ -47,20 +74,17 @@ function build(data = {}) {
 
 // ── Vue confirmation ──────────────────────────────────────────────────────────
 
-/**
- * @param {{ scope: "channel"|"guild"|"dms"|"guilds", channelId?: string, guildId?: string }} data
- */
-function buildConfirm(data = {}) {
+export function buildConfirm(data: PurgeConfirmData = {}): V2MessagePayload {
   const { scope, channelId = null, guildId = null, guildName = null, amount = null } = data;
 
-  const SCOPE_LABELS = {
+  const SCOPE_LABELS: Record<PurgeScope, string> = {
     channel: "ce salon",
     guild:   "ce serveur",
     dms:     "tous tes DMs",
     guilds:  "tous tes serveurs",
   };
 
-  const SCOPE_WARNINGS = {
+  const SCOPE_WARNINGS: Record<PurgeScope, string> = {
     channel: channelId
       ? `Le salon <#${channelId}> sera entièrement vidé de tes messages.`
       : "Tous tes messages dans le salon sélectionné seront supprimés.",
@@ -73,10 +97,10 @@ function buildConfirm(data = {}) {
     guilds: "Tous tes messages dans **chaque serveur** (chaque salon accessible) seront supprimés. Cette action est **très longue** et irréversible.",
   };
 
-  const label    = SCOPE_LABELS[scope]   ?? scope;
-  const warning  = SCOPE_WARNINGS[scope] ?? "Cette action est irréversible.";
+  const label    = scope ? SCOPE_LABELS[scope]   : String(scope);
+  const warning  = scope ? SCOPE_WARNINGS[scope] : "Cette action est irréversible.";
 
-  let confirmId;
+  let confirmId: string;
   if (scope === "channel" && channelId) {
     confirmId = `purge:run:channel:${channelId}:${amount ?? 0}`;
   } else if (scope === "guild" && guildId) {
@@ -107,21 +131,7 @@ function buildConfirm(data = {}) {
 
 // ── Vue progression temps réel ────────────────────────────────────────────────
 
-/**
- * @param {{
- *   scope:       "channel"|"dms"|"guilds"|"guild",
- *   guildName?:  string|null,
- *   queue:       Array<{ id: string, label: string }>,
- *   activeLabel: string|null,
- *   doneCount:   number,
- *   total:       number,
- *   totalDeleted: number,
- *   done:        boolean,
- *   cancelled:   boolean,
- *   jobId?:      string,
- * }} data
- */
-function buildProgress(data = {}) {
+export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
   const {
     scope        = "dms",
     guildName    = null,
@@ -135,13 +145,13 @@ function buildProgress(data = {}) {
     jobId        = null,
   } = data;
 
-  const SCOPE_ICONS = {
+  const SCOPE_ICONS: Record<PurgeScope, string> = {
     channel: "🗑️",
     dms:     "💬",
     guilds:  "🌐",
     guild:   "🏠",
   };
-  const SCOPE_TITLES = {
+  const SCOPE_TITLES: Record<PurgeScope, string> = {
     channel: "Purge du salon",
     dms:     "Purge des DMs",
     guilds:  "Purge des serveurs",
@@ -158,7 +168,7 @@ function buildProgress(data = {}) {
   const progressLine = `\`${bar}\` **${doneCount}/${total}** — \`${totalDeleted}\` msg supprimé(s)`;
 
   // Corps de la liste
-  const lines = [];
+  const lines: string[] = [];
 
   if (!done) {
     if (activeLabel) {
@@ -180,7 +190,7 @@ function buildProgress(data = {}) {
 
   const listText = lines.length ? lines.join("\n") : "";
 
-  let header;
+  let header: string;
   if (done && cancelled) {
     header = `\`🛑\` **Arrêté !** \`${totalDeleted}\` message(s) supprimé(s) avant l'arrêt.`;
   } else if (done) {
@@ -191,14 +201,11 @@ function buildProgress(data = {}) {
       const scopeUnit =
         scope === "dms"    ? "DM(s)" :
         scope === "guilds" ? "serveur(s)" :
-        scope === "guild"  ? "salon(s)" :
         "salon(s)";
       header = `\`✅\` **Terminé !** \`${totalDeleted}\` message(s) supprimé(s) sur **${total}** ${scopeUnit}.`;
     }
   } else if (activeLabel) {
     header = `\`⏳\` **En cours…**`;
-  } else if (total === 0) {
-    header = `\`🔄\` **Démarrage…**`;
   } else {
     header = `\`🔄\` **Démarrage…**`;
   }
@@ -207,7 +214,7 @@ function buildProgress(data = {}) {
     ? `${header}\n\n${progressLine}\n\n${listText}`
     : `${header}\n\n${progressLine}`;
 
-  const buttons = [];
+  const buttons: ButtonComponent[] = [];
   if (done) {
     buttons.push(btn("◀️  Retour Purge", "panel:purge", ButtonStyle.Secondary));
     buttons.push(btn("🏠  Accueil",      "panel:home",  ButtonStyle.Secondary));
@@ -228,5 +235,3 @@ function buildProgress(data = {}) {
     ], accentColor)
   );
 }
-
-module.exports = { build, buildConfirm, buildProgress };

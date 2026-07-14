@@ -1,9 +1,11 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+export interface PrefixData {
+  prefix?: string;
+}
 
-function build(data = {}) {
+export function build(data: PrefixData = {}): V2MessagePayload {
   const { prefix = "." } = data;
   return replyV2(
     container([
@@ -17,5 +19,3 @@ function build(data = {}) {
     ], 0xEB459E)
   );
 }
-
-module.exports = { build };

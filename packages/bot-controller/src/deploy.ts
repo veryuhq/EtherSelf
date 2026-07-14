@@ -1,8 +1,9 @@
-"use strict";
+import path from "path";
+import dotenv from "dotenv";
 
-require("dotenv").config();
+dotenv.config({ path: path.join(__dirname, "..", ".env"), override: true });
 
-const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+import { REST, Routes, SlashCommandBuilder } from "discord.js";
 
 const commands = [
   new SlashCommandBuilder()
@@ -15,13 +16,13 @@ const commands = [
     .toJSON(),
 ];
 
-const rest = new REST({ version: "10" }).setToken(process.env.BOT_TOKEN);
+const rest = new REST({ version: "10" }).setToken(process.env.BOT_TOKEN ?? "");
 
 (async () => {
   try {
     console.log("📡 Enregistrement de la commande /panel…");
     await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
+      Routes.applicationCommands(process.env.CLIENT_ID ?? ""),
       { body: commands }
     );
     console.log("✅ Commande /panel enregistrée avec succès !");

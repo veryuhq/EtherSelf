@@ -9,10 +9,9 @@ const TARGETS = [
   path.join(ROOT, "packages", "sb-uhq",         "app"),
   path.join(ROOT, "packages", "sb-uhq",         "main.py"),
   path.join(ROOT, "packages", "bot-controller", "src"),
-  path.join(ROOT, "packages", "bot-controller", "index.js"),
 ];
 
-const EXTENSIONS = new Set([".js", ".py"]);
+const EXTENSIONS = new Set([".js", ".ts", ".py"]);
 
 function walkDir(dir, files = []) {
   let entries;
@@ -23,7 +22,7 @@ function walkDir(dir, files = []) {
     return files;
   }
   for (const entry of entries) {
-    if (["node_modules", ".venv", "__pycache__"].includes(entry.name)) continue;
+    if (["node_modules", ".venv", "__pycache__", "dist"].includes(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       walkDir(full, files);
@@ -69,7 +68,7 @@ console.log("🔍  Analyse en cours…\n");
 const files = collectFiles(TARGETS);
 
 if (!files.length) {
-  console.error("❌  Aucun fichier .js trouvé. Vérifie les chemins ci-dessus.");
+  console.error("❌  Aucun fichier trouvé. Vérifie les chemins ci-dessus.");
   process.exit(1);
 }
 

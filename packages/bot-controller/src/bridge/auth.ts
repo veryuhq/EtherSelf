@@ -1,11 +1,10 @@
-"use strict";
-
-const crypto = require("crypto");
+import crypto from "crypto";
+import type { IncomingHttpHeaders } from "http";
 
 const MIN_SECRET_BYTES = 32;
 const MAX_SKEW_MS = 5 * 60 * 1000;
 
-function getSecretBuffer(secret = process.env.BRIDGE_SECRET ?? "") {
+export function getSecretBuffer(secret: string = process.env.BRIDGE_SECRET ?? ""): Buffer {
   const raw = String(secret ?? "");
   const buf = Buffer.from(raw, "utf8");
   if (buf.length < MIN_SECRET_BYTES) {
@@ -14,13 +13,17 @@ function getSecretBuffer(secret = process.env.BRIDGE_SECRET ?? "") {
   return buf;
 }
 
-function timingSafeEqualString(a, b, encoding = "hex") {
+function timingSafeEqualString(a: unknown, b: unknown, encoding: BufferEncoding = "hex"): boolean {
   const left = Buffer.from(String(a ?? ""), encoding);
   const right = Buffer.from(String(b ?? ""), encoding);
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
-function signBody(body = "", timestamp = Date.now(), secret = process.env.BRIDGE_SECRET ?? "") {
+export function signBody(
+  body = "",
+  timestamp: number | string = Date.now(),
+  secret: string = process.env.BRIDGE_SECRET ?? "",
+): { timestamp: string; signature: string } {
   const secretBuf = getSecretBuffer(secret);
   const ts = String(timestamp);
   const payload = `${ts}.${String(body ?? "")}`;
@@ -28,7 +31,7 @@ function signBody(body = "", timestamp = Date.now(), secret = process.env.BRIDGE
   return { timestamp: ts, signature };
 }
 
-function signedHeaders(body = "", extra = {}) {
+export function signedHeaders(body = "", extra: Record<string, string> = {}): Record<string, string> {
   const { timestamp, signature } = signBody(body);
   return {
     ...extra,
@@ -37,9 +40,20 @@ function signedHeaders(body = "", extra = {}) {
   };
 }
 
-function verifySignedRequest({ headers = {}, body = "" }) {
-  const timestamp = headers["x-bridge-timestamp"] ?? headers["X-Bridge-Timestamp"];
-  const signature = headers["x-bridge-signature"] ?? headers["X-Bridge-Signature"];
+/** Extrait un header en gérant le cas string[] renvoyé par Node. */
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export function verifySignedRequest({
+  headers = {},
+  body = "",
+}: {
+  headers?: IncomingHttpHeaders;
+  body?: string;
+}): boolean {
+  const timestamp = headerValue(headers["x-bridge-timestamp"]) ?? headerValue(headers["X-Bridge-Timestamp"] as string | string[] | undefined);
+  const signature = headerValue(headers["x-bridge-signature"]) ?? headerValue(headers["X-Bridge-Signature"] as string | string[] | undefined);
   if (!timestamp || !signature) return false;
 
   const tsNum = Number(timestamp);
@@ -53,16 +67,16 @@ function verifySignedRequest({ headers = {}, body = "" }) {
 // Symétrique du selfbot : on mémorise les signatures vues pendant la fenêtre de
 // dérive et on rejette les répétitions (un rejeu byte-à-byte réutilise la même
 // signature ; deux requêtes distinctes ont des timestamps donc signatures distincts).
-const _seenSignatures = new Map();
+const _seenSignatures = new Map<string, number>();
 
-function registerSignature(signature) {
+export function registerSignature(signature: string | string[] | undefined): boolean {
   const now = Date.now();
   if (_seenSignatures.size > 10000) {
     for (const [key, expiry] of _seenSignatures) {
       if (expiry <= now) _seenSignatures.delete(key);
     }
   }
-  const sig = String(signature ?? "");
+  const sig = String(headerValue(signature) ?? "");
   if (!sig) return false;
   const expiry = _seenSignatures.get(sig);
   if (expiry && expiry > now) return false;
@@ -70,9 +84,22 @@ function registerSignature(signature) {
   return true;
 }
 
-function makeRateLimiter({ windowMs, max, keyFn = () => "global" }) {
-  const buckets = new Map();
-  return (req, res, next) => {
+interface RateLimitedResponse {
+  setHeader?(name: string, value: string): unknown;
+  status(code: number): { json(body: unknown): unknown };
+}
+
+export function makeRateLimiter<Req>({
+  windowMs,
+  max,
+  keyFn = () => "global",
+}: {
+  windowMs: number;
+  max: number;
+  keyFn?: (req: Req) => string;
+}) {
+  const buckets = new Map<string, { count: number; resetAt: number }>();
+  return (req: Req, res: RateLimitedResponse, next: () => unknown) => {
     const now = Date.now();
     const key = keyFn(req);
     const current = buckets.get(key);
@@ -88,12 +115,3 @@ function makeRateLimiter({ windowMs, max, keyFn = () => "global" }) {
     return next();
   };
 }
-
-module.exports = {
-  getSecretBuffer,
-  signBody,
-  signedHeaders,
-  verifySignedRequest,
-  registerSignature,
-  makeRateLimiter,
-};

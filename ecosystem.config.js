@@ -13,6 +13,10 @@
 //     (équivaut à : cd packages/sb-uhq && python3 -m venv .venv
 //                   && .venv/bin/pip install -r requirements.txt)
 //
+//  ⚠️ Compile aussi le bot-controller (TypeScript) avant de lancer pm2 :
+//       npm run build:controller
+//     pm2 exécute le JavaScript émis dans packages/bot-controller/dist/.
+//
 //  Les chemins sont résolus en absolu via __dirname (dossier de ce fichier),
 //  car pm2 résout `interpreter` par rapport au dossier de LANCEMENT de pm2,
 //  pas par rapport au `cwd` de l'app. On évite ainsi l'erreur
@@ -41,7 +45,7 @@ module.exports = {
     {
       name: "EtherSelf-Bot",
       cwd: BOT_DIR,
-      script: "index.js",
+      script: "dist/index.js",
       interpreter: "node",
       autorestart: true,
       max_restarts: 10,

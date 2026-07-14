@@ -1,15 +1,22 @@
 {
   "name": "etherself-bot",
   "version": "2026.4.1",
-  "description": "Bot contrôleur pour EtherSelf, avec Components V2",
-  "main": "index.js",
+  "description": "Bot contrôleur pour EtherSelf, avec Components V2 (TypeScript)",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node index.js",
-    "deploy": "node deploy.js"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prestart": "npm run build",
+    "start": "node dist/index.js",
+    "predeploy": "npm run build",
+    "deploy": "node dist/deploy.js"
   },
   "dependencies": {
     "discord.js": "^14.25.1",
-    "dotenv": "^17.0.0",
-    "node-fetch": "^3.3.2"
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
   }
 }

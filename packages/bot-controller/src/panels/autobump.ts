@@ -1,9 +1,19 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+/** Ancien format : simple liste de salons. Nouveau : objet avec appId/commande. */
+export type AutobumpGuildConfig = string[] | {
+  channels?: string[];
+  appId?: string;
+  commandName?: string;
+};
 
-function build(data = {}) {
+export interface AutobumpData {
+  config?: Record<string, AutobumpGuildConfig>;
+  running?: boolean;
+}
+
+export function build(data: AutobumpData = {}): V2MessagePayload {
   const { config = {}, running = false } = data;
 
   const entries = Object.entries(config);
@@ -14,7 +24,7 @@ function build(data = {}) {
         const commandName = Array.isArray(guildConfig) ? "bump" : (guildConfig.commandName ?? "bump");
         const header = `• Serveur \`${gId}\` → app \`${appId}\`, commande \`/${commandName}\``;
         const channelLines = channels.length
-          ? channels.map(cId => `  ↳ <#${cId}>`)
+          ? channels.map((cId) => `  ↳ <#${cId}>`)
           : ["  ↳ *Aucun salon configuré.*"];
         return [header, ...channelLines];
       }).join("\n")
@@ -43,5 +53,3 @@ function build(data = {}) {
     ], 0x3498DB)
   );
 }
-
-module.exports = { build };

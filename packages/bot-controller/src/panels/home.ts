@@ -1,9 +1,10 @@
-"use strict";
+import { container, textDisplay, separator, selectMenu, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, selectMenu, replyV2 } = require("../utils/components");
+export interface HomeData {
+  prefix?: string;
+}
 
-function build(data = {}) {
+export function build(data: HomeData = {}): V2MessagePayload {
   const { prefix = "." } = data;
 
   return replyV2(
@@ -29,9 +30,7 @@ function build(data = {}) {
         { label: "🗑️  Purge",                               value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                       value: "quests",       description: "Complétion automatique des quêtes Discord" },
         { label: "💾  Backups & Clone",                      value: "backups",      description: "Backup amis/serveurs, cloner un serveur" },
-              ]),
+      ]),
     ], 0x5865F2)
   );
 }
-
-module.exports = { build };

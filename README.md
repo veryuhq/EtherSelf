@@ -6,6 +6,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-v18+-339933?style=flat-square&logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)
 ![selfbot](https://img.shields.io/badge/selfbot-discord.py--self-ED4245?style=flat-square)
 ![license](https://img.shields.io/badge/licence-PolyForm%20Noncommercial%201.0.0-yellow?style=flat-square)
@@ -27,7 +28,7 @@
 > ### 🔀 Migration — le selfbot est passé à `discord.py-self`
 > Le selfbot était historiquement écrit en `discord.js-selfbot-v13`, **non maintenu depuis octobre 2025**. Il a été **entièrement réécrit en Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)), qui est activement maintenu.
 >
-> - 🟢 Le **bot-controller reste en JavaScript** (discord.js v14) — inchangé.
+> - 🟢 Le **bot-controller est écrit en TypeScript** (discord.js v14), compilé en JavaScript avant exécution (`npm run build`).
 > - 🟢 Les deux process communiquent toujours via le **même bridge HTTP local signé (HMAC-SHA256)** : le contrat réseau est identique au byte près, donc le controller n'a pas eu à changer.
 > - 🔴 Les endpoints non officiels (quêtes, Discord Says, Spotify RPC) restent sensibles aux évolutions de Discord et peuvent casser sans préavis.
 
@@ -40,15 +41,15 @@ EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensembl
 | Package | Langage | Rôle |
 |---|---|---|
 | 🤖 **`EtherSelf-SB`** | 🐍 Python | Le selfbot (discord.py-self), expose un bridge HTTP local |
-| 🎛️ **`EtherSelf-Bot`** | 🟨 JavaScript | Bot Discord classique (discord.js 14), interface via un panel Components V2 |
+| 🎛️ **`EtherSelf-Bot`** | 🟦 TypeScript | Bot Discord classique (discord.js 14), interface via un panel Components V2 |
 
 Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Ton compte utilisateur n'interagit jamais directement avec Discord depuis l'interface — c'est propre, cloisonné, et facile à déboguer.
 
-**Comment un selfbot Python et un controller JS cohabitent ?** Ce sont **deux process indépendants** qui ne partagent ni mémoire ni runtime : ils dialoguent uniquement par des requêtes HTTP sur `127.0.0.1`, signées avec un secret partagé (`BRIDGE_SECRET`, HMAC-SHA256). Le langage de chaque côté n'a donc aucune importance — Python parle à Node exactement comme Node parlait à Node. `pm2` supervise les deux (voir plus bas), chacun avec son propre interpréteur.
+**Comment un selfbot Python et un controller TypeScript cohabitent ?** Ce sont **deux process indépendants** qui ne partagent ni mémoire ni runtime : ils dialoguent uniquement par des requêtes HTTP sur `127.0.0.1`, signées avec un secret partagé (`BRIDGE_SECRET`, HMAC-SHA256). Le langage de chaque côté n'a donc aucune importance — Python parle à Node exactement comme Node parlait à Node. `pm2` supervise les deux (voir plus bas), chacun avec son propre interpréteur.
 
 ```
 Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Discord API
-          [discord.js v14 / Node]      [HMAC · localhost]      [discord.py-self / Python]
+          [discord.js v14 / TS+Node]   [HMAC · localhost]      [discord.py-self / Python]
 ```
 
 ---
@@ -129,7 +130,7 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 ```bash
 git clone https://github.com/veryuhq/etherself.git
 cd etherself
-npm install          # dépendances du bot-controller (Node)
+npm install          # dépendances du bot-controller (Node/TypeScript)
 npm run setup:selfbot # crée packages/sb-uhq/.venv et installe discord.py-self
 ```
 
@@ -201,13 +202,14 @@ npm run deploy
 # Terminal 1 — selfbot (Python)
 npm run start:selfbot          # ou : cd packages/sb-uhq && .venv/bin/python main.py
 
-# Terminal 2 — bot controller (Node)
+# Terminal 2 — bot controller (TypeScript, compilé automatiquement avant lancement)
 npm run start:controller
 ```
 
-**En production** avec PM2 — un seul fichier `ecosystem.config.js` gère les deux process (Python + Node) :
+**En production** avec PM2 — un seul fichier `ecosystem.config.js` gère les deux process (Python + Node). Compile d'abord le controller (PM2 lance le JavaScript émis dans `dist/`) :
 
 ```bash
+npm run build:controller
 pm2 start ecosystem.config.js
 pm2 save && pm2 startup
 ```
@@ -215,8 +217,8 @@ pm2 save && pm2 startup
 PM2 lance chaque app avec son propre interpréteur (`interpreter: "./.venv/bin/python"` pour le selfbot, `node` pour le controller). Tu peux aussi les démarrer à la main :
 
 ```bash
-pm2 start packages/sb-uhq/main.py          --name EtherSelf-SB --interpreter ./packages/sb-uhq/.venv/bin/python
-pm2 start packages/bot-controller/index.js --name EtherSelf-Bot
+pm2 start packages/sb-uhq/main.py                --name EtherSelf-SB --interpreter ./packages/sb-uhq/.venv/bin/python
+pm2 start packages/bot-controller/dist/index.js  --name EtherSelf-Bot
 ```
 
 ---

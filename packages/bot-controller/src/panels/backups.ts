@@ -1,13 +1,88 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, logLines, navRow, replyV2, type SelectOption, type V2MessagePayload } from "../utils/components";
+import type { CloneConfig } from "../store/clone-config";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, selectMenu, logLines, navRow, replyV2 } = require("../utils/components");
+export interface BackupsHubData {
+  friendsCount?: number | null;
+  friendsSavedAt?: string | number | null;
+  guildsCount?: number | null;
+  guildsSavedAt?: string | number | null;
+}
+
+export interface BackupFriend {
+  tag?: string;
+  username?: string;
+  globalName?: string | null;
+  since?: string | number | null;
+}
+
+export interface FriendsData {
+  friends?: BackupFriend[] | null;
+  savedAt?: string | number | null;
+  count?: number | null;
+  page?: number;
+  _loading?: boolean;
+}
+
+export interface BackupGuild {
+  id: string;
+  name?: string;
+  isOwner?: boolean;
+  invite?: string | null;
+}
+
+export interface GuildsData {
+  guilds?: BackupGuild[] | null;
+  savedAt?: string | number | null;
+  count?: number | null;
+  page?: number;
+  _loading?: boolean;
+}
+
+export interface CloneRunningData {
+  step?: string;
+  sourceGuild?: string;
+  targetGuild?: string;
+  current?: number;
+  total?: number;
+  label?: string;
+  logs?: string;
+  jobId?: string | null;
+}
+
+export interface CloneResultData {
+  success?: boolean;
+  cancelled?: boolean;
+  error?: string | null;
+  sourceGuildName?: string;
+  targetGuildName?: string;
+  rolesCloned?: number;
+  channelsCloned?: number;
+  emojisCloned?: number;
+  duration?: number;
+  logs?: string;
+}
+
+export interface CloneHistoryEntry {
+  success?: boolean;
+  cancelled?: boolean;
+  error?: string | null;
+  sourceGuildId?: string;
+  sourceGuildName?: string;
+  targetGuildId?: string;
+  targetGuildName?: string;
+  rolesCloned?: number;
+  channelsCloned?: number;
+  emojisCloned?: number;
+  duration?: number;
+  timestamp?: string | number;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  HUB BACKUPS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function build(data = {}) {
+export function build(data: BackupsHubData = {}): V2MessagePayload {
   const { friendsCount = null, friendsSavedAt = null, guildsCount = null, guildsSavedAt = null } = data;
 
   const fLine = friendsSavedAt
@@ -41,7 +116,7 @@ function build(data = {}) {
 //  AMIS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildFriends(data = {}) {
+export function buildFriends(data: FriendsData = {}): V2MessagePayload {
   // Normalise : null → []
   const friends   = Array.isArray(data.friends) ? data.friends : [];
   const savedAt   = data.savedAt   ?? null;
@@ -95,7 +170,7 @@ function buildFriends(data = {}) {
 //  SERVEURS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildGuilds(data = {}) {
+export function buildGuilds(data: GuildsData = {}): V2MessagePayload {
   // Normalise : null → []
   const guilds    = Array.isArray(data.guilds) ? data.guilds : [];
   const savedAt   = data.savedAt  ?? null;
@@ -149,7 +224,7 @@ function buildGuilds(data = {}) {
 //  CLONE
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildClone(data = {}) {
+export function buildClone(data: Partial<CloneConfig> = {}): V2MessagePayload {
   const {
     sourceGuildId = null, sourceGuildName = null,
     targetGuildId = null, targetGuildName = null,
@@ -168,7 +243,7 @@ function buildClone(data = {}) {
     cloneSettings ? "`⚙️` Paramètres" : null,
   ].filter(Boolean).join("  ·  ") || "*Aucune option sélectionnée*";
 
-  const cloneActions = [
+  const cloneActions: SelectOption[] = [
     { label: "📤  Source",    value: "clone:setSource",  description: "Définir le serveur source (à copier)" },
     { label: "📥  Cible",     value: "clone:setTarget",  description: "Définir le serveur cible (à modifier)" },
     { label: "🗂️  Serveurs",  value: "clone:listGuilds", description: "Lister tes serveurs" },
@@ -202,11 +277,11 @@ function buildClone(data = {}) {
   );
 }
 
-function buildCloneRunning(data = {}) {
+export function buildCloneRunning(data: CloneRunningData = {}): V2MessagePayload {
   const { step = "start", sourceGuild = "?", targetGuild = "?", current = 0, total = 0, label = "Initialisation…", logs = "", jobId = null } = data;
-  const STEP_LABELS = { start: "🚀 Démarrage", roles: "🎭 Clonage des rôles", roles_done: "🎭 Rôles ✅", channels: "💬 Clonage des salons", channels_done: "💬 Salons ✅", emojis: "😀 Clonage des emojis", emojis_done: "😀 Emojis ✅", settings: "⚙️ Application des paramètres", done: "✅ Terminé", error: "❌ Erreur" };
+  const STEP_LABELS: Record<string, string> = { start: "🚀 Démarrage", roles: "🎭 Clonage des rôles", roles_done: "🎭 Rôles ✅", channels: "💬 Clonage des salons", channels_done: "💬 Salons ✅", emojis: "😀 Clonage des emojis", emojis_done: "😀 Emojis ✅", settings: "⚙️ Application des paramètres", done: "✅ Terminé", error: "❌ Erreur" };
   const STEP_ORDER = ["roles", "channels", "emojis", "settings"];
-  const STEP_ICONS = { roles: "🎭", channels: "💬", emojis: "😀", settings: "⚙️" };
+  const STEP_ICONS: Record<string, string> = { roles: "🎭", channels: "💬", emojis: "😀", settings: "⚙️" };
   const base = step.replace("_done", "");
   const idx  = STEP_ORDER.indexOf(base);
   const stepsLine = STEP_ORDER.map((s, i) => {
@@ -238,9 +313,10 @@ function buildCloneRunning(data = {}) {
   );
 }
 
-function buildCloneResult(data = {}) {
+export function buildCloneResult(data: CloneResultData = {}): V2MessagePayload {
   const { success = false, cancelled = false, error = null, sourceGuildName = "?", targetGuildName = "?", rolesCloned = 0, channelsCloned = 0, emojisCloned = 0, duration = 0, logs = "" } = data;
-  let accentColor, statusLine;
+  let accentColor: number;
+  let statusLine: string;
   if (cancelled) {
     accentColor = 0x95A5A6;
     statusLine  = `\`🛑\` **Clonage annulé**\n> *L'opération a été interrompue manuellement.*`;
@@ -273,15 +349,16 @@ function buildCloneResult(data = {}) {
   );
 }
 
-function buildCloneHistory(data = {}) {
+export function buildCloneHistory(data: { history?: CloneHistoryEntry[] } = {}): V2MessagePayload {
   const { history = [] } = data;
   const list = history.length
-    ? [...history].reverse().map(entry => {
-        let emoji, detail;
+    ? [...history].reverse().map((entry) => {
+        let emoji: string;
+        let detail: string;
         if (entry.cancelled) { emoji = "🛑"; detail = `*Annulé manuellement*`; }
         else if (entry.success) { emoji = "✅"; detail = `🎭 ${entry.rolesCloned ?? 0}  ·  💬 ${entry.channelsCloned ?? 0}  ·  😀 ${entry.emojisCloned ?? 0}  ·  ⏱️ ${entry.duration ?? 0}s`; }
         else { emoji = "❌"; detail = `⚠️ ${entry.error ?? "Erreur"}`; }
-        return `${emoji} **${entry.sourceGuildName ?? entry.sourceGuildId}** → **${entry.targetGuildName ?? entry.targetGuildId}**\n> 🕐 ${new Date(entry.timestamp).toLocaleString("fr-FR")}\n> ${detail}`;
+        return `${emoji} **${entry.sourceGuildName ?? entry.sourceGuildId}** → **${entry.targetGuildName ?? entry.targetGuildId}**\n> 🕐 ${new Date(entry.timestamp ?? 0).toLocaleString("fr-FR")}\n> ${detail}`;
       }).join("\n\n")
     : "*Aucun clonage effectué.*";
 
@@ -296,7 +373,7 @@ function buildCloneHistory(data = {}) {
   );
 }
 
-function buildCloneGuildList(data = {}) {
+export function buildCloneGuildList(data: { guilds?: BackupGuild[] } = {}): V2MessagePayload {
   const { guilds = [] } = data;
   const list = guilds.length
     ? guilds.map((g, i) => {
@@ -313,14 +390,3 @@ function buildCloneGuildList(data = {}) {
     ], 0xE67E22)
   );
 }
-
-module.exports = {
-  build,
-  buildFriends,
-  buildGuilds,
-  buildClone,
-  buildCloneRunning,
-  buildCloneResult,
-  buildCloneHistory,
-  buildCloneGuildList,
-};

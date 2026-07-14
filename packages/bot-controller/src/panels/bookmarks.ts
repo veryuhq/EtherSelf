@@ -1,9 +1,11 @@
-"use strict";
+import { ButtonStyle } from "discord.js";
+import { container, textDisplay, separator, actionRow, btn, navRow, replyV2, type V2MessagePayload } from "../utils/components";
 
-const { ButtonStyle } = require("discord.js");
-const { container, textDisplay, separator, actionRow, btn, navRow, replyV2 } = require("../utils/components");
+export interface BookmarksData {
+  bookmarks?: string[];
+}
 
-function build(data = {}) {
+export function build(data: BookmarksData = {}): V2MessagePayload {
   const { bookmarks = [] } = data;
   const list = bookmarks.length
     ? bookmarks.map((id, i) => `\`${i + 1}.\` <#${id}>`).join("\n")
@@ -22,5 +24,3 @@ function build(data = {}) {
     ], 0xF1C40F)
   );
 }
-
-module.exports = { build };
