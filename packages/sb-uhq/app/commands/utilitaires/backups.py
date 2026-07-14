@@ -21,7 +21,7 @@ from ...func.discord_util import user_tag
 CLONE_LOG_FILE = data_path("logs", "clone_history.json")
 BACKUPS_FILE = data_path("logs", "backups_data.json")
 
-DELAY = {"role": 0.6, "channel": 0.5, "emoji": 1.2}
+DELAY = {"role": 0.6, "channel": 0.5, "emoji": 1.2, "invite": 1.0}
 _EMOJI_LIMITS = [50, 100, 150, 250]
 
 _active_jobs: dict[str, dict] = {}
@@ -129,9 +129,42 @@ async def _fetch_friends(client):
 
 # ── Fetch serveurs ───────────────────────────────────────────────────────────
 
-async def _create_permanent_invite(guild):
+async def _resolve_guild_invite(guild):
+    """Résout une invitation permanente pour un serveur, en limitant les requêtes.
+
+    Renvoie ``(invite_url | None, made_request)``. ``made_request`` indique si l'API
+    Discord a réellement été sollicitée, afin que l'appelant n'espace les requêtes que
+    lorsque c'est nécessaire (et évite ainsi la vague de 429 lors du backup de serveurs).
+    """
+    me = guild.me
+    if me is None:
+        return None, False
+
+    made_request = False
+
+    # Réutiliser une invitation permanente existante — évite d'en créer une nouvelle.
+    # guild.invites() nécessite « Gérer le serveur » : on ne l'appelle que si on l'a.
+    if me.guild_permissions.manage_guild:
+        try:
+            existing = await guild.invites()
+            made_request = True
+            own = next((i for i in existing if i.max_age == 0
+                        and i.inviter and i.inviter.id == guild.me.id), None)
+            any_perm = next((i for i in existing if i.max_age == 0), None)
+            url = (own.url if own else None) or (any_perm.url if any_perm else None)
+            if url:
+                return url, made_request
+        except Exception:
+            pass
+
+    # Ne tenter la création que sur les salons où l'on a réellement la permission :
+    # inutile d'envoyer des POST voués à échouer (chaque échec compte dans le rate limit).
     # Les salons d'annonces sont des TextChannel (is_news()) dans discord.py-self.
-    channels = [c for c in guild.channels if isinstance(c, discord.TextChannel)]
+    channels = [c for c in guild.channels
+                if isinstance(c, discord.TextChannel)
+                and c.permissions_for(me).create_instant_invite]
+    if not channels:
+        return None, made_request
 
     # discord.py-self expose la propriété system_channel (objet), pas system_channel_id.
     sys_id = guild.system_channel.id if guild.system_channel else None
@@ -145,29 +178,22 @@ async def _create_permanent_invite(guild):
         try:
             invite = await channel.create_invite(max_age=0, max_uses=0, unique=False,
                                                  reason="Backup EtherSelf")
+            made_request = True
             if invite and invite.code:
-                return f"https://discord.gg/{invite.code}"
+                return f"https://discord.gg/{invite.code}", made_request
         except Exception:
+            made_request = True
             continue
-    return None
+    return None, made_request
 
 
 async def _fetch_guilds(client, with_invites=False):
     guilds = []
     for guild in client.guilds:
         invite = None
+        made_request = False
         if with_invites:
-            try:
-                existing = await guild.invites()
-                if existing:
-                    own = next((i for i in existing if i.max_age == 0
-                                and i.inviter and i.inviter.id == client.user.id), None)
-                    any_perm = next((i for i in existing if i.max_age == 0), None)
-                    invite = (own.url if own else None) or (any_perm.url if any_perm else None)
-            except Exception:
-                pass
-            if not invite:
-                invite = await _create_permanent_invite(guild)
+            invite, made_request = await _resolve_guild_invite(guild)
         guilds.append({
             "id": str(guild.id), "name": guild.name,
             "icon": str(guild.icon.replace(size=64)) if guild.icon else None,
@@ -175,6 +201,10 @@ async def _fetch_guilds(client, with_invites=False):
             "isOwner": guild.owner_id == client.user.id,
             "invite": invite,
         })
+        # N'espacer que lorsqu'une requête a effectivement été émise : les serveurs
+        # sans permission ou avec invitation en cache ne ralentissent pas le backup.
+        if made_request:
+            await asyncio.sleep(DELAY["invite"])
     return guilds, "cache"
 
 
