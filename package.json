@@ -10,8 +10,10 @@
     "start:controller": "npm --workspace=packages/bot-controller start",
     "start:selfbot": "cd packages/sb-uhq && .venv/bin/python main.py",
     "setup:selfbot": "cd packages/sb-uhq && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt",
-    "clean:data": "node scripts/clean_data.js",
-    "lines:count": "node scripts/lines_count.js",
+    "check:env": "node scripts/check_env.ts",
+    "clean:data": "node scripts/clean_data.ts",
+    "lines:count": "node scripts/lines_count.ts",
+    "typecheck:scripts": "tsc -p scripts",
     "deploy": "npm --workspace=packages/bot-controller run deploy"
   }
 }

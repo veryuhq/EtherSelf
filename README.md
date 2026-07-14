@@ -115,7 +115,7 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
 ## 📋 Prérequis
 
 - **Python 3.11+** (pour le selfbot)
-- **Node.js v18+** (pour le bot-controller)
+- **Node.js v18+** (pour le bot-controller ; **v22.18+** pour lancer les scripts utilitaires de `scripts/`, exécutés en TypeScript natif)
 - **Deux tokens Discord :**
   - 🔑 Un token de **compte utilisateur** (selfbot) pour `EtherSelf-SB`
   - 🤖 Un token de **bot classique** pour `EtherSelf-Bot`

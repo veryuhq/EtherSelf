@@ -9,7 +9,7 @@ classique en Node, les deux communiquant par un bridge HTTP local signé.
 - **`packages/sb-uhq`** — le selfbot : Python 3.11+, [`discord.py-self`](https://discordpy-self.readthedocs.io/en/latest/) ≥ 2.1 (extra `[voice]`), aiohttp, python-dotenv, psutil. Virtualenv dédié dans `packages/sb-uhq/.venv`.
 - **`packages/bot-controller`** — le bot panel : TypeScript 7 (strict, compilateur natif) sur Node.js 18+, discord.js v14 (**Components V2**), dotenv, `fetch` natif de Node. Compilé avec `tsc` vers `dist/` (gitignoré).
 - **Bridge** : HTTP sur `127.0.0.1`, signé HMAC-SHA256 (`BRIDGE_SECRET`). Controller → selfbot sur `BRIDGE_PORT` (3000), selfbot → controller (logs/progress/fichiers) sur `LOG_PORT` (3001).
-- **Prod** : pm2 via `ecosystem.config.js`. Vocal : nécessite `ffmpeg` sur l'hôte.
+- **Prod** : pm2 via `ecosystem.config.js` (reste en JS : pm2 charge sa config directement, sans support TypeScript). Vocal : nécessite `ffmpeg` sur l'hôte.
 - ⚠️ `discord.py-self` s'importe sous le nom `discord` — ne jamais installer le `discord.py` officiel dans le même environnement.
 
 ## Commandes
@@ -22,12 +22,19 @@ npm run start:selfbot     # lance le selfbot (Python)
 npm run start:controller  # compile puis lance le bot panel (Node)
 npm run deploy            # enregistre la slash command /panel
 npm run clean:data        # supprime packages/sb-uhq/data/ (état runtime)
+npm run check:env         # valide la cohérence des .env des deux packages
 ```
+
+Les scripts utilitaires de `scripts/` sont en TypeScript exécuté **nativement**
+par Node via le type stripping (Node 22.18+ requis pour les lancer) — pas de
+build, pas de dépendance : `node scripts/<nom>.ts`. Syntaxe effaçable uniquement
+(`erasableSyntaxOnly`) ; typecheck avec `npm run typecheck:scripts`.
 
 Vérifications rapides (pas de suite de tests ni de linter configurés) :
 
 ```bash
 npm --workspace=packages/bot-controller run typecheck         # tsc --noEmit, tout le package
+npm run typecheck:scripts                                     # tsc --noEmit sur scripts/
 packages/sb-uhq/.venv/bin/python -m py_compile packages/sb-uhq/app/commands/fun/mock.py
 packages/sb-uhq/.venv/bin/python -c "import app"              # depuis packages/sb-uhq/, vérifie tous les imports
 ```

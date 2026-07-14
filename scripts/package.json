@@ -1,0 +1,4 @@
+{
+  "type": "module",
+  "description": "Scripts utilitaires du monorepo, en TypeScript exécuté nativement par Node (type stripping, Node 22.18+). Pas de build : node scripts/<nom>.ts"
+}

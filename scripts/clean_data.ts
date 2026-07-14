@@ -1,9 +1,7 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
 
-const fs = require("fs");
-const path = require("path");
-
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = path.resolve(import.meta.dirname, "..");
 const DATA_DIR = path.join(ROOT, "packages", "sb-uhq", "data");
 
 console.log(`\n🧹 Nettoyage du dossier data`);

@@ -1,16 +1,16 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
 
-const fs = require("fs");
-const path = require("path");
+const ROOT = path.resolve(import.meta.dirname, "..");
 
-const ROOT = path.resolve(__dirname, "..");
+type Scope = "selfbot" | "controller";
 
-const ENV_PATHS = {
+const ENV_PATHS: Record<Scope, string> = {
   selfbot: path.join(ROOT, "packages", "sb-uhq", ".env"),
   controller: path.join(ROOT, "packages", "bot-controller", ".env"),
 };
 
-const REQUIRED = {
+const REQUIRED: Record<Scope, string[]> = {
   selfbot: ["TOKEN", "BRIDGE_SECRET", "BRIDGE_PORT"],
   controller: [
     "BOT_TOKEN",
@@ -23,9 +23,9 @@ const REQUIRED = {
   ],
 };
 
-function parseEnvFile(filePath) {
+function parseEnvFile(filePath: string): Record<string, string> {
   const content = fs.readFileSync(filePath, "utf8");
-  const vars = {};
+  const vars: Record<string, string> = {};
 
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -47,7 +47,7 @@ function parseEnvFile(filePath) {
   return vars;
 }
 
-function parsePort(rawValue, fieldName, errors) {
+function parsePort(rawValue: string | undefined, fieldName: string, errors: string[]): number | null {
   const port = Number.parseInt(String(rawValue), 10);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     errors.push(`${fieldName} invalide (${rawValue}). Port attendu: 1-65535.`);
@@ -56,7 +56,7 @@ function parsePort(rawValue, fieldName, errors) {
   return port;
 }
 
-function parseHttpUrl(rawValue, fieldName, errors) {
+function parseHttpUrl(rawValue: string, fieldName: string, errors: string[]): URL | null {
   try {
     const url = new URL(rawValue);
     if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -70,7 +70,7 @@ function parseHttpUrl(rawValue, fieldName, errors) {
   }
 }
 
-function normalizeUrl(url) {
+function normalizeUrl(url: URL): string {
   const clone = new URL(url.toString());
   clone.hash = "";
   clone.search = "";
@@ -78,16 +78,16 @@ function normalizeUrl(url) {
   return clone.toString();
 }
 
-function validateRequiredVars(scopeName, vars, errors) {
+function validateRequiredVars(scopeName: Scope, vars: Record<string, string>, errors: string[]): void {
   const missing = REQUIRED[scopeName].filter((name) => !vars[name] || String(vars[name]).trim() === "");
   if (missing.length) {
     errors.push(`${scopeName}: variables manquantes ou vides -> ${missing.join(", ")}`);
   }
 }
 
-function run() {
-  const errors = [];
-  const warnings = [];
+function run(): void {
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
   console.log("\n🔍 Vérification des fichiers .env des deux packages...\n");
 
@@ -153,7 +153,7 @@ function run() {
       errors.push("selfbot.BRIDGE_CONTROLLER_URL et controller.BRIDGE_CONTROLLER_URL ne matchent pas.");
     }
   } else {
-    warnings.push("selfbot.BRIDGE_CONTROLLER_URL absent: le fallback interne sera utilisé (http://127.0.0.1:3001)." );
+    warnings.push("selfbot.BRIDGE_CONTROLLER_URL absent: le fallback interne sera utilisé (http://127.0.0.1:3001).");
   }
 
   if (errors.length) {

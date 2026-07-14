@@ -1,11 +1,9 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
 
-const fs   = require("fs");
-const path = require("path");
+const ROOT = path.resolve(import.meta.dirname, "..");
 
-const ROOT = path.resolve(__dirname, "..");
-
-const TARGETS = [
+const TARGETS: string[] = [
   path.join(ROOT, "packages", "sb-uhq",         "app"),
   path.join(ROOT, "packages", "sb-uhq",         "main.py"),
   path.join(ROOT, "packages", "bot-controller", "src"),
@@ -13,12 +11,17 @@ const TARGETS = [
 
 const EXTENSIONS = new Set([".js", ".ts", ".py"]);
 
-function walkDir(dir, files = []) {
-  let entries;
+interface FileCount {
+  file: string;
+  lines: number;
+}
+
+function walkDir(dir: string, files: string[] = []): string[] {
+  let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    console.error(`  ⚠️  Impossible de lire : ${dir} — ${err.message}`);
+    console.error(`  ⚠️  Impossible de lire : ${dir} — ${(err as Error).message}`);
     return files;
   }
   for (const entry of entries) {
@@ -33,8 +36,8 @@ function walkDir(dir, files = []) {
   return files;
 }
 
-function collectFiles(targets) {
-  const files = [];
+function collectFiles(targets: string[]): string[] {
+  const files: string[] = [];
   for (const target of targets) {
     if (!fs.existsSync(target)) {
       console.warn(`  ⚠️  Cible introuvable : ${path.relative(ROOT, target)}`);
@@ -50,7 +53,7 @@ function collectFiles(targets) {
   return files;
 }
 
-function countLines(filepath) {
+function countLines(filepath: string): number {
   try {
     return fs.readFileSync(filepath, "utf-8").split("\n").length;
   } catch {
@@ -58,7 +61,7 @@ function countLines(filepath) {
   }
 }
 
-function relPath(filepath) {
+function relPath(filepath: string): string {
   return path.relative(ROOT, filepath);
 }
 
@@ -72,8 +75,8 @@ if (!files.length) {
   process.exit(1);
 }
 
-const results = files
-  .map(f => ({ file: relPath(f), lines: countLines(f) }))
+const results: FileCount[] = files
+  .map((f) => ({ file: relPath(f), lines: countLines(f) }))
   .sort((a, b) => b.lines - a.lines);
 
 const totalLines = results.reduce((sum, r) => sum + r.lines, 0);
