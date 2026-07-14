@@ -41,6 +41,24 @@ export interface HostinfoData {
   bootTime?: number;
 }
 
+// Versions des runtimes du controller (Node + TypeScript), résolues une seule
+// fois au chargement du module car elles ne changent pas.
+const NODE_VERSION = process.version.replace(/^v/, "");
+const TS_VERSION: string = (() => {
+  try {
+    return String(require("typescript/package.json").version);
+  } catch {
+    try {
+      // TypeScript est une devDependency : s'il a été élagué en prod, on retombe
+      // sur la fourchette déclarée dans notre package.json (toujours livré).
+      const range = String(require("../../package.json").devDependencies?.typescript ?? "");
+      return range.replace(/^[\^~]/, "") || "?";
+    } catch {
+      return "?";
+    }
+  }
+})();
+
 /** Jauge texte façon `▓▓▓▓░░░░` à partir d'un pourcentage (0–100). */
 function gauge(percent: number, len = 12): string {
   const p = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
@@ -160,6 +178,7 @@ export function buildHostinfo(data: HostinfoData = {}): V2MessagePayload {
         `### ⚙️ Système\n` +
         `**OS :** ${distro} (${arch})\n` +
         `**Kernel :** \`${kernel}\`\n` +
+        `**Node :** \`v${NODE_VERSION}\`  ·  **TypeScript :** \`${TS_VERSION}\`\n` +
         `**Python :** \`${nodeVer}\`\n` +
         `**Uptime :** \`${sysUptime}\`${boot}`
       ),
