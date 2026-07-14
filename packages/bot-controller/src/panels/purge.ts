@@ -42,7 +42,7 @@ export interface PurgeProgressData {
 // ── Vue principale ────────────────────────────────────────────────────────────
 
 export function build(data: PurgeData = {}): V2MessagePayload {
-  const { deleted = null, pending = false, scope = null, excluded = [] } = data;
+  const { deleted = null, pending = false, scope = null } = data;
 
   let status: string;
   if (pending) {
@@ -65,12 +65,9 @@ export function build(data: PurgeData = {}): V2MessagePayload {
     status = "*Supprime tes propres messages dans un salon, un serveur, tous tes DMs, ou tous tes serveurs.*";
   }
 
-  const exclCount = excluded.length;
-  const exclLine = `\`🛡️\` **Exclusions :** ${exclCount} — *serveurs, groupes DM ou salons épargnés par les purges larges.*`;
-
   return replyV2(
     container([
-      textDisplay(`# 🗑️ Purge\n${status}\n${exclLine}`),
+      textDisplay(`# 🗑️ Purge\n${status}`),
       separator(),
       selectMenu("menu:purge", "📋  Choisis une action…", [
         { label: "🗑️  Purger un salon",       value: "purge:confirm:channel", description: "Supprimer tes messages dans un salon" },
