@@ -21,7 +21,7 @@ from ...func.discord_util import user_tag
 CLONE_LOG_FILE = data_path("logs", "clone_history.json")
 BACKUPS_FILE = data_path("logs", "backups_data.json")
 
-DELAY = {"role": 0.6, "channel": 0.5, "emoji": 1.2, "invite": 1.0}
+DELAY = {"role": 0.6, "channel": 0.5, "emoji": 1.2, "invite": 5.0}
 _EMOJI_LIMITS = [50, 100, 150, 250]
 
 _active_jobs: dict[str, dict] = {}
