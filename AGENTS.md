@@ -7,7 +7,7 @@ classique en Node, les deux communiquant par un bridge HTTP local signé.
 ## Stack technique
 
 - **`packages/sb-uhq`** — le selfbot : Python 3.11+, [`discord.py-self`](https://discordpy-self.readthedocs.io/en/latest/) ≥ 2.1 (extra `[voice]`), aiohttp, python-dotenv, psutil. Virtualenv dédié dans `packages/sb-uhq/.venv`.
-- **`packages/bot-controller`** — le bot panel : TypeScript 5 (strict) sur Node.js 18+, discord.js v14 (**Components V2**), dotenv, `fetch` natif de Node. Compilé avec `tsc` vers `dist/` (gitignoré).
+- **`packages/bot-controller`** — le bot panel : TypeScript 7 (strict, compilateur natif) sur Node.js 18+, discord.js v14 (**Components V2**), dotenv, `fetch` natif de Node. Compilé avec `tsc` vers `dist/` (gitignoré).
 - **Bridge** : HTTP sur `127.0.0.1`, signé HMAC-SHA256 (`BRIDGE_SECRET`). Controller → selfbot sur `BRIDGE_PORT` (3000), selfbot → controller (logs/progress/fichiers) sur `LOG_PORT` (3001).
 - **Prod** : pm2 via `ecosystem.config.js`. Vocal : nécessite `ffmpeg` sur l'hôte.
 - ⚠️ `discord.py-self` s'importe sous le nom `discord` — ne jamais installer le `discord.py` officiel dans le même environnement.
@@ -48,7 +48,7 @@ packages/sb-uhq/                  # SELFBOT (Python)
     └── func/                     # helpers partagés (fetch de salons, headers Discord, logbus…)
 
 packages/bot-controller/          # BOT PANEL (TypeScript, compilé vers dist/)
-├── tsconfig.json                 # strict, CommonJS, src/ → dist/
+├── tsconfig.json                 # strict, module nodenext (émis en CommonJS), src/ → dist/
 └── src/
     ├── index.ts                  # point d'entrée + serveur logs/progress
     ├── deploy.ts                 # enregistrement des slash commands
