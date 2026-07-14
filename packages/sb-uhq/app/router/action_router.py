@@ -154,6 +154,9 @@ ACTIONS = {
     "purge.dms": lambda c, p: purge.execute(c, {"scope": "dms", "jobId": p.get("jobId")}),
     "purge.guilds": lambda c, p: purge.execute(c, {"scope": "guilds", "jobId": p.get("jobId")}),
     "purge.cancel": lambda c, p: purge.execute(c, {"scope": "cancel", "jobId": p.get("jobId")}),
+    "purge.getExclusions": lambda c, p: purge.execute(c, {"scope": "excl.list"}),
+    "purge.addExclusion": lambda c, p: purge.execute(c, {"scope": "excl.add", "id": p.get("id"), "kind": p.get("kind")}),
+    "purge.removeExclusion": lambda c, p: purge.execute(c, {"scope": "excl.remove", "id": p.get("id")}),
 }
 
 

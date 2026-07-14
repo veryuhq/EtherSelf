@@ -13,13 +13,69 @@ import discord
 
 from ...bridge.controller_client import post_progress
 from ...func.client_token import get_token
+from ...func.data_path import data_path, read_json, write_json
 from ...func.discord_util import fetch_channel, user_tag
 from ...func.discord_headers import make_desktop_headers
 
 PARALLEL_DELETE = 5
 BATCH_DELAY = 0.05
 
+# Exclusions de purge — serveurs / groupes DM / salons épargnés par les purges
+# larges (serveur, tous serveurs, tous DMs). Persistées dans data/config/purge.json.
+PURGE_FILE = data_path("config", "purge.json")
+
+_DEFAULT_STATE = {"excluded": []}
+
+# Types d'exclusion valides côté panel.
+EXCL_KINDS = ("guild", "groupdm", "channel")
+
 _active_jobs: dict[str, dict] = {}
+
+
+def _load_state() -> dict:
+    data = read_json(PURGE_FILE, dict(_DEFAULT_STATE))
+    if not isinstance(data.get("excluded"), list):
+        data["excluded"] = []
+    return data
+
+
+def _save_state(data) -> None:
+    write_json(PURGE_FILE, data)
+
+
+def _excluded_ids(state=None) -> set[str]:
+    """Ensemble des IDs exclus (serveurs, groupes DM, salons confondus).
+
+    Les IDs Discord étant uniques, une seule appartenance suffit à épargner
+    aussi bien un serveur, un groupe DM qu'un salon.
+    """
+    state = state or _load_state()
+    return {str(e.get("id")) for e in state["excluded"] if e.get("id")}
+
+
+def _resolve_excl_label(client, kind, id_str) -> str:
+    """Nom lisible d'une exclusion (best-effort, retombe sur l'ID)."""
+    try:
+        obj_id = int(id_str)
+    except (TypeError, ValueError):
+        return id_str
+    try:
+        if kind == "guild":
+            guild = client.get_guild(obj_id)
+            return guild.name if guild and guild.name else id_str
+        channel = client.get_channel(obj_id)
+        if channel is None:
+            return id_str
+        name = getattr(channel, "name", None)
+        if name:
+            return name if kind == "groupdm" else f"#{name}"
+        recipients = getattr(channel, "recipients", None) or []
+        if recipients:
+            return ", ".join(user_tag(r) or str(r.id) for r in recipients[:3])
+        recipient = getattr(channel, "recipient", None)
+        return user_tag(recipient) or id_str
+    except Exception:
+        return id_str
 
 
 def register_job(job_id):
@@ -115,6 +171,20 @@ def _guild_text_channels(client, guild):
     return channels
 
 
+def _dm_label(channel) -> str:
+    """Libellé d'un DM ou groupe DM pour la file de progression."""
+    recipient = getattr(channel, "recipient", None)
+    if recipient:
+        return user_tag(recipient) or str(channel.id)
+    name = getattr(channel, "name", None)
+    if name:
+        return name
+    recipients = getattr(channel, "recipients", None) or []
+    if recipients:
+        return ", ".join(user_tag(r) or str(r.id) for r in recipients[:3])
+    return str(channel.id)
+
+
 async def execute(client, payload):
     scope = payload.get("scope", "channel")
     job_id = payload.get("jobId")
@@ -123,6 +193,42 @@ async def execute(client, payload):
         if not job_id:
             raise ValueError("jobId requis pour annuler.")
         return {"cancelled": cancel_job(job_id)}
+
+    # ── Exclusions (serveurs / groupes DM / salons) ──────────────────────────
+    if scope == "excl.list":
+        return _load_state()
+
+    if scope == "excl.add":
+        excl_id = str(payload.get("id") or "").strip()
+        kind = payload.get("kind") or "channel"
+        if not excl_id:
+            raise ValueError("ID requis.")
+        if not excl_id.isdigit():
+            raise ValueError("L'ID doit être numérique.")
+        if kind not in EXCL_KINDS:
+            kind = "channel"
+        state = _load_state()
+        if any(str(e.get("id")) == excl_id for e in state["excluded"]):
+            raise ValueError("Cette exclusion existe déjà.")
+        state["excluded"].append({
+            "id": excl_id,
+            "kind": kind,
+            "label": _resolve_excl_label(client, kind, excl_id),
+        })
+        _save_state(state)
+        return state
+
+    if scope == "excl.remove":
+        excl_id = str(payload.get("id") or "").strip()
+        if not excl_id:
+            raise ValueError("ID requis.")
+        state = _load_state()
+        before = len(state["excluded"])
+        state["excluded"] = [e for e in state["excluded"] if str(e.get("id")) != excl_id]
+        if len(state["excluded"]) == before:
+            raise ValueError("Exclusion introuvable.")
+        _save_state(state)
+        return state
 
     if scope == "channel":
         channel_id = payload.get("channelId")
@@ -143,7 +249,11 @@ async def execute(client, payload):
         return {"deleted": deleted, "scope": "channel"}
 
     if scope == "dms":
-        dm_channels = [c for c in client.private_channels if isinstance(c, discord.DMChannel)]
+        # DMs privés + groupes DM, moins les exclusions configurées.
+        excluded = _excluded_ids()
+        dm_channels = [c for c in client.private_channels
+                       if isinstance(c, (discord.DMChannel, discord.GroupChannel))
+                       and str(c.id) not in excluded]
         register_job(job_id)
         total_deleted = 0
         done_count = 0
@@ -160,8 +270,7 @@ async def execute(client, payload):
                 await asyncio.sleep(0.5)
 
         total = len(filtered)
-        queue = [{"id": str(c.id),
-                  "label": user_tag(getattr(c, "recipient", None)) or str(c.id)} for c in filtered]
+        queue = [{"id": str(c.id), "label": _dm_label(c)} for c in filtered]
 
         await _notify(job_id, {"scope": "dms", "queue": queue, "activeLabel": None,
                                "doneCount": 0, "total": total, "totalDeleted": 0,
@@ -196,7 +305,8 @@ async def execute(client, payload):
         return {"deleted": total_deleted, "scope": "dms", "cancelled": was_cancelled}
 
     if scope == "guilds":
-        guilds = list(client.guilds)
+        excluded = _excluded_ids()
+        guilds = [g for g in client.guilds if str(g.id) not in excluded]
         register_job(job_id)
         total_deleted = 0
         done_count = 0
@@ -225,6 +335,8 @@ async def execute(client, payload):
             for ch in _guild_text_channels(client, guild):
                 if is_cancelled(job_id):
                     break
+                if str(ch.id) in excluded:
+                    continue
                 if not await _has_own_messages(client, ch.id):
                     continue
                 total_deleted += await _purge_channel(client, ch, math.inf, job_id)
@@ -256,7 +368,8 @@ async def execute(client, payload):
             raise ValueError(f"Serveur {guild_id} introuvable.")
 
         register_job(job_id)
-        channels = _guild_text_channels(client, guild)
+        excluded = _excluded_ids()
+        channels = [c for c in _guild_text_channels(client, guild) if str(c.id) not in excluded]
         total_deleted = 0
         done_count = 0
         total = len(channels)

@@ -553,6 +553,25 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     sendAction("purge.guilds", { jobId }).catch(() => {});
     return;
   }
+  // Exclusions (serveurs / groupes DM / salons)
+  if (id === "purge:exclusions") {
+    const panel = await fetchAndBuild("purge_exclusions");
+    return interaction.update(panel!);
+  }
+  if (id.startsWith("purge:excl:add:")) {
+    const kind = id.split(":")[3];
+    const KIND_LABELS: Record<string, string> = { guild: "un serveur", groupdm: "un groupe DM", channel: "un salon" };
+    const what = KIND_LABELS[kind] ?? "une cible";
+    return interaction.showModal(modal(`modal:purge_excl_add:${kind}`, `Exclure ${what}`, [
+      { id: "id", label: `ID ${kind === "guild" ? "du serveur" : kind === "groupdm" ? "du groupe DM" : "du salon"}`, placeholder: "123456789012345678" },
+    ]));
+  }
+  if (id === "purge:excl:remove") {
+    return interaction.showModal(modal("modal:purge_excl_remove", "Retirer une exclusion", [
+      { id: "id", label: "ID à retirer", placeholder: "123456789012345678" },
+    ]));
+  }
+
   if (id.startsWith("purge:cancel:")) {
     const jobId = id.slice("purge:cancel:".length);
     const res = await sendAction("purge.cancel", { jobId });

@@ -306,6 +306,19 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const guildName = await resolveGuildName(guildId);
     return interaction.update(purge.buildConfirm({ scope: "guild", guildId, guildName }));
   }
+  if (id.startsWith("modal:purge_excl_add:")) {
+    const kind = id.split(":")[2];
+    const exclId = interaction.fields.getTextInputValue("id").trim();
+    const res = await sendAction("purge.addExclusion", { id: exclId, kind });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(purge.buildExclusions(res?.data ?? {}));
+  }
+  if (id === "modal:purge_excl_remove") {
+    const exclId = interaction.fields.getTextInputValue("id").trim();
+    const res = await sendAction("purge.removeExclusion", { id: exclId });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(purge.buildExclusions(res?.data ?? {}));
+  }
 
   // ── RPC — Activités ───────────────────────────────────────────────────────
   if (id === "modal:rpc_addActivity") {

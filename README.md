@@ -88,7 +88,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 
 | Module | Description |
 |---|---|
-| 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs, tous les serveurs — annulation en temps réel |
+| 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs (et groupes), tous les serveurs — exclusions serveurs / groupes DM / salons, annulation en temps réel |
 | 🔁 **Clone de serveur** | Copie rôles, salons, emojis et paramètres d'un serveur vers un autre |
 | 📊 **Infos système** | Ping WebSocket, uptime du processus, CPU / RAM / OS de l'hôte |
 

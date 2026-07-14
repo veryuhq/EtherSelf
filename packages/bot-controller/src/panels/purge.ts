@@ -3,10 +3,19 @@ import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, 
 
 export type PurgeScope = "channel" | "guild" | "dms" | "guilds";
 
+export type ExclusionKind = "guild" | "groupdm" | "channel";
+
+export interface PurgeExclusion {
+  id: string;
+  kind: ExclusionKind;
+  label?: string | null;
+}
+
 export interface PurgeData {
   deleted?: number | null;
   pending?: boolean;
   scope?: PurgeScope | null;
+  excluded?: PurgeExclusion[];
 }
 
 export interface PurgeConfirmData {
@@ -33,7 +42,7 @@ export interface PurgeProgressData {
 // ── Vue principale ────────────────────────────────────────────────────────────
 
 export function build(data: PurgeData = {}): V2MessagePayload {
-  const { deleted = null, pending = false, scope = null } = data;
+  const { deleted = null, pending = false, scope = null, excluded = [] } = data;
 
   let status: string;
   if (pending) {
@@ -56,18 +65,64 @@ export function build(data: PurgeData = {}): V2MessagePayload {
     status = "*Supprime tes propres messages dans un salon, un serveur, tous tes DMs, ou tous tes serveurs.*";
   }
 
+  const exclCount = excluded.length;
+  const exclLine = `\`🛡️\` **Exclusions :** ${exclCount} — *serveurs, groupes DM ou salons épargnés par les purges larges.*`;
+
   return replyV2(
     container([
-      textDisplay(`# 🗑️ Purge\n${status}`),
+      textDisplay(`# 🗑️ Purge\n${status}\n${exclLine}`),
       separator(),
       selectMenu("menu:purge", "📋  Choisis une action…", [
-        { label: "🗑️  Purger un salon",     value: "purge:confirm:channel", description: "Supprimer tes messages dans un salon" },
-        { label: "🏠  Purger un serveur",   value: "purge:confirm:guild",   description: "Supprimer tes messages dans un serveur" },
-        { label: "💬  Purger tous les DMs", value: "purge:confirm:dms",     description: "Supprimer tes messages dans tous les DMs" },
-        { label: "🌐  Purger les serveurs", value: "purge:confirm:guilds",  description: "Supprimer tes messages dans tous les serveurs" },
+        { label: "🗑️  Purger un salon",       value: "purge:confirm:channel", description: "Supprimer tes messages dans un salon" },
+        { label: "🏠  Purger un serveur",     value: "purge:confirm:guild",   description: "Supprimer tes messages dans un serveur" },
+        { label: "💬  Purger tous les DMs",   value: "purge:confirm:dms",     description: "Supprimer tes messages dans tous les DMs et groupes" },
+        { label: "🌐  Purger les serveurs",   value: "purge:confirm:guilds",  description: "Supprimer tes messages dans tous les serveurs" },
+        { label: "🛡️  Gérer les exclusions",  value: "purge:exclusions",      description: "Épargner des serveurs, groupes DM ou salons" },
       ]),
       separator(),
       navRow(null, null, true),
+    ], 0xE74C3C)
+  );
+}
+
+// ── Vue gestion des exclusions ────────────────────────────────────────────────
+
+export function buildExclusions(data: PurgeData = {}): V2MessagePayload {
+  const { excluded = [] } = data;
+
+  const KIND_META: Record<ExclusionKind, { icon: string; title: string }> = {
+    guild:   { icon: "🏠", title: "Serveurs" },
+    groupdm: { icon: "👥", title: "Groupes DM" },
+    channel: { icon: "#️⃣", title: "Salons" },
+  };
+
+  const sections: string[] = [];
+  for (const kind of ["guild", "groupdm", "channel"] as ExclusionKind[]) {
+    const items = excluded.filter((e) => e.kind === kind);
+    if (!items.length) continue;
+    const meta = KIND_META[kind];
+    const lines = items
+      .map((e) => `> \`${e.id}\`${e.label ? ` — ${e.label}` : ""}`)
+      .join("\n");
+    sections.push(`${meta.icon} **${meta.title}** (${items.length})\n${lines}`);
+  }
+
+  const body = excluded.length
+    ? sections.join("\n\n")
+    : "*Aucune exclusion configurée.*\n\nLes purges **serveur**, **tous les serveurs** et **tous les DMs** épargneront les cibles ajoutées ici.";
+
+  return replyV2(
+    container([
+      textDisplay(`# 🛡️ Exclusions de purge\n${body}`),
+      separator(),
+      selectMenu("menu:purge_excl", "📋  Gérer les exclusions…", [
+        { label: "➕  Exclure un serveur",   value: "purge:excl:add:guild",   description: "Épargner un serveur (par ID)" },
+        { label: "➕  Exclure un groupe DM", value: "purge:excl:add:groupdm", description: "Épargner un groupe DM (par ID)" },
+        { label: "➕  Exclure un salon",     value: "purge:excl:add:channel", description: "Épargner un salon (par ID)" },
+        { label: "➖  Retirer une exclusion", value: "purge:excl:remove",      description: "Retirer une exclusion existante" },
+      ]),
+      separator(),
+      navRow("panel:purge", "Retour Purge", true),
     ], 0xE74C3C)
   );
 }
