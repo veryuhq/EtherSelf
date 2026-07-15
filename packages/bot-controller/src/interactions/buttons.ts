@@ -4,6 +4,7 @@ import type { MessageComponentInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
 import { modal } from "../utils/components";
+import { snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
 import { registerProgressJob, registerCloneJob } from "../store/jobs";
@@ -160,13 +161,13 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   }
   if (id === "snipe:viewDeleted") {
     return interaction.showModal(modal("modal:snipe_view:deleted", "Rechercher des messages", [
-      { id: "mode",  label: "Mode (channel / guild / user)", placeholder: "channel", value: "channel", maxLength: 7 },
+      { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions("channel") },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
   if (id === "snipe:viewEdited") {
     return interaction.showModal(modal("modal:snipe_view:edited", "Rechercher des messages", [
-      { id: "mode",  label: "Mode (channel / guild / user)", placeholder: "channel", value: "channel", maxLength: 7 },
+      { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions("channel") },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
@@ -182,24 +183,11 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     else res = await sendAction("snipe.getMessages", { channelId: scopeId, type });
     return interaction.update(snipe.buildResults({ ...(res?.data ?? {}), page }));
   }
-  if (id.startsWith("snipe:inputChannel:")) {
-    const type = id.split(":")[2];
+  if (id.startsWith("snipe:inputChannel:") || id.startsWith("snipe:inputGuild:") || id.startsWith("snipe:inputUser:")) {
+    const [, kind, type] = id.split(":");
+    const mode = kind === "inputGuild" ? "guild" : kind === "inputUser" ? "user" : "channel";
     return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode", label: "Mode (channel / guild / user)", placeholder: "channel", value: "channel", maxLength: 7 },
-      { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id.startsWith("snipe:inputGuild:")) {
-    const type = id.split(":")[2];
-    return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode", label: "Mode (channel / guild / user)", placeholder: "guild", value: "guild", maxLength: 7 },
-      { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id.startsWith("snipe:inputUser:")) {
-    const type = id.split(":")[2];
-    return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode", label: "Mode (channel / guild / user)", placeholder: "user", value: "user", maxLength: 7 },
+      { id: "mode", label: "Mode de recherche", radio: snipeModeOptions(mode) },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
@@ -334,7 +322,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id === "rpc:toggle") { const res = await sendAction("rpc.toggle"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
   if (id === "rpc:addActivity") {
     return interaction.showModal(modal("modal:rpc_addActivity", "Ajouter une activité", [
-      { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing", value: "playing", maxLength: 10 },
+      { id: "type",    label: "Type d'activité", radio: activityTypeOptions() },
       { id: "name",    label: "Nom de l'activité",                   placeholder: "Minecraft, une playlist…", maxLength: 128 },
       { id: "details", label: "Détails (ligne 2, optionnel)",        placeholder: "Survie solo — Niveau 42", required: false, maxLength: 128 },
       { id: "state",   label: "État (ligne 3, optionnel)",           placeholder: "Dans les mines", required: false, maxLength: 128 },
@@ -348,7 +336,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       const a = activities[0];
       return interaction.showModal(modal("modal:rpc_editActivity", "Éditer l'activité", [
         { id: "index",   label: "Numéro de l'activité", placeholder: "1", value: "1", maxLength: 3 },
-        { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing", value: a.type ?? "playing", maxLength: 10 },
+        { id: "type",    label: "Type d'activité", radio: activityTypeOptions(a.type ?? "playing") },
         { id: "name",    label: "Nom de l'activité", placeholder: "Minecraft, une playlist…", value: a.name ?? "", maxLength: 128 },
         { id: "details", label: "Détails (ligne 2, optionnel)", placeholder: "Survie solo — Niveau 42", value: a.details ?? "", required: false, maxLength: 128 },
         { id: "state",   label: "État (ligne 3, optionnel)", placeholder: "Dans les mines", value: a.state ?? "", required: false, maxLength: 128 },
@@ -356,7 +344,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     }
     return interaction.showModal(modal("modal:rpc_editActivity", "Éditer une activité", [
       { id: "index",   label: `Numéro (1–${activities.length})`, placeholder: "1", maxLength: 3 },
-      { id: "type",    label: "Type (playing/streaming/listening…)", placeholder: "playing", maxLength: 10 },
+      { id: "type",    label: "Type d'activité", radio: activityTypeOptions() },
       { id: "name",    label: "Nom de l'activité", placeholder: "Minecraft, une playlist…", maxLength: 128 },
       { id: "details", label: "Détails (ligne 2, optionnel)", placeholder: "Survie solo — Niveau 42", required: false, maxLength: 128 },
       { id: "state",   label: "État (ligne 3, optionnel)", placeholder: "Dans les mines", required: false, maxLength: 128 },
@@ -367,7 +355,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const activities = state?.data?.activities ?? [];
     return interaction.showModal(modal("modal:rpc_setPlatform", "Définir la plateforme", [
       { id: "index",    label: activities.length === 1 ? "Numéro de l'activité" : `Numéro (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
-      { id: "platform", label: "Plateforme (vide = aucune)", placeholder: "desktop / xbox / ps4 / ps5 / ios / android…", required: false, maxLength: 10 },
+      { id: "platform", label: "Plateforme", radio: platformOptions(activities.length === 1 ? activities[0]?.platform : null) },
     ]));
   }
   if (id === "rpc:editButtons") {
@@ -379,7 +367,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     })() : null;
     return interaction.showModal(modal("modal:rpc_editButtons", "Gérer les boutons RPC", [
       { id: "index",        label: activities.length === 1 ? "Numéro de l'activité" : `Numéro de l'activité (1–${activities.length})`, placeholder: "1", value: activities.length === 1 ? "1" : "", maxLength: 3 },
-      { id: "buttonAction", label: "Action (add / remove / clear)", placeholder: "add", value: "add", maxLength: 6 },
+      { id: "buttonAction", label: "Action", radio: buttonActionOptions() },
       { id: "label",        label: "Label du bouton (max 32 chars)", placeholder: hint ? `Boutons actuels : ${hint}` : "Mon site", required: false, maxLength: 32 },
       { id: "url",          label: "URL du bouton", placeholder: "https://example.com", required: false, maxLength: 512 },
       { id: "buttonIndex",  label: "Numéro bouton à supprimer (remove only)", placeholder: "1 ou 2", required: false, maxLength: 1 },
@@ -415,7 +403,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id === "rpc:setStatus") {
     const res = await sendAction("rpc.getState");
     return interaction.showModal(modal("modal:rpc_setStatus", "Définir le statut en ligne", [
-      { id: "status", label: "Statut (online/idle/dnd/invisible)", placeholder: "online", value: res?.data?.status ?? "online", maxLength: 10 },
+      { id: "status", label: "Statut", radio: statusOptions(res?.data?.status ?? "online") },
     ]));
   }
   if (id === "rpc:toggleMode") { const state = await sendAction("rpc.getState"); const newMode = state?.data?.mode === "rotate" ? "static" : "rotate"; const res = await sendAction("rpc.setMode", { mode: newMode }); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
@@ -473,7 +461,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const spotify = res?.data?.spotify ?? {};
     return interaction.showModal(modal("modal:rpc_spotifyExtras", "Configurer les extras Spotify", [
       { id: "applicationId", label: "Application ID (optionnel)", placeholder: "123456789012345678", value: spotify.applicationId ?? "", required: false, maxLength: 20 },
-      { id: "platform",      label: "Plateforme (optionnel)",     placeholder: "desktop / ios / android / xbox", value: spotify.platform ?? "", required: false, maxLength: 16 },
+      { id: "platform",      label: "Plateforme", radio: platformOptions(spotify.platform) },
       { id: "url",           label: "URL (optionnel)",            placeholder: "https://open.spotify.com/track/...", value: spotify.url ?? "", required: false, maxLength: 256 },
     ]));
   }
@@ -558,12 +546,12 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const panel = await fetchAndBuild("purge_exclusions");
     return interaction.update(panel!);
   }
-  if (id.startsWith("purge:excl:add:")) {
+  // `purge:excl:add:<kind>` (ancien format, menus déjà rendus) pré-sélectionne le type.
+  if (id === "purge:excl:add" || id.startsWith("purge:excl:add:")) {
     const kind = id.split(":")[3];
-    const KIND_LABELS: Record<string, string> = { guild: "un serveur", groupdm: "un groupe DM", channel: "un salon" };
-    const what = KIND_LABELS[kind] ?? "une cible";
-    return interaction.showModal(modal(`modal:purge_excl_add:${kind}`, `Exclure ${what}`, [
-      { id: "id", label: `ID ${kind === "guild" ? "du serveur" : kind === "groupdm" ? "du groupe DM" : "du salon"}`, placeholder: "123456789012345678" },
+    return interaction.showModal(modal("modal:purge_excl_add", "Exclure une cible de purge", [
+      { id: "kind", label: "Type de cible", radio: purgeExclKindOptions(kind) },
+      { id: "id",   label: "ID de la cible", placeholder: "123456789012345678" },
     ]));
   }
   if (id === "purge:excl:remove") {

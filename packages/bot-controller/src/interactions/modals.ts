@@ -136,7 +136,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   }
   if (id === "modal:snipe_view:deleted" || id === "modal:snipe_view:edited") {
     const type  = id.endsWith("deleted") ? "deleted" : "edited";
-    const mode  = interaction.fields.getTextInputValue("mode").trim().toLowerCase();
+    const mode  = interaction.fields.getRadioGroup("mode", true);
     const query = interaction.fields.getTextInputValue("query").trim();
 
     let res;
@@ -286,8 +286,8 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const guildName = await resolveGuildName(guildId);
     return interaction.update(purge.buildConfirm({ scope: "guild", guildId, guildName }));
   }
-  if (id.startsWith("modal:purge_excl_add:")) {
-    const kind = id.split(":")[2];
+  if (id === "modal:purge_excl_add") {
+    const kind = interaction.fields.getRadioGroup("kind", true);
     const exclId = interaction.fields.getTextInputValue("id").trim();
     const res = await sendAction("purge.addExclusion", { id: exclId, kind });
     if (!res?.success) return _error(interaction, res?.error);
@@ -302,7 +302,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
 
   // ── RPC — Activités ───────────────────────────────────────────────────────
   if (id === "modal:rpc_addActivity") {
-    const type    = interaction.fields.getTextInputValue("type").trim().toLowerCase();
+    const type    = interaction.fields.getRadioGroup("type", true);
     const name    = interaction.fields.getTextInputValue("name").trim();
     const details = interaction.fields.getTextInputValue("details").trim() || null;
     const state   = interaction.fields.getTextInputValue("state").trim() || null;
@@ -313,7 +313,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   }
   if (id === "modal:rpc_editActivity") {
     const index   = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const type    = interaction.fields.getTextInputValue("type").trim().toLowerCase();
+    const type    = interaction.fields.getRadioGroup("type", true);
     const name    = interaction.fields.getTextInputValue("name").trim();
     const details = interaction.fields.getTextInputValue("details").trim() || null;
     const state   = interaction.fields.getTextInputValue("state").trim() || null;
@@ -352,14 +352,15 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   }
   if (id === "modal:rpc_setPlatform") {
     const index    = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const platform = interaction.fields.getTextInputValue("platform").trim() || null;
+    const platformRaw = interaction.fields.getRadioGroup("platform", true);
+    const platform = platformRaw === "none" ? null : platformRaw;
     const res = await sendAction("rpc.setPlatform", { index, platform });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.build(res?.data ?? {}));
   }
   if (id === "modal:rpc_editButtons") {
     const index        = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const buttonAction = interaction.fields.getTextInputValue("buttonAction").trim().toLowerCase();
+    const buttonAction = interaction.fields.getRadioGroup("buttonAction", true);
     const label        = interaction.fields.getTextInputValue("label").trim() || null;
     const url          = interaction.fields.getTextInputValue("url").trim() || null;
     const buttonIndex  = parseInt(interaction.fields.getTextInputValue("buttonIndex").trim(), 10) || null;
@@ -368,7 +369,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     return interaction.update(rpc.build(res?.data ?? {}));
   }
   if (id === "modal:rpc_setStatus") {
-    const status = interaction.fields.getTextInputValue("status").trim().toLowerCase();
+    const status = interaction.fields.getRadioGroup("status", true);
     const res = await sendAction("rpc.setStatus", { status });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.build(res?.data ?? {}));
@@ -440,7 +441,8 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   }
   if (id === "modal:rpc_spotifyExtras") {
     const applicationId = interaction.fields.getTextInputValue("applicationId").trim() || null;
-    const platform      = interaction.fields.getTextInputValue("platform").trim() || null;
+    const platformRaw   = interaction.fields.getRadioGroup("platform", true);
+    const platform      = platformRaw === "none" ? null : platformRaw;
     const url           = interaction.fields.getTextInputValue("url").trim() || null;
     const res = await sendAction("rpc.setSpotifyExtras", { applicationId, platform, url });
     if (!res?.success) return _error(interaction, res?.error);

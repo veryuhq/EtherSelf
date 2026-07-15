@@ -113,10 +113,8 @@ export function buildExclusions(data: PurgeData = {}): V2MessagePayload {
       textDisplay(`# 🛡️ Exclusions de purge\n${body}`),
       separator(),
       selectMenu("menu:purge_excl", "📋  Gérer les exclusions…", [
-        { label: "➕  Exclure un serveur",   value: "purge:excl:add:guild",   description: "Épargner un serveur (par ID)" },
-        { label: "➕  Exclure un groupe DM", value: "purge:excl:add:groupdm", description: "Épargner un groupe DM (par ID)" },
-        { label: "➕  Exclure un salon",     value: "purge:excl:add:channel", description: "Épargner un salon (par ID)" },
-        { label: "➖  Retirer une exclusion", value: "purge:excl:remove",      description: "Retirer une exclusion existante" },
+        { label: "➕  Exclure une cible",     value: "purge:excl:add",    description: "Épargner un serveur, groupe DM ou salon (par ID)" },
+        { label: "➖  Retirer une exclusion", value: "purge:excl:remove", description: "Retirer une exclusion existante" },
       ]),
       separator(),
       navRow("panel:purge", "Retour Purge", true),
