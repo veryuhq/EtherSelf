@@ -205,7 +205,7 @@ def _make_source(path: Path, volume: int) -> discord.PCMVolumeTransformer:
     return discord.PCMVolumeTransformer(source, volume=_clamp_volume(volume) / 100)
 
 
-async def _start_playback(client, cfg: dict) -> None:
+async def _start_playback(client, cfg: dict, *, announce: bool = True) -> None:
     global _current_source
     if not _deps()["ffmpeg"]:
         raise ValueError("ffmpeg introuvable sur l'hôte — installe-le pour streamer de la musique.")
@@ -227,8 +227,11 @@ async def _start_playback(client, cfg: dict) -> None:
         asyncio.run_coroutine_threadsafe(_on_track_end(client, generation), loop_ref)
 
     vc.play(source, after=_after)
-    log(f"[VOICE] 🎵 Lecture de « {path.name} » (volume {cfg['music']['volume']} %"
-        f"{', en boucle' if cfg['music']['loop'] else ''}).")
+    # Pas de log à chaque tour de boucle : seul le lancement initial (et la
+    # reprise après reconnexion) est annoncé, sinon le controller est spammé.
+    if announce:
+        log(f"[VOICE] 🎵 Lecture de « {path.name} » (volume {cfg['music']['volume']} %"
+            f"{', en boucle' if cfg['music']['loop'] else ''}).")
 
 
 async def _on_track_end(client, generation: int) -> None:
@@ -239,7 +242,7 @@ async def _on_track_end(client, generation: int) -> None:
         return
     if cfg["music"]["loop"] and cfg["music"]["file"]:
         try:
-            await _start_playback(client, cfg)
+            await _start_playback(client, cfg, announce=False)
         except Exception as err:  # noqa: BLE001
             logerr(f"[VOICE] Relance de la boucle impossible : {err}")
     else:
