@@ -1,10 +1,11 @@
 # Selfbot EtherSelf — discord.py-self
 # ⚠️ discord.py-self s'importe sous le nom `discord` (incompatible avec discord.py officiel :
 #    ne pas installer les deux dans le même environnement).
-discord.py-self>=2.1.0
+# L'extra [voice] tire les dépendances audio (PyNaCl) pour le module
+# Salon Vocal & Musique. ffmpeg et libopus doivent aussi être installés
+# sur l'hôte (paquets système).
+discord.py-self[voice]>=2.1.0
 aiohttp>=3.9
-# Voix (module Salon Vocal & Musique) : chiffrement des paquets audio.
-# ffmpeg et libopus doivent aussi être installés sur l'hôte (paquets système).
 PyNaCl>=1.5
 python-dotenv>=1.0
 psutil>=5.9
