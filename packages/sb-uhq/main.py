@@ -27,7 +27,6 @@ from app.bridge.server import run_bridge_server  # noqa: E402
 from app.commands.fun import mock, spoiler  # noqa: E402
 from app.commands.gestion import antigroup, msglog, prefix  # noqa: E402
 from app.commands.utilitaires import afk, autobump, quests, rpc, snapshot, tag  # noqa: E402
-from app.commands.voice import joinvc  # noqa: E402
 from app.func import shutdown  # noqa: E402
 from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
@@ -51,12 +50,6 @@ async def on_ready():
     _ready_once = True
 
     log(f"[SB-UHQ] ✅  Connecté en tant que {client.user}")
-
-    # Auto-rejoin vocal en premier : pendant un restart pm2 la session gateway
-    # précédente reste vivante côté Discord (voir app/func/shutdown.py) et le
-    # compte apparaît toujours en vocal ; on renvoie notre voice state au plus
-    # vite pour reprendre la main avant l'expiration de cette session.
-    await joinvc.auto_rejoin(client)
 
     _bridge_runner = await run_bridge_server(client)
 
@@ -145,9 +138,9 @@ def main():
     if not token:
         raise SystemExit("TOKEN manquant dans le fichier .env du selfbot.")
     # SIGINT/SIGTERM (pm2 stop/restart/max_memory_restart) → sortie brutale
-    # sans déconnexion vocale ni close 1000, comme l'ancienne version JS :
-    # Discord garde la session et le compte reste affiché en vocal pendant
-    # le redémarrage (voir app/func/shutdown.py).
+    # sans close 1000, comme l'ancienne version JS : Discord garde la session
+    # et le compte reste affiché en ligne pendant le redémarrage
+    # (voir app/func/shutdown.py).
     shutdown.install()
     client.run(token)
 

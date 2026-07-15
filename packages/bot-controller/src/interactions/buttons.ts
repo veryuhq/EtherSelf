@@ -14,7 +14,6 @@ import * as snipe     from "../panels/snipe";
 import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
 import * as autobump  from "../panels/autobump";
-import * as joinvc    from "../panels/joinvc";
 import * as purge     from "../panels/purge";
 import * as sysinfo   from "../panels/sysinfo";
 import * as rpc       from "../panels/rpc";
@@ -61,7 +60,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     "panel:msgbookmarks": "msgbookmarks",
     "panel:antigroup":    "antigroup",
     "panel:autobump":     "autobump",
-    "panel:joinvc":       "joinvc",
     "panel:purge":        "purge",
     "panel:sysinfo":      "sysinfo",
     "panel:rpc":          "rpc",
@@ -577,48 +575,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const res = await sendAction("purge.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler la purge.");
     return interaction.update(purge.buildProgress({ scope: "dms", queue: [], activeLabel: "Arrêt en cours…", doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
-  }
-
-  // ── JOINVC ────────────────────────────────────────────────────────────────
-  if (id === "joinvc:join") {
-    // Récupère le salon configuré
-    const configRes = await sendAction("voice.getConfig");
-    const savedChannelId = configRes?.data?.channelId ?? null;
-
-    // Pas de salon configuré → demander l'ID via modal
-    if (!savedChannelId) {
-      return interaction.showModal(modal("modal:joinvc_join", "Rejoindre un salon vocal", [{ id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678" }]));
-    }
-
-    // Ack immédiat pour éviter "This interaction has failed" si le join prend > 3s
-    await interaction.deferUpdate();
-
-    const res = await sendAction("voice.join", { channelId: savedChannelId });
-
-    if (!res?.success) {
-      // Vérifier l'état réel — le join peut avoir réussi malgré un timeout bridge
-      const refreshed = await sendAction("voice.getState");
-      if (refreshed?.success && refreshed?.data?.channelId === savedChannelId) {
-        return interaction.editReply(joinvc.build(refreshed.data));
-      }
-      await interaction.editReply(joinvc.build({ joined: false }));
-      await interaction.followUp({ content: `❌ ${res?.error ?? "Impossible de rejoindre le salon."}`, ephemeral: true });
-      return;
-    }
-
-    // Succès : on utilise directement les données retournées par le bridge
-    // qui contiennent channelName et guildName résolus côté selfbot
-    return interaction.editReply(joinvc.build(res.data));
-  }
-  if (id === "joinvc:move") { return interaction.showModal(modal("modal:joinvc_move", "Changer de salon vocal", [{ id: "channelId", label: "ID du nouveau salon vocal", placeholder: "123456789012345678" }])); }
-  if (id === "joinvc:leave") {
-    // Quitter directement le salon vocal actuel
-    const state = await sendAction("voice.getState");
-    const currentChannelId = state?.data?.channelId ?? null;
-    if (!currentChannelId) return _error(interaction, "Le selfbot n'est dans aucun salon vocal.");
-    const res = await sendAction("voice.leave", { channelId: currentChannelId });
-    if (!res?.success) return _error(interaction, res?.error ?? "Impossible de quitter le salon.");
-    return interaction.update(joinvc.build(res?.data ?? {}));
   }
 
   // ── SYSINFO ───────────────────────────────────────────────────────────────

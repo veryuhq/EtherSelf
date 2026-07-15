@@ -12,7 +12,6 @@ from ..commands.gestion import antigroup, msglog, prefix, token
 from ..commands.informations import hostinfo, ping, uptime
 from ..commands.utilitaires import (afk, autobump, backups, bookmark, msgbookmarks,
                                      purge, quests, rpc, snapshot, snipe, tag)
-from ..commands.voice import joinvc
 
 # action → async (client, payload) -> data
 ACTIONS = {
@@ -140,13 +139,6 @@ ACTIONS = {
     "info.ping": lambda c, p: ping.execute(c),
     "info.uptime": lambda c, p: uptime.execute(c),
     "info.hostinfo": lambda c, p: hostinfo.execute(c),
-
-    # ── VOICE ──
-    "voice.join": lambda c, p: joinvc.execute(c, {"channelId": p.get("channelId")}),
-    "voice.leave": lambda c, p: joinvc.execute(c, {"action": "leave", "channelId": p.get("channelId")}),
-    "voice.move": lambda c, p: joinvc.execute(c, {"action": "move", "channelId": p.get("channelId")}),
-    "voice.getState": lambda c, p: joinvc.execute(c, {"action": "getState"}),
-    "voice.getConfig": lambda c, p: joinvc.execute(c, {"action": "getConfig"}),
 
     # ── PURGE ──
     "purge.channel": lambda c, p: purge.execute(c, {"scope": "channel", "channelId": p.get("channelId"), "amount": p.get("amount"), "jobId": p.get("jobId")}),

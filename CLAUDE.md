@@ -6,10 +6,10 @@ classique en Node, les deux communiquant par un bridge HTTP local signé.
 
 ## Stack technique
 
-- **`packages/sb-uhq`** — le selfbot : Python 3.11+, [`discord.py-self`](https://discordpy-self.readthedocs.io/en/latest/) ≥ 2.1 (extra `[voice]`), aiohttp, python-dotenv, psutil. Virtualenv dédié dans `packages/sb-uhq/.venv`.
+- **`packages/sb-uhq`** — le selfbot : Python 3.11+, [`discord.py-self`](https://discordpy-self.readthedocs.io/en/latest/) ≥ 2.1, aiohttp, python-dotenv, psutil. Virtualenv dédié dans `packages/sb-uhq/.venv`.
 - **`packages/bot-controller`** — le bot panel : TypeScript 7 (strict, compilateur natif) sur Node.js 18+, discord.js v14 (**Components V2**), dotenv, `fetch` natif de Node. Compilé avec `tsc` vers `dist/` (gitignoré).
 - **Bridge** : HTTP sur `127.0.0.1`, signé HMAC-SHA256 (`BRIDGE_SECRET`). Controller → selfbot sur `BRIDGE_PORT` (3000), selfbot → controller (logs/progress/fichiers) sur `LOG_PORT` (3001).
-- **Prod** : pm2 via `ecosystem.config.js` (reste en JS : pm2 charge sa config directement, sans support TypeScript). Vocal : nécessite `ffmpeg` sur l'hôte.
+- **Prod** : pm2 via `ecosystem.config.js` (reste en JS : pm2 charge sa config directement, sans support TypeScript).
 - ⚠️ `discord.py-self` s'importe sous le nom `discord` — ne jamais installer le `discord.py` officiel dans le même environnement.
 
 ## Commandes
@@ -144,9 +144,9 @@ est enveloppé dans un Label (18), le format standard des modals.
 
 - **Conventional Commits obligatoires** ([spécification 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/)) : chaque commit suit strictement le format `type(scope): description` — aucun commit hors format n'est accepté.
   - Types autorisés : `feat`, `fix`, `refactor`, `docs`, `chore`, `perf`, `style`, `test`, `build`, `ci`, `revert`.
-  - Le `scope` est fortement recommandé (module ou package concerné : `vocal`, `afk`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
+  - Le `scope` est fortement recommandé (module ou package concerné : `afk`, `snipe`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
   - Breaking change : suffixe `!` après le type/scope (ex. `refactor(bridge)!: …`) et/ou footer `BREAKING CHANGE:` expliquant la rupture.
-  - Ex. `feat(vocal): lecture d'un fichier audio dans le salon vocal`, `fix(vocal): ne plus se rendre sourd…`.
+  - Ex. `feat(afk): réponse automatique personnalisable en mode AFK`, `fix(purge): respecter le délai anti rate-limit…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
 - **Historique linéaire** : pas de commits de merge (`Merge branch …`). Intégrer une branche avec un rebase puis un merge fast-forward, jamais un merge non-ff. Configurer le dépôt en conséquence :
   ```sh

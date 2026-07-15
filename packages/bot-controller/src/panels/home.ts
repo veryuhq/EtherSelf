@@ -26,7 +26,6 @@ export function build(data: HomeData = {}): V2MessagePayload {
         { label: "🔇  Anti-Group DM",                        value: "antigroup",    description: "Quitter auto les group DMs" },
         { label: "⬆️  Auto-Bump",                            value: "autobump",     description: "Config du bump automatique Disboard" },
         { label: "🎮  Rich Presence / Spotify / Custom Status", value: "rpc_hub",   description: "Rich Presence, Spotify RPC et Custom Status" },
-        { label: "🔊  Salon vocal",                          value: "joinvc",       description: "Rejoindre ou quitter un salon vocal" },
         { label: "🗑️  Purge",                               value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                       value: "quests",       description: "Complétion automatique des quêtes Discord" },
         { label: "💾  Backups & Clone",                      value: "backups",      description: "Backup amis/serveurs, cloner un serveur" },

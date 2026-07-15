@@ -13,7 +13,6 @@ import * as tags        from "../panels/tags";
 import * as bookmarks   from "../panels/bookmarks";
 import * as msgbm       from "../panels/msgbookmarks";
 import * as autobump    from "../panels/autobump";
-import * as joinvc      from "../panels/joinvc";
 import * as purge       from "../panels/purge";
 import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
@@ -56,7 +55,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     "panel:msgbookmarks": "msgbookmarks",
     "panel:antigroup":    "antigroup",
     "panel:autobump":     "autobump",
-    "panel:joinvc":       "joinvc",
     "panel:purge":        "purge",
     "panel:sysinfo":      "sysinfo",
     "panel:rpc":          "rpc",
@@ -272,26 +270,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     if (!res?.success) return _error(interaction, res?.error);
     const state = await sendAction("autobump.list");
     return interaction.update(autobump.build(state?.data ?? {}));
-  }
-
-  // ── JOINVC ────────────────────────────────────────────────────────────────
-  if (id === "modal:joinvc_join") {
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("voice.join", { channelId });
-    if (!res?.success) return _error(interaction, res?.error ?? "Impossible de rejoindre le salon vocal.");
-    return interaction.update(joinvc.build(res?.data ?? {}));
-  }
-  if (id === "modal:joinvc_move") {
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("voice.move", { channelId });
-    if (!res?.success) return _error(interaction, res?.error ?? "Impossible de changer de salon vocal.");
-    return interaction.update(joinvc.build(res?.data ?? {}));
-  }
-  if (id === "modal:joinvc_leave") {
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("voice.leave", { channelId });
-    if (!res?.success) return _error(interaction, res?.error ?? "Impossible de quitter le salon vocal.");
-    return interaction.update(joinvc.build(res?.data ?? {}));
   }
 
   // ── PURGE ─────────────────────────────────────────────────────────────────
