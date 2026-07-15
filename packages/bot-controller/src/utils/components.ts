@@ -158,17 +158,29 @@ export interface ModalField {
   /** Présent = champ StringSelect (type 3) au lieu d'un TextInput.
    *  Les options sont figées à l'ouverture du modal (pas de dynamique). */
   options?: SelectOption[];
-  /** StringSelect uniquement : nombre min/max de sélections (défaut 1/1). */
+  /** StringSelect/CheckboxGroup : nombre min/max de sélections
+   *  (défaut 1/1 pour un select, 1/toutes pour un groupe de checkboxes). */
   minValues?: number;
   maxValues?: number;
+  /** Présent = champ RadioGroup (type 21) : choix unique, 2 à 10 options. */
+  radio?: SelectOption[];
+  /** Présent = champ CheckboxGroup (type 22) : cases à cocher, 2 à 10 options. */
+  checkboxes?: SelectOption[];
+  /** true = Checkbox seule (type 23), question oui/non. */
+  checkbox?: boolean;
+  /** Checkbox uniquement : cochée par défaut (défaut false). */
+  checked?: boolean;
 }
 
-/** Modal — chaque champ (texte, `file: true` ou `options: […]`) est enveloppé
- *  dans un Label (type 18), le format standard des modals : label (≤ 45 car.)
- *  + description optionnelle (≤ 100 car.) + un composant enfant (TextInput
- *  type 4, FileUpload type 19 ou StringSelect type 3).
+/** Modal — chaque champ (texte, `file: true`, `options`, `radio`, `checkboxes`
+ *  ou `checkbox: true`) est enveloppé dans un Label (type 18), le format
+ *  standard des modals : label (≤ 45 car.) + description optionnelle
+ *  (≤ 100 car.) + un composant enfant (TextInput type 4, FileUpload type 19,
+ *  StringSelect type 3, RadioGroup type 21, CheckboxGroup type 22 ou
+ *  Checkbox type 23).
  *  Soumission : `fields.getTextInputValue(id)`, `.getUploadedFiles(id)`,
- *  `.getStringSelectValues(id)` (select sans sélection → `[]`). */
+ *  `.getStringSelectValues(id)` (sans sélection → `[]`),
+ *  `.getRadioGroup(id)`, `.getCheckboxGroup(id)`, `.getCheckbox(id)`. */
 export function modal(
   customId: string,
   title: string,
@@ -184,6 +196,28 @@ export function modal(
           max_values:  f.maxValues ?? 1,
           required:    f.required ?? true,
           options:     f.options,
+        }
+      : f.radio
+      ? {
+          type:      21,
+          custom_id: f.id,
+          required:  f.required ?? true,
+          options:   f.radio,
+        }
+      : f.checkboxes
+      ? {
+          type:       22,
+          custom_id:  f.id,
+          min_values: f.minValues ?? 1,
+          max_values: f.maxValues ?? f.checkboxes.length,
+          required:   f.required ?? true,
+          options:    f.checkboxes,
+        }
+      : f.checkbox
+      ? {
+          type:      23,
+          custom_id: f.id,
+          default:   f.checked ?? false,
         }
       : f.file
       ? {
