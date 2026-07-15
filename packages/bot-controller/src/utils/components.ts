@@ -151,27 +151,40 @@ export interface ModalField {
   long?: boolean;
   minLength?: number;
   maxLength?: number;
+  /** true = champ FileUpload (type 19) au lieu d'un TextInput. */
+  file?: boolean;
+  /** FileUpload uniquement : nombre max de fichiers (défaut 1). */
+  maxFiles?: number;
 }
 
-/** Modal — chaque champ est enveloppé dans un Label (type 18), le format
- *  standard des modals : label (≤ 45 car.) + description optionnelle
- *  (≤ 100 car.) + un composant enfant (TextInput type 4). */
+/** Modal — chaque champ (texte ou `file: true`) est enveloppé dans un Label
+ *  (type 18), le format standard des modals : label (≤ 45 car.) + description
+ *  optionnelle (≤ 100 car.) + un composant enfant (TextInput type 4 ou
+ *  FileUpload type 19). */
 export function modal(
   customId: string,
   title: string,
   fields: ModalField[],
 ): APIModalInteractionResponseCallbackData {
   const components = fields.map((f) => {
-    const component = {
-      type:        4,
-      custom_id:   f.id,
-      style:       f.long ? 2 : 1,
-      placeholder: f.placeholder ?? "",
-      value:       f.value ?? "",
-      required:    f.required ?? true,
-      min_length:  f.minLength ?? 0,
-      max_length:  f.maxLength ?? 1000,
-    };
+    const component = f.file
+      ? {
+          type:       19,
+          custom_id:  f.id,
+          min_values: (f.required ?? true) ? 1 : 0,
+          max_values: f.maxFiles ?? 1,
+          required:   f.required ?? true,
+        }
+      : {
+          type:        4,
+          custom_id:   f.id,
+          style:       f.long ? 2 : 1,
+          placeholder: f.placeholder ?? "",
+          value:       f.value ?? "",
+          required:    f.required ?? true,
+          min_length:  f.minLength ?? 0,
+          max_length:  f.maxLength ?? 1000,
+        };
     return { type: 18, label: f.label, description: f.description, component };
   });
 

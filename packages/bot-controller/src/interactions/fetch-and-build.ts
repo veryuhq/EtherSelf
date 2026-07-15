@@ -17,6 +17,7 @@ import * as sysinfo   from "../panels/sysinfo";
 import * as rpc       from "../panels/rpc";
 import * as quests    from "../panels/quests";
 import * as backups   from "../panels/backups";
+import * as voice     from "../panels/voice";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PanelData = any;
@@ -55,6 +56,7 @@ export async function fetchAndBuild(panelKey: string): Promise<V2MessagePayload 
     rpc_cs:       () => sendAction("rpc.getState"),
     rpc_spotify:  () => sendAction("rpc.getState"),
     quests:       () => sendAction("quests.list"),
+    voice:        () => sendAction("voice.getState"),
     backups:      async () => {
       const [res, res2] = await Promise.allSettled([
         sendAction("backups.guilds.get"),
@@ -91,6 +93,7 @@ export async function fetchAndBuild(panelKey: string): Promise<V2MessagePayload 
     rpc_hub:      ()  => rpc.buildHub(),
     quests:       (d) => quests.build(d),
     backups:      (d) => backups.build(d ?? {}),
+    voice:        (d) => voice.build(d),
   };
 
   if (!builders[panelKey]) return null;

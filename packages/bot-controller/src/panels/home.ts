@@ -27,6 +27,7 @@ export function build(data: HomeData = {}): V2MessagePayload {
         { label: "⬆️  Auto-Bump",                            value: "autobump",     description: "Config du bump automatique Disboard" },
         { label: "🎮  Rich Presence / Spotify / Custom Status", value: "rpc_hub",   description: "Rich Presence, Spotify RPC et Custom Status" },
         { label: "🗑️  Purge",                               value: "purge",        description: "Supprimer tes messages dans un salon" },
+        { label: "🔊  Salon Vocal & Musique",                value: "voice",        description: "Connexion vocale permanente et stream de musique" },
         { label: "🏆  Discord Quests",                       value: "quests",       description: "Complétion automatique des quêtes Discord" },
         { label: "💾  Backups & Clone",                      value: "backups",      description: "Backup amis/serveurs, cloner un serveur" },
       ]),

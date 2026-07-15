@@ -26,7 +26,7 @@ platform_identity.install()
 from app.bridge.server import run_bridge_server  # noqa: E402
 from app.commands.fun import mock, spoiler  # noqa: E402
 from app.commands.gestion import antigroup, msglog, prefix  # noqa: E402
-from app.commands.utilitaires import afk, autobump, quests, rpc, snapshot, tag  # noqa: E402
+from app.commands.utilitaires import afk, autobump, quests, rpc, snapshot, tag, voice  # noqa: E402
 from app.func import shutdown  # noqa: E402
 from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
@@ -61,6 +61,8 @@ async def on_ready():
     autobump.on_ready(client)
     # Snapshots périodiques
     snapshot.on_ready(client)
+    # Salon vocal (connexion auto + watchdog)
+    voice.on_ready(client)
 
     # À partir d'ici, log() est relayé au bot-controller via /log.
     enable_broadcast()
@@ -113,6 +115,15 @@ async def on_raw_message_edit(payload):
         await msglog.handle_raw_message_edit(payload, client)
     except Exception as err:  # noqa: BLE001
         logerr(f"[MSGLOG] edit : {err}")
+
+
+@client.event
+async def on_voice_state_update(member, before, after):
+    # Salon vocal — auto-rejoin si déconnecté/déplacé, retrait mute/sourdine.
+    try:
+        await voice.handle_voice_state_update(client, member, before, after)
+    except Exception as err:  # noqa: BLE001
+        logerr(f"[VOICE] voice_state_update : {err}")
 
 
 @client.event

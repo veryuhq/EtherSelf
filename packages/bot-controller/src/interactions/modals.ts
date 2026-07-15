@@ -18,6 +18,7 @@ import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
 import * as backups     from "../panels/backups";
 import * as configPanel from "../panels/config";
+import * as voice       from "../panels/voice";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     "panel:rpc_hub":      "rpc_hub",
     "panel:quests":       "quests",
     "panel:backups":      "backups",
+    "panel:voice":        "voice",
   };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
@@ -472,6 +474,42 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const res = await sendAction("rpc.setCsInterval", { intervalSec });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.buildCs(res?.data ?? {}));
+  }
+
+  // ── SALON VOCAL & MUSIQUE ─────────────────────────────────────────────────
+  if (id === "modal:voice_channel") {
+    const channelId = interaction.fields.getTextInputValue("channelId").trim();
+    const res = await sendAction("voice.setChannel", { channelId });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(voice.build(res?.data ?? {}));
+  }
+  if (id === "modal:voice_music") {
+    const uploaded  = interaction.fields.getUploadedFiles("file", false)?.first() ?? null;
+    const filePath  = interaction.fields.getTextInputValue("path").trim() || null;
+    const volumeRaw = interaction.fields.getTextInputValue("volume").trim();
+    const loopRaw   = interaction.fields.getTextInputValue("loop").trim().toLowerCase();
+    if (!uploaded && !filePath) {
+      return _error(interaction, "Fournis un fichier audio (upload) ou un chemin sur l'hôte.");
+    }
+    // Le téléchargement + la connexion vocale peuvent dépasser les 3 s de Discord.
+    await interaction.deferUpdate();
+    const res = await sendAction("voice.music.play", {
+      fileUrl:  uploaded?.url ?? null,
+      fileName: uploaded?.name ?? null,
+      filePath,
+      volume:   volumeRaw ? parseInt(volumeRaw, 10) : null,
+      loop:     loopRaw === "on" || loopRaw === "true" || loopRaw === "oui",
+    });
+    if (!res?.success) {
+      return interaction.followUp({ content: `❌ ${res?.error ?? "Une erreur est survenue."}`, ephemeral: true });
+    }
+    return interaction.editReply(voice.build(res?.data ?? {}));
+  }
+  if (id === "modal:voice_volume") {
+    const volume = parseInt(interaction.fields.getTextInputValue("volume").trim(), 10);
+    const res = await sendAction("voice.music.setVolume", { volume });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(voice.build(res?.data ?? {}));
   }
 
   // ── QUESTS ────────────────────────────────────────────────────────────────
