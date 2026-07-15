@@ -43,14 +43,14 @@ export function build(data: VoiceData = {}): V2MessagePayload {
       separator(),
       actionRow([
         btn(enabled ? "🔴  Se déconnecter" : "🟢  Se connecter", "voice:toggle", enabled ? ButtonStyle.Danger : ButtonStyle.Success),
-        btn("🎵  Musique", "voice:music", ButtonStyle.Primary),
         btn("⏹️  Stop", "voice:musicStop", ButtonStyle.Secondary, null, !playing),
       ]),
       separator(),
       selectMenu("menu:voice", "📋  Choisis une action…", [
-        { label: "🎙️  Définir le salon vocal", value: "voice:setChannel", description: "ID du salon vocal à rejoindre" },
-        { label: "🔊  Changer le volume",       value: "voice:setVolume",  description: "Volume 0–200 %, appliqué en direct" },
-        { label: "🔁  Basculer la boucle",      value: "voice:loopToggle", description: "Rejouer la musique en continu ou non" },
+        { label: "🎙️  Définir le salon vocal",        value: "voice:setChannel", description: "ID du salon vocal à rejoindre" },
+        { label: "🎵  Configurer & lancer la musique", value: "voice:music",      description: "Fichier (upload ou chemin), volume, boucle" },
+        { label: "🔊  Changer le volume",              value: "voice:setVolume",  description: "Volume 0–200 %, appliqué en direct" },
+        { label: "🔁  Basculer la boucle",             value: "voice:loopToggle", description: "Rejouer la musique en continu ou non" },
       ]),
       separator(),
       navRow(null, null, true),
