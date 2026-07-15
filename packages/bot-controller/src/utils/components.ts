@@ -155,19 +155,37 @@ export interface ModalField {
   file?: boolean;
   /** FileUpload uniquement : nombre max de fichiers (défaut 1). */
   maxFiles?: number;
+  /** Présent = champ StringSelect (type 3) au lieu d'un TextInput.
+   *  Les options sont figées à l'ouverture du modal (pas de dynamique). */
+  options?: SelectOption[];
+  /** StringSelect uniquement : nombre min/max de sélections (défaut 1/1). */
+  minValues?: number;
+  maxValues?: number;
 }
 
-/** Modal — chaque champ (texte ou `file: true`) est enveloppé dans un Label
- *  (type 18), le format standard des modals : label (≤ 45 car.) + description
- *  optionnelle (≤ 100 car.) + un composant enfant (TextInput type 4 ou
- *  FileUpload type 19). */
+/** Modal — chaque champ (texte, `file: true` ou `options: […]`) est enveloppé
+ *  dans un Label (type 18), le format standard des modals : label (≤ 45 car.)
+ *  + description optionnelle (≤ 100 car.) + un composant enfant (TextInput
+ *  type 4, FileUpload type 19 ou StringSelect type 3).
+ *  Soumission : `fields.getTextInputValue(id)`, `.getUploadedFiles(id)`,
+ *  `.getStringSelectValues(id)` (select sans sélection → `[]`). */
 export function modal(
   customId: string,
   title: string,
   fields: ModalField[],
 ): APIModalInteractionResponseCallbackData {
   const components = fields.map((f) => {
-    const component = f.file
+    const component = f.options
+      ? {
+          type:        3,
+          custom_id:   f.id,
+          placeholder: f.placeholder ?? "",
+          min_values:  f.minValues ?? 1,
+          max_values:  f.maxValues ?? 1,
+          required:    f.required ?? true,
+          options:     f.options,
+        }
+      : f.file
       ? {
           type:       19,
           custom_id:  f.id,
