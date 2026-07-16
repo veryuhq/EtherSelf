@@ -8,6 +8,12 @@ export interface VoiceData {
   channelName?: string | null;
   guildName?: string | null;
   playing?: boolean;
+  presence?: {
+    mode?: "udp" | "gateway" | null;
+    joinedAt?: number | null;
+    drops?: number;
+    lastDropAt?: number | null;
+  };
   music?: {
     file?: string | null;
     filePath?: string | null;
@@ -21,10 +27,21 @@ export function build(data: VoiceData = {}): V2MessagePayload {
   const { enabled = false, connected = false, channelId = null, channelName = null, guildName = null, playing = false } = data;
   const music = data.music ?? {};
   const deps = data.deps ?? {};
+  const presence = data.presence ?? {};
 
   const channelLabel = channelId
     ? `${channelName ? `🔊 ${channelName}` : `\`${channelId}\``}${guildName ? ` — ${guildName}` : ""}`
     : "*aucun*";
+
+  // Mode de présence : « gateway » = op4 pur (aucune couche audio, insensible
+  // aux pannes du serveur vocal), « udp » = connexion complète pour la musique.
+  const presenceLabel = presence.mode === "udp"
+    ? "connexion complète (musique)"
+    : presence.mode === "gateway" ? "gateway (op4)" : "*—*";
+  const sinceLabel = presence.joinedAt ? ` — en vocal depuis <t:${presence.joinedAt}:R>` : "";
+  const dropsLabel = presence.drops
+    ? `\n\`⚠️\` **Coupures détectées :** ${presence.drops}${presence.lastDropAt ? ` (dernière <t:${presence.lastDropAt}:R>)` : ""}`
+    : "";
 
   const warnings: string[] = [];
   if (deps.nacl === false)   warnings.push("`⚠️` **PyNaCl manquant** — relance `npm run setup:selfbot`.");
@@ -34,7 +51,8 @@ export function build(data: VoiceData = {}): V2MessagePayload {
     container([
       textDisplay(
         `# 🔊 Salon Vocal & Musique\n` +
-        `${connected ? "`🟢`" : enabled ? "`🟠`" : "`🔴`"} **Connexion :** ${connected ? "connecté" : enabled ? "reconnexion en cours…" : "déconnecté"}\n` +
+        `${connected ? "`🟢`" : enabled ? "`🟠`" : "`🔴`"} **Connexion :** ${connected ? "connecté" : enabled ? "reprise en cours…" : "déconnecté"}\n` +
+        `\`👁️\` **Présence :** ${presenceLabel}${sinceLabel}${dropsLabel}\n` +
         `\`🎙️\` **Salon configuré :** ${channelLabel}\n` +
         `${playing ? "`▶️`" : "`⏹️`"} **Musique :** ${playing ? "en lecture" : "à l'arrêt"} — ${music.file ? `\`${music.file}\`` : "*aucun fichier*"}\n` +
         `\`🔊\` **Volume :** ${music.volume ?? 100} % — \`🔁\` **Boucle :** ${music.loop ? "activée" : "désactivée"}` +

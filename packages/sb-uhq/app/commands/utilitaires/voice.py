@@ -1,16 +1,48 @@
 """voice — présence permanente en salon vocal + streaming de musique.
 
 Deux volets :
-- « Salon Vocal » : connexion au salon configuré, jamais en sourdine ni muet
-  (``self_deaf=False`` / ``self_mute=False``), reconnexion automatique au
-  démarrage et à chaque déconnexion (kick vocal, coupure réseau, resume
-  gateway) pour rester visible en vocal sans « leave » apparent.
+- « Salon Vocal » : présence visible dans le salon configuré, jamais en
+  sourdine ni muet (``self_deaf=False`` / ``self_mute=False``), maintenue
+  quoi qu'il arrive à la connexion (kick vocal, coupure réseau, resume ou
+  re-identify gateway, crash du serveur vocal Discord).
 - « Musique » : stream d'un fichier audio local (tout format décodé par
   ffmpeg) dans ce salon, avec volume (0–200 %) et lecture en boucle. Le
   fichier vient soit d'un upload Discord (téléchargé dans ``data/audio/``),
   soit d'un chemin sur l'hôte.
 
-Dépendances voix : PyNaCl (pip) + ffmpeg et libopus (paquets système).
+Technique de présence (résultat d'une lecture complète de discord.py-self) :
+ce qui rend un compte visible dans un salon vocal, c'est UNIQUEMENT son
+voice state côté serveur, créé par l'opcode 4 (VOICE_STATE_UPDATE) envoyé
+sur la gateway principale. La connexion au serveur vocal (websocket vocal
++ UDP) ne sert qu'à transporter l'audio — et c'est de loin la couche la
+plus fragile : dans ``discord/voice_state.py``, tout échec de handshake,
+timeout, rate-limit (4021) ou hoquet réseau du websocket vocal finit par
+``disconnect()`` → op4 ``channel=None`` → le compte QUITTE le salon à la
+vue de tous. C'est ce qui cassait les streaks vocaux.
+
+D'où la règle appliquée ici :
+- sans musique, AUCUN ``VoiceClient`` n'est créé — la présence est un op4
+  brut (``client.ws.voice_state``), sans couche média donc sans aucun
+  chemin interne de « leave » ;
+- le voice state survit côté Discord aux coupures gateway resumables (la
+  session reste vivante pendant la fenêtre de resume) — on ne touche à
+  rien dans ce cas ;
+- seule une session ré-identifiée (READY après invalidation) perd le voice
+  state : la présence est ré-assertée immédiatement à CHAQUE ``on_ready``
+  (pas seulement le premier), à chaque ``on_resumed``, à chaque
+  ``voice_state_update`` nous concernant, par un watchdog (30 s) qui
+  compare le cache au salon cible, et par une ré-assertion périodique
+  inconditionnelle (idempotente, invisible pour les autres) en filet ;
+- le ``VoiceClient`` n'existe que pendant la lecture de musique ; s'il
+  meurt, la présence op4 reprend en quelques secondes ;
+- après un re-identify, ``ConnectionState.clear()`` oublie le
+  ``VoiceClient`` sans l'arrêter : ce zombie finirait par envoyer un op4
+  ``channel=None`` sur la NOUVELLE gateway (sa boucle de reconnexion ne
+  reçoit plus jamais ses événements et abandonne) — il est neutralisé à
+  chaque ``on_ready``.
+
+Dépendances voix (musique uniquement) : PyNaCl (pip) + ffmpeg et libopus
+(paquets système).
 """
 
 from __future__ import annotations
@@ -18,6 +50,7 @@ from __future__ import annotations
 import asyncio
 import re
 import shutil
+import time
 from pathlib import Path
 
 import aiohttp
@@ -33,9 +66,17 @@ AUDIO_DIR = data_path("audio")
 # Taille max d'un fichier musique téléchargé depuis Discord (500 Mo).
 _MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024
 
+# Ré-assertion op4 inconditionnelle toutes les N itérations du watchdog
+# (30 s chacune) : filet contre un cache désynchronisé après un resume où
+# des événements auraient été perdus. Un op4 « join » vers le salon où l'on
+# est déjà ne produit aucun leave/join visible pour les autres.
+_REASSERT_TICKS = 20  # ~10 min
+
 _DEFAULT = {
-    "enabled": False,       # connexion vocale souhaitée
+    "enabled": False,       # présence vocale souhaitée
     "channelId": None,      # salon vocal configuré
+    "guildId": None,        # serveur du salon — persisté pour ré-asserter l'op4 sans dépendre du cache
+    "joinedAt": None,       # epoch (s) du début de la présence continue en cours
     "music": {
         "file": None,       # chemin absolu du fichier audio
         "volume": 100,      # 0–200 (%)
@@ -44,11 +85,18 @@ _DEFAULT = {
     },
 }
 
-_reconnect_task: asyncio.Task | None = None
+_recover_task: asyncio.Task | None = None
 _watchdog_task: asyncio.Task | None = None
 _current_source: discord.PCMVolumeTransformer | None = None
+# Dernier VoiceClient créé par nous — pour repérer les zombies après un re-identify.
+_last_vc: discord.VoiceClient | None = None
 # Invalide les callbacks `after` des lectures précédentes (stop/remplacement).
 _play_generation = 0
+
+# Diagnostic (mémoire process) : coupures de présence détectées et ré-assertions.
+_drops = 0
+_last_drop_at: int | None = None
+_asserts = 0
 
 
 def _load() -> dict:
@@ -90,7 +138,11 @@ def _bump_generation() -> int:
     return _play_generation
 
 
-# ── Connexion vocale ─────────────────────────────────────────────────────────
+def _music_wanted(cfg: dict) -> bool:
+    return bool(cfg["music"]["playing"] and cfg["music"]["file"])
+
+
+# ── Présence gateway (op4) ───────────────────────────────────────────────────
 
 async def _resolve_channel(client, channel_id):
     channel = await fetch_channel(client, channel_id)
@@ -101,13 +153,110 @@ async def _resolve_channel(client, channel_id):
     return channel
 
 
+async def _ensure_guild_id(client, cfg: dict) -> dict:
+    """Complète (et persiste) le guildId des configs antérieures à ce champ."""
+    if not cfg.get("guildId") and cfg.get("channelId"):
+        channel = await _resolve_channel(client, cfg["channelId"])
+        cfg["guildId"] = str(channel.guild.id)
+        _save(cfg)
+    return cfg
+
+
+async def _gateway_join(client, cfg: dict) -> None:
+    """Op4 « join » brut sur la gateway — la présence pure, sans couche média.
+
+    ``DiscordWebSocket.voice_state`` ajoute de lui-même les régions RTC
+    préférées au payload, comme le client officiel.
+    """
+    ws = getattr(client, "ws", None)
+    if ws is None:
+        raise ValueError("Gateway indisponible (client pas encore connecté).")
+    await ws.voice_state(int(cfg["guildId"]), int(cfg["channelId"]), self_mute=False, self_deaf=False)
+
+
+async def _gateway_leave(client, cfg: dict) -> None:
+    ws = getattr(client, "ws", None)
+    if ws is not None and cfg.get("guildId"):
+        await ws.voice_state(int(cfg["guildId"]), None)
+
+
+def _presence_ok(client, cfg: dict) -> bool:
+    """Vérité serveur (vue du cache) : sommes-nous dans le salon configuré ?"""
+    if not cfg.get("guildId") or not cfg.get("channelId"):
+        return False
+    guild = client.get_guild(int(cfg["guildId"]))
+    me = getattr(guild, "me", None)
+    voice = getattr(me, "voice", None)
+    channel = getattr(voice, "channel", None)
+    return channel is not None and str(channel.id) == str(cfg["channelId"])
+
+
+def _mark_present(cfg: dict) -> None:
+    global _asserts
+    _asserts += 1
+    if not cfg.get("joinedAt"):
+        cfg["joinedAt"] = int(time.time())
+        _save(cfg)
+
+
+def _mark_dropped() -> None:
+    global _drops, _last_drop_at
+    _drops += 1
+    _last_drop_at = int(time.time())
+    cfg = _load()
+    if cfg.get("joinedAt"):
+        cfg["joinedAt"] = None
+        _save(cfg)
+
+
+def _kill_zombie_vc(vc) -> None:
+    """Neutralise un VoiceClient oublié par ``ConnectionState.clear()``.
+
+    Après un re-identify, le state ne connaît plus ce client mais ses tâches
+    internes tournent encore : sa boucle ``_poll_voice_ws`` va tenter une
+    reconnexion, ne jamais recevoir ses événements (désenregistré), puis
+    abandonner en envoyant un op4 ``channel=None`` sur la nouvelle gateway —
+    ce qui nous éjecterait du salon APRÈS notre re-join. On annule ses tâches
+    avant qu'il n'en ait l'occasion (attributs privés de discord.py-self 2.1,
+    accès best-effort).
+    """
+    try:
+        vc.stop()
+    except Exception:  # noqa: BLE001
+        pass
+    conn = getattr(vc, "_connection", None)
+    for attr in ("_connector", "_runner"):
+        task = getattr(conn, attr, None)
+        try:
+            if task is not None:
+                task.cancel()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        reader = getattr(conn, "_socket_reader", None)
+        if reader is not None:
+            reader.stop()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        sock = getattr(conn, "socket", None)
+        if sock:
+            sock.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# ── Connexion vocale complète (musique uniquement) ───────────────────────────
+
 async def _connect(client) -> discord.VoiceClient:
+    global _last_vc
     cfg = _load()
     if not _deps()["nacl"]:
         raise ValueError("PyNaCl manquant — relance `npm run setup:selfbot` pour installer les dépendances voix.")
     channel = await _resolve_channel(client, cfg.get("channelId"))
     vc = _current_vc(client)
     if vc and vc.is_connected():
+        _last_vc = vc
         if getattr(vc.channel, "id", None) == channel.id:
             return vc
         await vc.move_to(channel)
@@ -116,17 +265,42 @@ async def _connect(client) -> discord.VoiceClient:
         # Client vocal fantôme (déconnexion non nettoyée) : on repart de zéro.
         await vc.disconnect(force=True)
     # Ni sourdine ni muet : aucune icône casque/micro barré visible.
-    return await channel.connect(self_deaf=False, self_mute=False, reconnect=True)
+    _last_vc = await channel.connect(self_deaf=False, self_mute=False, reconnect=True)
+    return _last_vc
 
 
-def _schedule_reconnect(client, delay: float = 2.0) -> None:
-    global _reconnect_task
-    if _reconnect_task and not _reconnect_task.done():
+# ── Maintien de la présence ──────────────────────────────────────────────────
+
+async def _assert_presence(client, cfg: dict) -> str:
+    """Rétablit la présence vocale, par la voie la plus robuste disponible.
+
+    Retourne le mode utilisé : « udp » (VoiceClient complet, exigé par la
+    musique) ou « gateway » (op4 pur, aucun chemin de leave interne).
+    """
+    cfg = await _ensure_guild_id(client, cfg)
+    vc = _current_vc(client)
+    if vc and vc.is_connected() and str(getattr(vc.channel, "id", "")) == str(cfg["channelId"]):
+        _mark_present(cfg)
+        return "udp"
+    if _music_wanted(cfg):
+        vc = await _connect(client)
+        if not (vc.is_playing() or vc.is_paused()):
+            await _start_playback(client, _load(), announce=False)
+        _mark_present(cfg)
+        return "udp"
+    await _gateway_join(client, cfg)
+    _mark_present(cfg)
+    return "gateway"
+
+
+def _schedule_recover(client, delay: float = 1.0) -> None:
+    global _recover_task
+    if _recover_task and not _recover_task.done():
         return
-    _reconnect_task = asyncio.get_event_loop().create_task(_reconnect_loop(client, delay))
+    _recover_task = asyncio.get_event_loop().create_task(_recover_loop(client, delay))
 
 
-async def _reconnect_loop(client, delay: float) -> None:
+async def _recover_loop(client, delay: float) -> None:
     await asyncio.sleep(delay)
     backoff = 5.0
     while True:
@@ -134,29 +308,40 @@ async def _reconnect_loop(client, delay: float) -> None:
         if not cfg["enabled"] or not cfg["channelId"]:
             return
         try:
-            vc = await _connect(client)
-            log(f"[VOICE] 🔄 Reconnecté au salon vocal « {getattr(vc.channel, 'name', cfg['channelId'])} ».")
-            if cfg["music"]["playing"] and cfg["music"]["file"]:
-                await _start_playback(client, _load())
+            mode = await _assert_presence(client, cfg)
+            label = "connexion complète (musique)" if mode == "udp" else "gateway (op4)"
+            log(f"[VOICE] 🔄 Présence vocale rétablie — {label}.")
             return
         except Exception as err:  # noqa: BLE001
-            logerr(f"[VOICE] Reconnexion échouée : {err} — nouvel essai dans {int(backoff)}s.")
+            logerr(f"[VOICE] Reprise de la présence échouée : {err} — nouvel essai dans {int(backoff)}s.")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60.0)
 
 
 async def _watchdog(client) -> None:
     # Filet de sécurité : les events voice peuvent être manqués après un resume
-    # gateway ; on revérifie la connexion régulièrement.
+    # gateway ; on revérifie la présence régulièrement, et on la ré-asserte
+    # même sans anomalie apparente toutes les _REASSERT_TICKS itérations.
+    tick = 0
     while True:
         await asyncio.sleep(30)
+        tick += 1
         try:
             cfg = _load()
             if not cfg["enabled"] or not cfg["channelId"]:
                 continue
             vc = _current_vc(client)
-            if not vc or not vc.is_connected():
-                _schedule_reconnect(client, 0)
+            vc_ok = bool(vc and vc.is_connected()
+                         and str(getattr(vc.channel, "id", "")) == str(cfg["channelId"]))
+            if _music_wanted(cfg) and not vc_ok:
+                _schedule_recover(client, 0)
+                continue
+            if vc_ok:
+                continue
+            if not _presence_ok(client, cfg):
+                _schedule_recover(client, 0)
+            elif tick % _REASSERT_TICKS == 0:
+                await _gateway_join(client, cfg)
         except Exception as err:  # noqa: BLE001
             logerr(f"[VOICE] Watchdog : {err}")
 
@@ -262,8 +447,10 @@ def _stop_playback(client) -> None:
 async def _state(client) -> dict:
     cfg = _load()
     vc = _current_vc(client)
-    connected = bool(vc and vc.is_connected())
-    channel = vc.channel if connected else None
+    vc_ok = bool(vc and vc.is_connected())
+    gateway_ok = _presence_ok(client, cfg)
+    connected = vc_ok or gateway_ok
+    channel = vc.channel if vc_ok else None
     channel_name = getattr(channel, "name", None)
     guild_name = getattr(getattr(channel, "guild", None), "name", None)
     if not channel_name and cfg["channelId"]:
@@ -278,6 +465,12 @@ async def _state(client) -> dict:
         "guildName": guild_name,
         "connected": connected,
         "playing": bool(vc and vc.is_playing()),
+        "presence": {
+            "mode": "udp" if vc_ok else ("gateway" if gateway_ok else None),
+            "joinedAt": cfg.get("joinedAt"),
+            "drops": _drops,
+            "lastDropAt": _last_drop_at,
+        },
         "music": {
             "file": Path(music_file).name if music_file else None,
             "filePath": music_file,
@@ -300,32 +493,41 @@ async def execute(client, payload):
         channel_id = str(payload.get("channelId") or "").strip()
         if not channel_id.isdigit():
             raise ValueError("ID de salon vocal invalide.")
-        await _resolve_channel(client, channel_id)
+        channel = await _resolve_channel(client, channel_id)
         cfg = _load()
         cfg["channelId"] = channel_id
+        cfg["guildId"] = str(channel.guild.id)
         _save(cfg)
         if cfg["enabled"]:
-            await _connect(client)  # déplacement immédiat si déjà connecté ailleurs
+            await _assert_presence(client, cfg)  # bascule immédiate vers le nouveau salon
         return await _state(client)
 
     if action == "toggle":
         cfg = _load()
         if cfg["enabled"]:
             cfg["enabled"] = False
+            cfg["joinedAt"] = None
             cfg["music"]["playing"] = False
             _save(cfg)
             _stop_playback(client)
             vc = _current_vc(client)
             if vc:
-                await vc.disconnect(force=True)
+                await vc.disconnect(force=True)  # envoie déjà l'op4 channel=None
+            else:
+                try:
+                    cfg = await _ensure_guild_id(client, cfg)  # configs antérieures au champ guildId
+                except Exception:  # noqa: BLE001
+                    pass
+                await _gateway_leave(client, cfg)
             log("[VOICE] 🔴 Déconnecté du salon vocal.")
         else:
             if not cfg["channelId"]:
                 raise ValueError("Configure d'abord un salon vocal.")
             cfg["enabled"] = True
             _save(cfg)
-            vc = await _connect(client)
-            log(f"[VOICE] 🟢 Connecté au salon vocal « {getattr(vc.channel, 'name', '')} ».")
+            mode = await _assert_presence(client, _load())
+            label = "connexion complète (musique)" if mode == "udp" else "gateway (op4)"
+            log(f"[VOICE] 🟢 Présent dans le salon vocal — {label}.")
         return await _state(client)
 
     if action == "music.play":
@@ -380,12 +582,25 @@ async def execute(client, payload):
 # ── Hooks appelés par main.py ────────────────────────────────────────────────
 
 def on_ready(client) -> None:
-    global _watchdog_task
+    """À appeler à CHAQUE ready — une session ré-identifiée perd son voice state."""
+    global _watchdog_task, _last_vc
+    # Neutralise un éventuel VoiceClient zombie de la session précédente
+    # (oublié par ConnectionState.clear() lors du re-identify).
+    if _last_vc is not None and _last_vc not in list(getattr(client, "voice_clients", None) or []):
+        _kill_zombie_vc(_last_vc)
+        _last_vc = None
     if _watchdog_task is None or _watchdog_task.done():
         _watchdog_task = asyncio.get_event_loop().create_task(_watchdog(client))
     cfg = _load()
     if cfg["enabled"] and cfg["channelId"]:
-        _schedule_reconnect(client, 0)
+        _schedule_recover(client, 0)
+
+
+def on_resumed(client) -> None:
+    """Après un resume, le voice state survit côté serveur — simple vérification."""
+    cfg = _load()
+    if cfg["enabled"] and cfg["channelId"] and not _presence_ok(client, cfg):
+        _schedule_recover(client, 1.0)
 
 
 async def handle_voice_state_update(client, member, before, after) -> None:
@@ -396,7 +611,9 @@ async def handle_voice_state_update(client, member, before, after) -> None:
         return
     # Déconnecté ou déplacé hors du salon configuré → retour immédiat.
     if after.channel is None or str(after.channel.id) != str(cfg["channelId"]):
-        _schedule_reconnect(client)
+        _mark_dropped()
+        log("[VOICE] ⚠️ Sorti du salon vocal (kick, déplacement ou coupure) — reprise immédiate.")
+        _schedule_recover(client)
         return
     # Sourdine/muet activés (autre client, mauvaise manip) → on les retire.
     if after.self_mute or after.self_deaf:

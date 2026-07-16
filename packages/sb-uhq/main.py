@@ -45,27 +45,39 @@ _bridge_runner = None
 @client.event
 async def on_ready():
     global _ready_once, _bridge_runner
-    if _ready_once:
-        return
-    _ready_once = True
+    if not _ready_once:
+        _ready_once = True
 
-    log(f"[SB-UHQ] ✅  Connecté en tant que {client.user}")
+        log(f"[SB-UHQ] ✅  Connecté en tant que {client.user}")
 
-    _bridge_runner = await run_bridge_server(client)
+        _bridge_runner = await run_bridge_server(client)
 
-    # RPC + Custom Status
-    rpc.on_ready(client)
-    # Quests
-    quests.on_ready(client)
-    # Autobump
-    autobump.on_ready(client)
-    # Snapshots périodiques
-    snapshot.on_ready(client)
-    # Salon vocal (connexion auto + watchdog)
+        # RPC + Custom Status
+        rpc.on_ready(client)
+        # Quests
+        quests.on_ready(client)
+        # Autobump
+        autobump.on_ready(client)
+        # Snapshots périodiques
+        snapshot.on_ready(client)
+
+        # À partir d'ici, log() est relayé au bot-controller via /log.
+        enable_broadcast()
+    else:
+        # READY re-reçu = session ré-identifiée (resume impossible) : Discord a
+        # perdu notre voice state, il faut le ré-asserter immédiatement.
+        log("[SB-UHQ] 🔁 Nouvelle session gateway (re-identify) — ré-assertion de la présence vocale.")
+
+    # Salon vocal : à CHAQUE ready (présence auto + watchdog + purge des
+    # VoiceClients zombies de l'ancienne session).
     voice.on_ready(client)
 
-    # À partir d'ici, log() est relayé au bot-controller via /log.
-    enable_broadcast()
+
+@client.event
+async def on_resumed():
+    # Session resumée : le voice state survit côté Discord, mais des events ont
+    # pu être manqués pendant la coupure — simple vérification/reprise.
+    voice.on_resumed(client)
 
 
 @client.event

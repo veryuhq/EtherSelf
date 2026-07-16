@@ -66,7 +66,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
-| 🔊 **Salon Vocal & Musique** | Connexion permanente à un salon vocal (jamais mute/sourdine, reconnexion auto au démarrage et après toute déconnexion) + stream d'un fichier audio (upload ou chemin local, tout format ffmpeg) avec volume et lecture en boucle |
+| 🔊 **Salon Vocal & Musique** | Présence permanente dans un salon vocal (jamais mute/sourdine), maintenue par le voice state gateway (op4) indépendamment de la couche audio : insensible aux pannes du serveur vocal, ré-assertion automatique après resume/re-identify gateway, kick ou déplacement, watchdog + compteur de coupures dans le panel. Stream d'un fichier audio (upload ou chemin local, tout format ffmpeg) avec volume et lecture en boucle |
 
 ### ⚙️ Automatisation
 
