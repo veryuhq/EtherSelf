@@ -35,6 +35,13 @@ D'où la règle appliquée ici :
   inconditionnelle (idempotente, invisible pour les autres) en filet ;
 - le ``VoiceClient`` n'existe que pendant la lecture de musique ; s'il
   meurt, la présence op4 reprend en quelques secondes ;
+- pendant la musique, le ``VoiceClient`` se reconnecte SEUL (``reconnect=
+  True``) : ses hoquets réseau se résument le plus souvent en silence (op4
+  intact). On ne le double PAS avec nos propres reconnexions — le
+  ``channel=None`` transitoire qu'il émet lors de SA reconnexion générique
+  n'est pas traité comme un kick, et le watchdog attend qu'il ait
+  réellement disparu avant d'intervenir. Sinon nos reconnexions entrent en
+  collision avec les siennes → boucle de leave/join (le bug corrigé) ;
 - après un re-identify, ``ConnectionState.clear()`` oublie le
   ``VoiceClient`` sans l'arrêter : ce zombie finirait par envoyer un op4
   ``channel=None`` sur la NOUVELLE gateway (sa boucle de reconnexion ne
@@ -323,19 +330,35 @@ async def _watchdog(client) -> None:
     # gateway ; on revérifie la présence régulièrement, et on la ré-asserte
     # même sans anomalie apparente toutes les _REASSERT_TICKS itérations.
     tick = 0
+    music_bad_ticks = 0
     while True:
         await asyncio.sleep(30)
         tick += 1
         try:
             cfg = _load()
             if not cfg["enabled"] or not cfg["channelId"]:
+                music_bad_ticks = 0
                 continue
             vc = _current_vc(client)
             vc_ok = bool(vc and vc.is_connected()
                          and str(getattr(vc.channel, "id", "")) == str(cfg["channelId"]))
-            if _music_wanted(cfg) and not vc_ok:
-                _schedule_recover(client, 0)
+            if _music_wanted(cfg):
+                # La musique impose le VoiceClient (ws vocal + UDP), couche fragile
+                # qui se reconnecte SEULE (reconnect=True). On ne la bouscule pas :
+                # tant qu'un VoiceClient est enregistré, on le laisse cicatriser —
+                # sinon nos reconnexions se battent avec les siennes (boucle de
+                # leave/join visible). On n'intervient que s'il a disparu
+                # (discord.py-self a abandonné → vc None) ou s'il reste malade
+                # plusieurs cycles d'affilée (~60 s), auquel cas on repart de zéro.
+                if vc_ok:
+                    music_bad_ticks = 0
+                    continue
+                music_bad_ticks += 1
+                if vc is None or music_bad_ticks >= 2:
+                    music_bad_ticks = 0
+                    _schedule_recover(client, 0)
                 continue
+            music_bad_ticks = 0
             if vc_ok:
                 continue
             if not _presence_ok(client, cfg):
@@ -609,8 +632,17 @@ async def handle_voice_state_update(client, member, before, after) -> None:
     cfg = _load()
     if not cfg["enabled"] or not cfg["channelId"]:
         return
-    # Déconnecté ou déplacé hors du salon configuré → retour immédiat.
+    # Déconnecté ou déplacé hors du salon configuré.
     if after.channel is None or str(after.channel.id) != str(cfg["channelId"]):
+        # En mode musique, un VoiceClient est enregistré et se reconnecte tout
+        # seul : discord.py-self émet un channel=None TRANSITOIRE pendant SA
+        # propre reconnexion. Réagir ici (force-disconnect + nouvelle connexion)
+        # lui couperait l'herbe sous le pied → boucle de leave/join. On laisse
+        # la couche vocale cicatriser ; le watchdog est le filet si elle meurt
+        # vraiment. En mode gateway pur (sans musique) il n'y a aucun VoiceClient
+        # → on rétablit immédiatement, comme avant.
+        if _current_vc(client) is not None:
+            return
         _mark_dropped()
         log("[VOICE] ⚠️ Sorti du salon vocal (kick, déplacement ou coupure) — reprise immédiate.")
         _schedule_recover(client)
