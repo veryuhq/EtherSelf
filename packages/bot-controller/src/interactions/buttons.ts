@@ -567,7 +567,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     return interaction.update(purge.buildProgress({ scope: "dms", queue: [], activeLabel: "Arrêt en cours…", doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
   }
 
-  // ── SALON VOCAL & MUSIQUE ─────────────────────────────────────────────────
+  // ── SALON VOCAL ───────────────────────────────────────────────────────────
   if (id === "voice:toggle") {
     const res = await sendAction("voice.toggle");
     if (!res?.success) return _error(interaction, res?.error);
@@ -578,42 +578,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     return interaction.showModal(modal("modal:voice_channel", "Définir le salon vocal", [
       { id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678", value: res?.data?.channelId ?? "", maxLength: 20 },
     ]));
-  }
-  if (id === "voice:music") {
-    const res = await sendAction("voice.getState");
-    const music = res?.data?.music ?? {};
-    return interaction.showModal(modal("modal:voice_music", "Configurer & lancer la musique", [
-      { id: "file",   label: "Fichier audio (upload)", description: "Tout format audio — prioritaire sur le chemin ci-dessous", file: true, required: false },
-      { id: "path",   label: "…ou chemin du fichier sur l'hôte", placeholder: "packages/sb-uhq/data/audio/Musique.mp3", value: music.filePath ?? "", required: false, maxLength: 500 },
-      { id: "volume", label: "Volume (0–200 %)", placeholder: "100", value: String(music.volume ?? 100), required: false, maxLength: 3 },
-      { id: "loop",   label: "Lecture en boucle ? (on/off)", placeholder: "off", value: music.loop ? "on" : "off", required: false, maxLength: 3 },
-    ]));
-  }
-  if (id === "voice:musicPlay") {
-    // Sans payload, voice.music.play relance le dernier fichier configuré.
-    // La connexion vocale + le lancement ffmpeg peuvent dépasser les 3 s de Discord.
-    await interaction.deferUpdate();
-    const res = await sendAction("voice.music.play");
-    if (!res?.success) {
-      return interaction.followUp({ content: `❌ ${res?.error ?? "Une erreur est survenue."}`, ephemeral: true });
-    }
-    return interaction.editReply(voice.build(res?.data ?? {}));
-  }
-  if (id === "voice:musicStop") {
-    const res = await sendAction("voice.music.stop");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(voice.build(res?.data ?? {}));
-  }
-  if (id === "voice:setVolume") {
-    const res = await sendAction("voice.getState");
-    return interaction.showModal(modal("modal:voice_volume", "Changer le volume", [
-      { id: "volume", label: "Volume (0–200 %)", placeholder: "100", value: String(res?.data?.music?.volume ?? 100), maxLength: 3 },
-    ]));
-  }
-  if (id === "voice:loopToggle") {
-    const res = await sendAction("voice.music.toggleLoop");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(voice.build(res?.data ?? {}));
   }
 
   // ── SYSINFO ───────────────────────────────────────────────────────────────

@@ -66,7 +66,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
-| 🔊 **Salon Vocal & Musique** | Présence permanente dans un salon vocal (jamais mute/sourdine), maintenue par le voice state gateway (op4) indépendamment de la couche audio : insensible aux pannes du serveur vocal, ré-assertion automatique après resume/re-identify gateway, kick ou déplacement, watchdog + compteur de coupures dans le panel. Stream d'un fichier audio (upload ou chemin local, tout format ffmpeg) avec volume et lecture en boucle |
+| 🔊 **Salon Vocal** | Présence permanente dans un salon vocal (jamais mute/sourdine), maintenue par le voice state gateway (op4) sans aucune couche audio : insensible aux pannes du serveur vocal et aux hôtes qui filtrent l'UDP, ré-assertion automatique après resume/re-identify gateway, kick ou déplacement, watchdog + compteur de coupures dans le panel |
 
 ### ⚙️ Automatisation
 
@@ -120,7 +120,6 @@ Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande.
   - 🔑 Un token de **compte utilisateur** (selfbot) pour `EtherSelf-SB`
   - 🤖 Un token de **bot classique** pour `EtherSelf-Bot`
 - Le bot doit pouvoir t'envoyer des DMs **ET** être dans un serveur commun avec toi
-- **Pour le module Salon Vocal & Musique** : `ffmpeg` et `libopus` installés sur l'hôte (ex. `apt install ffmpeg libopus0`) — PyNaCl est installé automatiquement via `requirements.txt`
 
 ---
 
