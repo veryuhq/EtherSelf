@@ -195,7 +195,7 @@ export async function handle(interaction: StringSelectMenuInteraction): Promise<
       const spotify = res?.data?.spotify ?? {};
       const displayValue = [spotify.details ?? "", spotify.state ?? ""].filter(Boolean).join(" | ");
       return interaction.showModal(modal("modal:rpc_spotify", "Configurer Spotify RPC (base)", [
-        { id: "enabled",   label: "Activer ? (on/off)", placeholder: "off", value: spotify.enabled ? "on" : "off", maxLength: 3 },
+        { id: "enabled",   label: "Activer Spotify RPC", checkbox: true, checked: !!spotify.enabled },
         { id: "songId",    label: "Track ID / URI / URL Spotify", placeholder: "https://open.spotify.com/track/...", value: spotify.songId ?? "", required: false, maxLength: 128 },
         { id: "albumId",   label: "Album ID / URI / URL (optionnel)", placeholder: "spotify:album:...", value: spotify.albumId ?? "", required: false, maxLength: 128 },
         { id: "artistIds", label: "Artist IDs Spotify (virgules)", placeholder: "artist1, artist2", value: (spotify.artistIds ?? []).join(", "), required: false, maxLength: 400 },

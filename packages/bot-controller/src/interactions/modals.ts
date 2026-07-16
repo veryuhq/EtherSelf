@@ -401,8 +401,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
 
   // ── RPC — Spotify ─────────────────────────────────────────────────────────
   if (id === "modal:rpc_spotify") {
-    const enabledRaw = interaction.fields.getTextInputValue("enabled").trim().toLowerCase();
-    const enabled    = enabledRaw === "on" || enabledRaw === "true" || enabledRaw === "oui";
+    const enabled    = interaction.fields.getCheckbox("enabled");
     const songId     = interaction.fields.getTextInputValue("songId").trim() || null;
     const albumId    = interaction.fields.getTextInputValue("albumId").trim() || null;
     const artistIds  = interaction.fields.getTextInputValue("artistIds").trim() || null;
