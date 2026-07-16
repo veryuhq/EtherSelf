@@ -589,6 +589,16 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       { id: "loop",   label: "Lecture en boucle ? (on/off)", placeholder: "off", value: music.loop ? "on" : "off", required: false, maxLength: 3 },
     ]));
   }
+  if (id === "voice:musicPlay") {
+    // Sans payload, voice.music.play relance le dernier fichier configuré.
+    // La connexion vocale + le lancement ffmpeg peuvent dépasser les 3 s de Discord.
+    await interaction.deferUpdate();
+    const res = await sendAction("voice.music.play");
+    if (!res?.success) {
+      return interaction.followUp({ content: `❌ ${res?.error ?? "Une erreur est survenue."}`, ephemeral: true });
+    }
+    return interaction.editReply(voice.build(res?.data ?? {}));
+  }
   if (id === "voice:musicStop") {
     const res = await sendAction("voice.music.stop");
     if (!res?.success) return _error(interaction, res?.error);

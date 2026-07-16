@@ -61,6 +61,8 @@ export function build(data: VoiceData = {}): V2MessagePayload {
       separator(),
       actionRow([
         btn(enabled ? "🔴  Se déconnecter" : "🟢  Se connecter", "voice:toggle", enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+        // Relance le dernier fichier configuré sans repasser par le modal.
+        btn("▶️  Lecture", "voice:musicPlay", ButtonStyle.Primary, null, playing || !music.file),
         btn("⏹️  Stop", "voice:musicStop", ButtonStyle.Secondary, null, !playing),
       ]),
       separator(),
