@@ -41,7 +41,14 @@ D'où la règle appliquée ici :
   ``channel=None`` transitoire qu'il émet lors de SA reconnexion générique
   n'est pas traité comme un kick, et le watchdog attend qu'il ait
   réellement disparu avant d'intervenir. Sinon nos reconnexions entrent en
-  collision avec les siennes → boucle de leave/join (le bug corrigé) ;
+  collision avec les siennes → boucle de leave/join ;
+- si le ``VoiceClient`` meurt POUR DE BON (close 4014 : Discord ne reçoit
+  pas notre audio UDP — typique d'un hôte dont l'UDP sortant est bloqué,
+  drops réguliers ~30 s), le streak passe avant la musique : on ré-assère
+  la présence op4 immédiatement (visible, sans UDP) et on RETENTE la
+  connexion complète en back-off (15 s → 5 min) au lieu de relancer un
+  ``VoiceClient`` qui retomberait aussitôt. Sur un tel hôte la musique
+  n'est donc que best-effort, mais la présence — et le streak — tiennent ;
 - après un re-identify, ``ConnectionState.clear()`` oublie le
   ``VoiceClient`` sans l'arrêter : ce zombie finirait par envoyer un op4
   ``channel=None`` sur la NOUVELLE gateway (sa boucle de reconnexion ne
@@ -104,6 +111,36 @@ _play_generation = 0
 _drops = 0
 _last_drop_at: int | None = None
 _asserts = 0
+
+# Musique : back-off des tentatives de connexion COMPLÈTE (ws vocal + UDP)
+# quand l'hôte ne tient pas la couche UDP (drops réguliers ~30 s = paquets
+# Opus qui ne passent pas, Discord ferme en 4014). Entre deux tentatives, la
+# présence est maintenue en op4 pur (visible, sans audio) : le streak vocal
+# passe avant la continuité de la musique.
+_music_fail_count = 0
+_music_retry_at = 0.0
+_music_live = False  # on croit une connexion musique complète établie (garde le back-off à un cran par drop)
+_MUSIC_BACKOFF_MAX = 300.0  # 15 → 30 → 60 → 120 → 240 → 300 s (plafond)
+
+
+def _music_ok() -> None:
+    """La couche musique tient : on remet le back-off à zéro."""
+    global _music_fail_count, _music_retry_at
+    _music_fail_count = 0
+    _music_retry_at = 0.0
+
+
+def _music_defer() -> float:
+    """La couche musique est tombée : espace la prochaine tentative complète."""
+    global _music_fail_count, _music_retry_at
+    _music_fail_count += 1
+    delay = min(15.0 * (2 ** (_music_fail_count - 1)), _MUSIC_BACKOFF_MAX)
+    _music_retry_at = time.time() + delay
+    return delay
+
+
+def _music_retry_ready() -> bool:
+    return time.time() >= _music_retry_at
 
 
 def _load() -> dict:
@@ -278,6 +315,36 @@ async def _connect(client) -> discord.VoiceClient:
 
 # ── Maintien de la présence ──────────────────────────────────────────────────
 
+async def _note_presence_lost(client, cfg: dict, vc) -> None:
+    """La présence a chuté : ré-assère l'op4 tout de suite (priorité au streak).
+
+    Point d'entrée unique appelé par ``handle_voice_state_update`` ET le
+    watchdog — ainsi le back-off musique n'avance que d'un cran par drop réel,
+    quel que soit celui qui le détecte en premier (course callback ``after`` /
+    echo gateway / watchdog).
+
+    ``vc`` : le VoiceClient courant vu par l'appelant. ``None`` = teardown
+    complet (close 4014, la couche UDP a lâché) → back-off musique. Non-``None``
+    = reconnexion interne encore en cours → on pose juste l'op4 pour rester
+    visible pendant le trou, sans toucher au back-off (elle se soigne seule).
+    """
+    global _music_live
+    _mark_dropped()
+    cfg = await _ensure_guild_id(client, cfg)
+    await _gateway_join(client, cfg)  # redevenir visible immédiatement (sans UDP)
+    _mark_present(cfg)
+    if vc is None and _music_wanted(cfg) and _music_live:
+        _music_live = False
+        delay = _music_defer()
+        hint = (" — l'hôte n'arrive pas à tenir la couche audio UDP (souvent : UDP "
+                "sortant bloqué/filtré). La présence tient, la musique reste best-effort."
+                if _music_fail_count >= 3 else "")
+        log(f"[VOICE] ⚠️ Couche musique tombée (UDP) — présence op4 maintenue, "
+            f"nouvelle tentative musique dans {int(delay)}s.{hint}")
+    elif not _music_wanted(cfg):
+        log("[VOICE] ⚠️ Sorti du salon — présence op4 ré-assertée immédiatement.")
+
+
 async def _assert_presence(client, cfg: dict) -> str:
     """Rétablit la présence vocale, par la voie la plus robuste disponible.
 
@@ -289,12 +356,21 @@ async def _assert_presence(client, cfg: dict) -> str:
     if vc and vc.is_connected() and str(getattr(vc.channel, "id", "")) == str(cfg["channelId"]):
         _mark_present(cfg)
         return "udp"
-    if _music_wanted(cfg):
-        vc = await _connect(client)
-        if not (vc.is_playing() or vc.is_paused()):
-            await _start_playback(client, _load(), announce=False)
-        _mark_present(cfg)
-        return "udp"
+    # La musique exige la couche UDP. Si l'hôte la tient, on (re)monte la
+    # connexion complète ; si elle vient d'échouer (back-off en cours), on ne
+    # s'acharne pas et on se rabat sur la présence op4 pour rester visible.
+    if _music_wanted(cfg) and _music_retry_ready():
+        try:
+            vc = await _connect(client)
+            if not (vc.is_playing() or vc.is_paused()):
+                await _start_playback(client, _load(), announce=False)
+            _mark_present(cfg)
+            return "udp"
+        except Exception as err:  # noqa: BLE001
+            delay = _music_defer()
+            logerr(f"[VOICE] Connexion musique impossible ({err}) — présence op4 en attendant, "
+                   f"nouvel essai musique dans {int(delay)}s.")
+    # Présence op4 pure (musique désactivée, en back-off, ou connexion échouée).
     await _gateway_join(client, cfg)
     _mark_present(cfg)
     return "gateway"
@@ -330,35 +406,57 @@ async def _watchdog(client) -> None:
     # gateway ; on revérifie la présence régulièrement, et on la ré-asserte
     # même sans anomalie apparente toutes les _REASSERT_TICKS itérations.
     tick = 0
-    music_bad_ticks = 0
+    music_good_ticks = 0
     while True:
         await asyncio.sleep(30)
         tick += 1
         try:
             cfg = _load()
             if not cfg["enabled"] or not cfg["channelId"]:
-                music_bad_ticks = 0
+                music_good_ticks = 0
                 continue
             vc = _current_vc(client)
             vc_ok = bool(vc and vc.is_connected()
                          and str(getattr(vc.channel, "id", "")) == str(cfg["channelId"]))
             if _music_wanted(cfg):
-                # La musique impose le VoiceClient (ws vocal + UDP), couche fragile
-                # qui se reconnecte SEULE (reconnect=True). On ne la bouscule pas :
-                # tant qu'un VoiceClient est enregistré, on le laisse cicatriser —
-                # sinon nos reconnexions se battent avec les siennes (boucle de
-                # leave/join visible). On n'intervient que s'il a disparu
-                # (discord.py-self a abandonné → vc None) ou s'il reste malade
-                # plusieurs cycles d'affilée (~60 s), auquel cas on repart de zéro.
                 if vc_ok:
-                    music_bad_ticks = 0
+                    # La couche musique tient. Ne remet le back-off à zéro qu'après
+                    # une stabilité réelle (~2 min) : sur un hôte qui lâche l'UDP
+                    # toutes les 30 s, le back-off continue ainsi de grandir au lieu
+                    # de repartir de zéro à chaque reconnexion éphémère.
+                    music_good_ticks += 1
+                    if music_good_ticks >= 4:
+                        _music_ok()
+                    # Connexion revenue mais lecture arrêtée (après un reconnect
+                    # interne le player ne repart pas seul) → relancer la lecture.
+                    if not (vc.is_playing() or vc.is_paused()):
+                        try:
+                            await _start_playback(client, _load(), announce=False)
+                        except Exception as err:  # noqa: BLE001
+                            logerr(f"[VOICE] Relance de la lecture impossible : {err}")
                     continue
-                music_bad_ticks += 1
-                if vc is None or music_bad_ticks >= 2:
-                    music_bad_ticks = 0
+                music_good_ticks = 0
+                if vc is not None:
+                    # Reconnexion interne de discord.py-self encore en cours → on la
+                    # laisse cicatriser (ne pas la doubler).
+                    continue
+                # Plus de VoiceClient.
+                if _music_live:
+                    # Une connexion musique est tombée sans avoir été comptabilisée
+                    # (course : echo channel=None reçu avant le nettoyage du client,
+                    # le handler a alors sauté le back-off). On la solde ici → op4 +
+                    # cran de back-off, pour ne pas reconnecter en boucle.
+                    await _note_presence_lost(client, cfg, None)
+                elif not _presence_ok(client, cfg):
+                    # Plus visible du tout et musique déjà en back-off → ré-asserter l'op4.
+                    await _note_presence_lost(client, cfg, None)
+                elif _music_retry_ready():
+                    # Visible en op4 et le back-off est écoulé → retenter la connexion
+                    # complète (musique).
                     _schedule_recover(client, 0)
+                # sinon : visible en op4, musique en back-off → on ne touche à rien.
                 continue
-            music_bad_ticks = 0
+            music_good_ticks = 0
             if vc_ok:
                 continue
             if not _presence_ok(client, cfg):
@@ -414,7 +512,7 @@ def _make_source(path: Path, volume: int) -> discord.PCMVolumeTransformer:
 
 
 async def _start_playback(client, cfg: dict, *, announce: bool = True) -> None:
-    global _current_source
+    global _current_source, _music_live
     if not _deps()["ffmpeg"]:
         raise ValueError("ffmpeg introuvable sur l'hôte — installe-le pour streamer de la musique.")
     path = Path(cfg["music"]["file"] or "")
@@ -435,6 +533,7 @@ async def _start_playback(client, cfg: dict, *, announce: bool = True) -> None:
         asyncio.run_coroutine_threadsafe(_on_track_end(client, generation), loop_ref)
 
     vc.play(source, after=_after)
+    _music_live = True  # couche musique établie : le prochain drop déclenchera un cran de back-off
     # Pas de log à chaque tour de boucle : seul le lancement initial (et la
     # reprise après reconnexion) est annoncé, sinon le controller est spammé.
     if announce:
@@ -448,6 +547,15 @@ async def _on_track_end(client, generation: int) -> None:
     cfg = _load()
     if not cfg["music"]["playing"]:
         return
+    # Le player s'arrête AUSSI quand la connexion vocale tombe (Discord ferme le
+    # VoiceClient → thread audio terminé → ce callback). Dans ce cas la piste
+    # n'est pas « finie » : ne PAS relancer la lecture ici, sinon on recrée un
+    # VoiceClient en contournant le back-off (boucle de reconnexion). La reprise
+    # (op4 immédiat + musique en back-off) est gérée par handle_voice_state_update
+    # et le watchdog. On ne rejoue en boucle que si la connexion est bien vivante.
+    vc = _current_vc(client)
+    if vc is None or not vc.is_connected():
+        return
     if cfg["music"]["loop"] and cfg["music"]["file"]:
         try:
             await _start_playback(client, cfg, announce=False)
@@ -459,6 +567,8 @@ async def _on_track_end(client, generation: int) -> None:
 
 
 def _stop_playback(client) -> None:
+    global _music_live
+    _music_live = False
     _bump_generation()
     vc = _current_vc(client)
     if vc and (vc.is_playing() or vc.is_paused()):
@@ -481,13 +591,17 @@ async def _state(client) -> dict:
         channel_name = getattr(resolved, "name", None)
         guild_name = getattr(getattr(resolved, "guild", None), "name", None)
     music_file = cfg["music"]["file"]
+    playing = bool(vc and vc.is_playing())
+    # Musique voulue mais audio pas en cours = en attente de reconnexion (back-off).
+    music_pending = bool(_music_wanted(cfg) and not playing)
+    retry_in = max(0, int(_music_retry_at - time.time())) if music_pending else 0
     return {
         "enabled": cfg["enabled"],
         "channelId": cfg["channelId"],
         "channelName": channel_name,
         "guildName": guild_name,
         "connected": connected,
-        "playing": bool(vc and vc.is_playing()),
+        "playing": playing,
         "presence": {
             "mode": "udp" if vc_ok else ("gateway" if gateway_ok else None),
             "joinedAt": cfg.get("joinedAt"),
@@ -499,6 +613,8 @@ async def _state(client) -> dict:
             "filePath": music_file,
             "volume": cfg["music"]["volume"],
             "loop": cfg["music"]["loop"],
+            "pending": music_pending,
+            "retryIn": retry_in,
         },
         "deps": _deps(),
     }
@@ -548,6 +664,7 @@ async def execute(client, payload):
                 raise ValueError("Configure d'abord un salon vocal.")
             cfg["enabled"] = True
             _save(cfg)
+            _music_ok()  # (re)connexion manuelle : tentative musique immédiate
             mode = await _assert_presence(client, _load())
             label = "connexion complète (musique)" if mode == "udp" else "gateway (op4)"
             log(f"[VOICE] 🟢 Présent dans le salon vocal — {label}.")
@@ -575,6 +692,7 @@ async def execute(client, payload):
         cfg["music"]["playing"] = True
         cfg["enabled"] = True  # jouer implique être connecté
         _save(cfg)
+        _music_ok()  # action manuelle : on réessaie tout de suite, back-off remis à zéro
         await _start_playback(client, cfg)
         return await _state(client)
 
@@ -634,18 +752,21 @@ async def handle_voice_state_update(client, member, before, after) -> None:
         return
     # Déconnecté ou déplacé hors du salon configuré.
     if after.channel is None or str(after.channel.id) != str(cfg["channelId"]):
-        # En mode musique, un VoiceClient est enregistré et se reconnecte tout
-        # seul : discord.py-self émet un channel=None TRANSITOIRE pendant SA
-        # propre reconnexion. Réagir ici (force-disconnect + nouvelle connexion)
-        # lui couperait l'herbe sous le pied → boucle de leave/join. On laisse
-        # la couche vocale cicatriser ; le watchdog est le filet si elle meurt
-        # vraiment. En mode gateway pur (sans musique) il n'y a aucun VoiceClient
-        # → on rétablit immédiatement, comme avant.
-        if _current_vc(client) is not None:
+        vc = _current_vc(client)
+        # VoiceClient sain et connecté = event spurieux/obsolète → rien à faire.
+        if vc is not None and vc.is_connected():
             return
-        _mark_dropped()
-        log("[VOICE] ⚠️ Sorti du salon vocal (kick, déplacement ou coupure) — reprise immédiate.")
-        _schedule_recover(client)
+        # Présence perdue. PRIORITÉ AU STREAK : ré-assertion op4 INSTANTANÉE (sous
+        # la seconde, sans UDP). Si le VoiceClient a totalement disparu (vc None =
+        # close 4014, UDP qui ne passe pas), la musique passe en back-off au lieu
+        # de relancer aussitôt un client qui retomberait dans ~30 s ; s'il est
+        # encore là (reconnexion interne en cours), on pose juste l'op4 pour
+        # rester visible pendant le trou et on la laisse se soigner.
+        try:
+            await _note_presence_lost(client, cfg, vc)
+        except Exception as err:  # noqa: BLE001
+            logerr(f"[VOICE] Ré-assertion op4 impossible ({err}) — reprise via watchdog.")
+            _schedule_recover(client)
         return
     # Sourdine/muet activés (autre client, mauvaise manip) → on les retire.
     if after.self_mute or after.self_deaf:

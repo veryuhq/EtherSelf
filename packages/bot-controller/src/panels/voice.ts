@@ -19,6 +19,8 @@ export interface VoiceData {
     filePath?: string | null;
     volume?: number;
     loop?: boolean;
+    pending?: boolean;
+    retryIn?: number;
   };
   deps?: { nacl?: boolean; ffmpeg?: boolean };
 }
@@ -54,7 +56,12 @@ export function build(data: VoiceData = {}): V2MessagePayload {
         `${connected ? "`🟢`" : enabled ? "`🟠`" : "`🔴`"} **Connexion :** ${connected ? "connecté" : enabled ? "reprise en cours…" : "déconnecté"}\n` +
         `\`👁️\` **Présence :** ${presenceLabel}${sinceLabel}${dropsLabel}\n` +
         `\`🎙️\` **Salon configuré :** ${channelLabel}\n` +
-        `${playing ? "`▶️`" : "`⏹️`"} **Musique :** ${playing ? "en lecture" : "à l'arrêt"} — ${music.file ? `\`${music.file}\`` : "*aucun fichier*"}\n` +
+        // « en attente » = musique voulue mais audio coupé : la couche UDP ne
+        // tient pas (souvent UDP sortant bloqué sur l'hôte), on réessaie en
+        // back-off pendant que la présence op4 garde le compte visible.
+        `${playing ? "`▶️`" : music.pending ? "`⏳`" : "`⏹️`"} **Musique :** ${
+          playing ? "en lecture" : music.pending ? `en attente de reconnexion${music.retryIn ? ` (dans ${music.retryIn}s)` : ""}` : "à l'arrêt"
+        } — ${music.file ? `\`${music.file}\`` : "*aucun fichier*"}\n` +
         `\`🔊\` **Volume :** ${music.volume ?? 100} % — \`🔁\` **Boucle :** ${music.loop ? "activée" : "désactivée"}` +
         (warnings.length ? `\n\n${warnings.join("\n")}` : "")
       ),
@@ -62,8 +69,8 @@ export function build(data: VoiceData = {}): V2MessagePayload {
       actionRow([
         btn(enabled ? "🔴  Se déconnecter" : "🟢  Se connecter", "voice:toggle", enabled ? ButtonStyle.Danger : ButtonStyle.Success),
         // Relance le dernier fichier configuré sans repasser par le modal.
-        btn("▶️  Lecture", "voice:musicPlay", ButtonStyle.Primary, null, playing || !music.file),
-        btn("⏹️  Stop", "voice:musicStop", ButtonStyle.Secondary, null, !playing),
+        btn("▶️  Lecture", "voice:musicPlay", ButtonStyle.Primary, null, playing || music.pending || !music.file),
+        btn("⏹️  Stop", "voice:musicStop", ButtonStyle.Secondary, null, !playing && !music.pending),
       ]),
       separator(),
       selectMenu("menu:voice", "📋  Choisis une action…", [
