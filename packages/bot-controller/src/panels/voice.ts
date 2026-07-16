@@ -17,31 +17,30 @@ export interface VoiceData {
 
 export function build(data: VoiceData = {}): V2MessagePayload {
   const { enabled = false, connected = false, channelId = null, channelName = null, guildName = null } = data;
-  const presence = data.presence ?? {};
 
-  const channelLabel = channelId
+  // Salon configuré : « 🔊 <nom> — <serveur> » (ou l'ID brut si le nom est inconnu).
+  const salonLabel = channelId
     ? `${channelName ? `🔊 ${channelName}` : `\`${channelId}\``}${guildName ? ` — ${guildName}` : ""}`
-    : "*aucun*";
+    : null;
 
-  // Présence maintenue par le voice state gateway (op4) : aucune couche audio,
-  // donc insensible aux pannes du serveur vocal et aux hôtes qui filtrent l'UDP.
-  const sinceLabel = presence.joinedAt ? ` — en vocal depuis <t:${presence.joinedAt}:R>` : "";
-  const dropsLabel = presence.drops
-    ? `\n\`⚠️\` **Coupures détectées :** ${presence.drops}${presence.lastDropAt ? ` (dernière <t:${presence.lastDropAt}:R>)` : ""}`
-    : "";
+  // Ligne Connexion : quand on est en vocal, on affiche « Connecté dans <salon> — <serveur> ».
+  const connexionLine = connected
+    ? `\`🟢\` **Connexion :** Connecté dans ${salonLabel ?? "*?*"}`
+    : enabled
+      ? `\`🟠\` **Connexion :** Reprise en cours…${salonLabel ? ` — ${salonLabel}` : ""}`
+      : `\`🔴\` **Connexion :** Déconnecté${salonLabel ? ` — salon : ${salonLabel}` : " — *aucun salon configuré*"}`;
 
   return replyV2(
     container([
       textDisplay(
         `# 🔊 Salon Vocal\n` +
-        `${connected ? "`🟢`" : enabled ? "`🟠`" : "`🔴`"} **Présence :** ${connected ? "en vocal" : enabled ? "reprise en cours…" : "hors vocal"}${connected ? sinceLabel : ""}\n` +
-        `\`🎙️\` **Salon configuré :** ${channelLabel}` +
-        dropsLabel
+        connexionLine
       ),
       separator(),
       actionRow([
-        btn(enabled ? "🔴  Se déconnecter" : "🟢  Se connecter", "voice:toggle", enabled ? ButtonStyle.Danger : ButtonStyle.Success),
-        btn("🎙️  Définir le salon", "voice:setChannel", ButtonStyle.Secondary),
+        btn("🟢  Se connecter",         "voice:connect",    ButtonStyle.Success,   null, enabled),
+        btn("🔴  Quitter",              "voice:quit",       ButtonStyle.Danger,    null, !enabled),
+        btn("🎙️  Changer de salon vocal", "voice:setChannel", ButtonStyle.Secondary),
       ]),
       separator(),
       navRow(null, null, true),

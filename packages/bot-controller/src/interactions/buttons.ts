@@ -568,7 +568,10 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   }
 
   // ── SALON VOCAL ───────────────────────────────────────────────────────────
-  if (id === "voice:toggle") {
+  // « Se connecter » et « Quitter » sont deux boutons distincts (custom_id
+  // unique par message obligatoire) mais pilotent la même bascule côté selfbot :
+  // chacun n'est cliquable que dans l'état où il a du sens (l'autre est grisé).
+  if (id === "voice:connect" || id === "voice:quit") {
     const res = await sendAction("voice.toggle");
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(voice.build(res?.data ?? {}));
