@@ -7,6 +7,14 @@ import type { SelectOption } from "../utils/components";
 //  rpc.py) et clés attendues par action_router.py.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Type de messages snipés à consulter (supprimés ou édités). */
+export function snipeTypeOptions(def: string): SelectOption[] {
+  return [
+    { label: "🗑️ Supprimés", value: "deleted", description: "Messages supprimés",  default: def === "deleted" },
+    { label: "✏️ Édités",    value: "edited",  description: "Messages édités",     default: def === "edited" },
+  ];
+}
+
 /** Mode de recherche snipe (par salon, serveur ou utilisateur). */
 export function snipeModeOptions(def: string): SelectOption[] {
   return [
@@ -52,6 +60,25 @@ export function platformOptions(current?: string | null): SelectOption[] {
   return [
     { label: "Aucune", value: "none", default: !current },
     ...platforms.map((p) => ({ label: p, value: p, default: current === p })),
+  ];
+}
+
+/** Direction de déplacement d'une activité RPC dans la liste. */
+export function moveDirectionOptions(def = "up"): SelectOption[] {
+  return [
+    { label: "⬆️ Monter",    value: "up",   description: "Monter l'activité dans la liste",    default: def === "up" },
+    { label: "⬇️ Descendre", value: "down", description: "Descendre l'activité dans la liste", default: def === "down" },
+  ];
+}
+
+/** Éléments à cloner (CheckboxGroup du modal d'options de clone),
+ *  pré-cochés depuis la config en mémoire. */
+export function cloneOptionsCheckboxes(cfg: { cloneRoles?: boolean; cloneChannels?: boolean; cloneEmojis?: boolean; cloneSettings?: boolean }): SelectOption[] {
+  return [
+    { label: "🎭 Rôles",       value: "roles",    description: "Cloner les rôles du serveur",            default: cfg.cloneRoles    ?? true },
+    { label: "💬 Salons",      value: "channels", description: "Cloner les catégories et salons",        default: cfg.cloneChannels ?? true },
+    { label: "😀 Emojis",      value: "emojis",   description: "Cloner les emojis personnalisés",        default: cfg.cloneEmojis   ?? true },
+    { label: "⚙️ Paramètres",  value: "settings", description: "Cloner nom, icône et paramètres divers", default: cfg.cloneSettings ?? true },
   ];
 }
 

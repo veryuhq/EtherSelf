@@ -4,7 +4,7 @@ import type { MessageComponentInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
 import { modal } from "../utils/components";
-import { snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions } from "./modal-options";
+import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions, cloneOptionsCheckboxes } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
 import { registerProgressJob, registerCloneJob } from "../store/jobs";
@@ -159,14 +159,9 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678" },
     ]));
   }
-  if (id === "snipe:viewDeleted") {
-    return interaction.showModal(modal("modal:snipe_view:deleted", "Rechercher des messages", [
-      { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions("channel") },
-      { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "snipe:viewEdited") {
-    return interaction.showModal(modal("modal:snipe_view:edited", "Rechercher des messages", [
+  if (id === "snipe:view") {
+    return interaction.showModal(modal("modal:snipe_view", "Rechercher des messages", [
+      { id: "type",  label: "Type de messages",  radio: snipeTypeOptions("deleted") },
       { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions("channel") },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
@@ -186,24 +181,27 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id.startsWith("snipe:inputChannel:") || id.startsWith("snipe:inputGuild:") || id.startsWith("snipe:inputUser:")) {
     const [, kind, type] = id.split(":");
     const mode = kind === "inputGuild" ? "guild" : kind === "inputUser" ? "user" : "channel";
-    return interaction.showModal(modal(`modal:snipe_view:${type}`, "Voir les messages snipés", [
-      { id: "mode", label: "Mode de recherche", radio: snipeModeOptions(mode) },
+    return interaction.showModal(modal("modal:snipe_view", "Voir les messages snipés", [
+      { id: "type",  label: "Type de messages",  radio: snipeTypeOptions(type) },
+      { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions(mode) },
       { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
     ]));
   }
   if (id === "snipe:snapshot") {
     return interaction.showModal(modal("modal:snipe_snapshot", "Snapshot d'un salon", [
-      { id: "channelId",       label: "ID du salon à archiver",                        placeholder: "123456789012345678" },
-      { id: "limit",           label: "Limite (0 = tous les messages)",                 placeholder: "0", value: "0", required: false, maxLength: 6 },
-      { id: "sendToChannelId", label: "ID salon de réception (vide = DM selfbot)",      placeholder: "Laisser vide pour recevoir en DM", required: false },
+      { id: "channelId",       label: "ID du salon à archiver",                    placeholder: "123456789012345678" },
+      { id: "limit",           label: "Limite (0 = tous les messages)",            placeholder: "0", value: "0", required: false, maxLength: 6 },
+      { id: "dm",              label: "Recevoir le fichier en DM",                 description: "Décoche pour l'envoyer dans le salon indiqué ci-dessous", checkbox: true, checked: true },
+      { id: "sendToChannelId", label: "ID salon de réception (si DM décoché)",     placeholder: "123456789012345678", required: false },
     ]));
   }
   if (id === "snipe:snapshotPeriodicAdd") {
     return interaction.showModal(modal("modal:snipe_snapshot_periodic_add", "Snapshot périodique", [
-      { id: "channelId",       label: "ID du salon à archiver",                   placeholder: "123456789012345678" },
-      { id: "interval",        label: "Intervalle (1w, 7d, 24h, 60m)",            placeholder: "1w", value: "1w", maxLength: 20 },
+      { id: "channelId",       label: "ID du salon à archiver",                    placeholder: "123456789012345678" },
+      { id: "interval",        label: "Intervalle (1w, 7d, 24h, 60m)",             placeholder: "1w", value: "1w", maxLength: 20 },
       { id: "limit",           label: "Limite (0 = tous les messages)",            placeholder: "0", value: "0", required: false, maxLength: 6 },
-      { id: "sendToChannelId", label: "ID salon réception (vide = DM selfbot)",    placeholder: "Laisser vide pour recevoir en DM", required: false },
+      { id: "dm",              label: "Recevoir les fichiers en DM",               description: "Décoche pour les envoyer dans le salon indiqué ci-dessous", checkbox: true, checked: true },
+      { id: "sendToChannelId", label: "ID salon de réception (si DM décoché)",     placeholder: "123456789012345678", required: false },
     ]));
   }
   if (id === "snipe:snapshotPeriodicRemove") {
@@ -413,8 +411,12 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       { id: "intervalSec", label: "Intervalle en secondes (min. 5)", placeholder: "30", value: String(res?.data?.intervalSec ?? 30), maxLength: 6 },
     ]));
   }
-  if (id === "rpc:moveUp") { return interaction.showModal(modal("modal:rpc_moveUp", "Monter une activité", [{ id: "index", label: "Numéro de l'activité à monter", placeholder: "2" }])); }
-  if (id === "rpc:moveDown") { return interaction.showModal(modal("modal:rpc_moveDown", "Descendre une activité", [{ id: "index", label: "Numéro de l'activité à descendre", placeholder: "1" }])); }
+  if (id === "rpc:move") {
+    return interaction.showModal(modal("modal:rpc_move", "Déplacer une activité", [
+      { id: "index",     label: "Numéro de l'activité à déplacer", placeholder: "1", maxLength: 3 },
+      { id: "direction", label: "Direction", radio: moveDirectionOptions() },
+    ]));
+  }
   if (id === "rpc:clear") { const res = await sendAction("rpc.clearActivities"); return interaction.update(rpc.build(res?.data ?? {})); }
   if (id === "rpc:applyNow") { const res = await sendAction("rpc.applyNow"); if (!res?.success) return _error(interaction, res?.error); return interaction.update(rpc.build(res?.data ?? {})); }
   if (id === "rpc:setAppId") {
@@ -498,7 +500,8 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id === "purge:confirm:channel") {
     return interaction.showModal(modal("modal:purge_ask_channel", "Purger un salon", [
       { id: "channelId", label: "ID du salon", placeholder: "123456789012345678" },
-      { id: "amount",    label: "Nombre de messages (vide = tous)", placeholder: "Laisser vide pour tout supprimer", required: false },
+      { id: "all",       label: "Tout supprimer", description: "Décoche pour limiter au nombre de messages ci-dessous", checkbox: true, checked: true },
+      { id: "amount",    label: "Nombre de messages (si limité)", placeholder: "50", required: false, maxLength: 6 },
     ]));
   }
   if (id === "purge:confirm:guild") {
@@ -676,10 +679,12 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       { id: "guildId", label: "ID du serveur CIBLE (qui sera modifié)", placeholder: "123456789012345678" },
     ]));
   }
-  if (id === "clone:toggleRoles") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneRoles = !cfg.cloneRoles; return interaction.update(backups.buildClone(cfg)); }
-  if (id === "clone:toggleChannels") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneChannels = !cfg.cloneChannels; return interaction.update(backups.buildClone(cfg)); }
-  if (id === "clone:toggleEmojis") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneEmojis = !cfg.cloneEmojis; return interaction.update(backups.buildClone(cfg)); }
-  if (id === "clone:toggleSettings") { const cfg = getCloneConfig(interaction.user.id); cfg.cloneSettings = !cfg.cloneSettings; return interaction.update(backups.buildClone(cfg)); }
+  if (id === "clone:options") {
+    const cfg = getCloneConfig(interaction.user.id);
+    return interaction.showModal(modal("modal:clone_options", "Options de clonage", [
+      { id: "options", label: "Éléments à cloner", description: "Décoche ce que tu ne veux pas copier", checkboxes: cloneOptionsCheckboxes(cfg), minValues: 0, required: false },
+    ]));
+  }
 
   if (id === "clone:run") {
     const cfg = getCloneConfig(interaction.user.id);

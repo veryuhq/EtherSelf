@@ -76,8 +76,7 @@ export function build(data: SnipeData = {}): V2MessagePayload {
       selectMenu("menu:snipe", "📋  Choisis une action…", [
         { label: "➕  Ajouter serveur",    value: "snipe:add",                    description: "Whitelister un serveur" },
         { label: "➖  Retirer serveur",    value: "snipe:remove",                 description: "Retirer un serveur de la whitelist" },
-        { label: "👀  Voir supprimés",     value: "snipe:viewDeleted",            description: "Consulter les messages supprimés" },
-        { label: "✏️  Voir édités",        value: "snipe:viewEdited",             description: "Consulter les messages édités" },
+        { label: "👀  Voir les messages",  value: "snipe:view",                   description: "Consulter les messages supprimés ou édités" },
         { label: "📸  Snapshot salon",     value: "snipe:snapshot",               description: "Archiver un salon maintenant" },
         { label: "🔁  Ajouter périodique", value: "snipe:snapshotPeriodicAdd",    description: "Programmer un snapshot périodique" },
         { label: "🗑️  Retirer périodique", value: "snipe:snapshotPeriodicRemove", description: "Retirer un snapshot périodique" },

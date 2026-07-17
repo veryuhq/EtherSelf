@@ -2,7 +2,7 @@ import type { MessageComponentInteraction, StringSelectMenuInteraction } from "d
 
 import { sendAction } from "../bridge/client";
 import { modal } from "../utils/components";
-import { statusOptions, activityTypeOptions, buttonActionOptions, platformOptions } from "./modal-options";
+import { statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, moveDirectionOptions } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
 import { handle as handleButton } from "./buttons";
 
@@ -124,14 +124,10 @@ export async function handle(interaction: StringSelectMenuInteraction): Promise<
         { id: "buttonIndex", label: "Numéro bouton à supprimer (remove only)", placeholder: "1 ou 2", required: false, maxLength: 1 },
       ]));
     }
-    if (id === "moveUp") {
-      return interaction.showModal(modal("modal:rpc_moveUp", "Monter une activité", [
-        { id: "index", label: "Numéro de l'activité à monter", placeholder: "2" },
-      ]));
-    }
-    if (id === "moveDown") {
-      return interaction.showModal(modal("modal:rpc_moveDown", "Descendre une activité", [
-        { id: "index", label: "Numéro de l'activité à descendre", placeholder: "1" },
+    if (id === "move") {
+      return interaction.showModal(modal("modal:rpc_move", "Déplacer une activité", [
+        { id: "index",     label: "Numéro de l'activité à déplacer", placeholder: "1", maxLength: 3 },
+        { id: "direction", label: "Direction", radio: moveDirectionOptions() },
       ]));
     }
     if (id === "setStatus") {

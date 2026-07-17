@@ -264,10 +264,7 @@ export function buildClone(data: Partial<CloneConfig> = {}): V2MessagePayload {
       ),
       separator(),
       actionRow([
-        btn(cloneRoles    ? "🎭  Rôles ✅"   : "🎭  Rôles ❌",   "clone:toggleRoles",    cloneRoles    ? ButtonStyle.Success : ButtonStyle.Secondary),
-        btn(cloneChannels ? "💬  Salons ✅"  : "💬  Salons ❌",  "clone:toggleChannels", cloneChannels ? ButtonStyle.Success : ButtonStyle.Secondary),
-        btn(cloneEmojis   ? "😀  Emojis ✅"  : "😀  Emojis ❌",  "clone:toggleEmojis",   cloneEmojis   ? ButtonStyle.Success : ButtonStyle.Secondary),
-        btn(cloneSettings ? "⚙️  Params ✅"  : "⚙️  Params ❌", "clone:toggleSettings", cloneSettings ? ButtonStyle.Success : ButtonStyle.Secondary),
+        btn("⚙️  Options de clonage", "clone:options", ButtonStyle.Secondary),
       ]),
       separator(1, false),
       selectMenu("menu:clone", "📋  Choisis une action…", cloneActions),

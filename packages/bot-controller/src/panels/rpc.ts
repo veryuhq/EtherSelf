@@ -144,8 +144,7 @@ export function build(data: RpcData = {}): V2MessagePayload {
       { label: "⏱️  Temps", value: "editTimestamps", description: "Configurer start/end timestamp" },
       { label: "💻  Plateforme", value: "setPlatform", description: "Définir la plateforme d'une activité" },
       { label: "🔘  Boutons", value: "editButtons", description: "Gérer les boutons de l'activité" },
-      { label: "⬆️  Monter", value: "moveUp", description: "Monter une activité dans la liste" },
-      { label: "⬇️  Descendre", value: "moveDown", description: "Descendre une activité dans la liste" },
+      { label: "↕️  Déplacer", value: "move", description: "Monter ou descendre une activité dans la liste" },
       { label: "🗑️  Vider", value: "clear", description: "Supprimer toutes les activités" },
     );
   }

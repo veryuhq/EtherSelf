@@ -134,8 +134,8 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const panel = await fetchAndBuild("snipe");
     return interaction.update(panel!);
   }
-  if (id === "modal:snipe_view:deleted" || id === "modal:snipe_view:edited") {
-    const type  = id.endsWith("deleted") ? "deleted" : "edited";
+  if (id === "modal:snipe_view") {
+    const type  = interaction.fields.getRadioGroup("type", true);
     const mode  = interaction.fields.getRadioGroup("mode", true);
     const query = interaction.fields.getTextInputValue("query").trim();
 
@@ -154,7 +154,8 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   if (id === "modal:snipe_snapshot") {
     const channelId       = interaction.fields.getTextInputValue("channelId").trim();
     const limitRaw        = interaction.fields.getTextInputValue("limit").trim();
-    const sendToChannelId = interaction.fields.getTextInputValue("sendToChannelId").trim() || null;
+    const dm              = interaction.fields.getCheckbox("dm");
+    const sendToChannelId = dm ? null : (interaction.fields.getTextInputValue("sendToChannelId").trim() || null);
     const limit           = parseInt(limitRaw, 10) || 0;
     const jobId           = makeJobId("snapshot");
 
@@ -169,7 +170,8 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const channelId       = interaction.fields.getTextInputValue("channelId").trim();
     const interval        = interaction.fields.getTextInputValue("interval").trim();
     const limitRaw        = interaction.fields.getTextInputValue("limit").trim();
-    const sendToChannelId = interaction.fields.getTextInputValue("sendToChannelId").trim() || null;
+    const dm              = interaction.fields.getCheckbox("dm");
+    const sendToChannelId = dm ? null : (interaction.fields.getTextInputValue("sendToChannelId").trim() || null);
     const limit           = parseInt(limitRaw, 10) || 0;
 
     const res = await sendAction("snapshot.periodic.add", { channelId, interval, limit, sendToChannelId });
@@ -277,8 +279,12 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   // ── PURGE ─────────────────────────────────────────────────────────────────
   if (id === "modal:purge_ask_channel") {
     const channelId  = interaction.fields.getTextInputValue("channelId").trim();
+    const all        = interaction.fields.getCheckbox("all");
     const amountRaw  = interaction.fields.getTextInputValue("amount").trim();
-    const amount     = amountRaw ? parseInt(amountRaw, 10) : null;
+    const amount     = all ? null : parseInt(amountRaw, 10);
+    if (!all && (!Number.isFinite(amount) || (amount as number) <= 0)) {
+      return _error(interaction, "Indique un nombre de messages valide, ou coche « Tout supprimer ».");
+    }
     return interaction.update(purge.buildConfirm({ scope: "channel", channelId, amount }));
   }
   if (id === "modal:purge_ask_guild") {
@@ -380,15 +386,10 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.build(res?.data ?? {}));
   }
-  if (id === "modal:rpc_moveUp") {
-    const index = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const res = await sendAction("rpc.moveActivity", { index, direction: "up" });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(rpc.build(res?.data ?? {}));
-  }
-  if (id === "modal:rpc_moveDown") {
-    const index = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const res = await sendAction("rpc.moveActivity", { index, direction: "down" });
+  if (id === "modal:rpc_move") {
+    const index     = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
+    const direction = interaction.fields.getRadioGroup("direction", true);
+    const res = await sendAction("rpc.moveActivity", { index, direction });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.build(res?.data ?? {}));
   }
@@ -507,6 +508,15 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const cfg = getCloneConfig(interaction.user.id);
     cfg.targetGuildId   = guildId;
     cfg.targetGuildName = await resolveGuildName(guildId);
+    return interaction.update(backups.buildClone(cfg));
+  }
+  if (id === "modal:clone_options") {
+    const values = interaction.fields.getCheckboxGroup("options");
+    const cfg = getCloneConfig(interaction.user.id);
+    cfg.cloneRoles    = values.includes("roles");
+    cfg.cloneChannels = values.includes("channels");
+    cfg.cloneEmojis   = values.includes("emojis");
+    cfg.cloneSettings = values.includes("settings");
     return interaction.update(backups.buildClone(cfg));
   }
 }
