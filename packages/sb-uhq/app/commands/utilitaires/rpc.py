@@ -194,7 +194,9 @@ def _build_spotify(spotify, client):
     ts = spotify.get("timestamps") or {}
 
     title = spotify.get("details") or "Titre inconnu"
-    artists = _split_artists(spotify.get("state")) or ["Artiste inconnu"]
+    # Liste vide acceptée : discord.Spotify omet alors `state` du payload et le
+    # client Discord n'affiche aucune ligne d'artiste (pas de fallback forcé).
+    artists = _split_artists(spotify.get("state"))
     artist_ids = [a for a in (spotify.get("artistIds") or []) if a] or None
 
     # timestamps stockés en millisecondes (start/end). On en déduit start_time + durée.
