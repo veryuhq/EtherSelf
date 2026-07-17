@@ -380,7 +380,10 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
 
   // ── RPC — Spotify ─────────────────────────────────────────────────────────
   if (id === "modal:rpc_spotify") {
-    const enabled    = interaction.fields.getCheckbox("enabled");
+    // L'activation passe uniquement par le toggle du menu (rpc:spotifyToggle,
+    // avec son garde-fou Track ID) : on préserve l'état courant.
+    const current    = await sendAction("rpc.getState");
+    const enabled    = current?.data?.spotify?.enabled ?? false;
     const songId     = interaction.fields.getTextInputValue("songId").trim() || null;
     const albumId    = interaction.fields.getTextInputValue("albumId").trim() || null;
     const artistIds  = interaction.fields.getTextInputValue("artistIds").trim() || null;
