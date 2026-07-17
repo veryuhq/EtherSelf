@@ -81,7 +81,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | Module | Description |
 |---|---|
 | 🎮 **Rich Presence** | Activités Discord personnalisées (playing, streaming, listening…) rotation + boutons cliquables |
-| 🎵 **Spotify RPC** | Activité Spotify personnalisable (track, album, artistes, assets, timestamps, extras) |
+| 🎵 **Spotify RPC** | Activité Spotify personnalisable (track, album, titre et artistes en texte libre, assets, timestamps, extras) |
 | 💬 **Custom Status** | Rotation automatique de statuts personnalisés avec emojis |
 
 ### 🗑️ Gestion

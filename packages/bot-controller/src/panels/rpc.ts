@@ -259,9 +259,9 @@ export function buildSpotify(data: RpcData = {}): V2MessagePayload {
 
   const trackLine  = spotifySongId  ? `\`${short(spotifySongId,  28)}\`` : "*manquant*";
   const albumLine  = spotifyAlbumId ? `\`${short(spotifyAlbumId, 28)}\`` : "*non défini*";
-  const artistLine = spotifyArtistIds.length
+  const artistIdsLine = spotifyArtistIds.length
     ? spotifyArtistIds.map((id) => `\`${short(id, 20)}\``).join(", ")
-    : "*non défini*";
+    : "*—*";
 
   const detailsLine = spotify.details ? short(spotify.details, 52) : "*non défini*";
   const stateLine   = spotify.state   ? short(spotify.state,   52) : "*non défini*";
@@ -282,23 +282,23 @@ export function buildSpotify(data: RpcData = {}): V2MessagePayload {
 
   const spotifyList =
     `\`🎵\` **Track :** ${trackLine}\n` +
-    `\`💿\` **Album :** ${albumLine}\n` +
-    `\`🎤\` **Artiste(s) :** ${artistLine}\n\n` +
-    `\`📝\` **Titre (details) :** ${detailsLine}\n` +
-    `\`🎶\` **Sous-titre (state) :** ${stateLine}\n\n` +
+    `\`💿\` **Album :** ${albumLine}\n\n` +
+    `\`📝\` **Titre :** ${detailsLine}\n` +
+    `\`🎤\` **Artiste(s) :** ${stateLine}\n\n` +
     `\`🖼️\` **Large image :** ${lImg}${spotifyAssets.largeText ? ` — *${lTxt}*` : ""}\n` +
     `\`🖼️\` **Small image :** ${sImg}${spotifyAssets.smallText ? ` — *${sTxt}*` : ""}\n\n` +
     `\`⏱️\` **Timestamps :** ${timingLine}\n\n` +
     `\`🔑\` **App ID :** ${appIdLine}\n` +
     `\`💻\` **Plateforme :** ${platformLine}\n` +
-    `\`🔗\` **URL :** ${urlLine}`;
+    `\`🔗\` **URL :** ${urlLine}\n` +
+    `\`🪪\` **IDs artistes (liens) :** ${artistIdsLine}`;
 
   const actionOptions: SelectOption[] = [
     { label: spotifyEnabled ? "🔴  Désactiver" : "🟢  Activer", value: "rpc:spotifyToggle",     description: spotifyEnabled ? "Désactiver Spotify RPC" : "Activer Spotify RPC" },
-    { label: "⚙️  Base (track / album / artistes)",             value: "rpc:spotify",           description: "IDs Spotify, titre et sous-titre" },
+    { label: "⚙️  Base (track / titre / artistes)",             value: "rpc:spotify",           description: "Track, album, titre et artistes en texte libre" },
     { label: "🖼️  Assets (images)",                             value: "rpc:spotifyAssets",     description: "Images large et small" },
     { label: "⏱️  Timestamps",                                  value: "rpc:spotifyTimestamps", description: "Début et durée de lecture" },
-    { label: "🧩  Extras (app ID / plateforme)",                value: "rpc:spotifyExtras",     description: "Réglages avancés" },
+    { label: "🧩  Extras (app ID / plateforme / IDs)",          value: "rpc:spotifyExtras",     description: "Réglages avancés et IDs artistes (liens)" },
   ];
 
   return replyV2(

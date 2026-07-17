@@ -389,16 +389,17 @@ async def execute(client, payload):
         return await _persist_and_apply()
 
     if action == "setSpotifyConfig":
+        # Le nom des artistes est du texte libre (state, découpé par _split_artists) ;
+        # les IDs Spotify d'artistes (liens cliquables) se règlent via setSpotifyExtras.
         enabled = bool(payload.get("enabled"))
         song_id = _extract_spotify_id(payload.get("songId"), "track")
         album_id = _extract_spotify_id(payload.get("albumId"), "album")
-        artist_ids = _extract_spotify_ids(payload.get("artistIds"), "artist")
         details = (payload.get("details") or "").strip() or None
         state = (payload.get("state") or "").strip() or None
         if enabled and not song_id:
             raise ValueError("Le Song ID Spotify est requis pour activer Spotify RPC.")
         config["spotify"] = {**_normalize_spotify(config["spotify"]), "enabled": enabled,
-                             "songId": song_id, "albumId": album_id, "artistIds": artist_ids,
+                             "songId": song_id, "albumId": album_id,
                              "details": details[:128] if details else None,
                              "state": state[:128] if state else None}
         return await _persist_and_apply()
@@ -425,12 +426,14 @@ async def execute(client, payload):
         application_id = (payload.get("applicationId") or "").strip() or None
         platform = (payload.get("platform") or "").strip().lower() or None
         url = (payload.get("url") or "").strip() or None
+        artist_ids = _extract_spotify_ids(payload.get("artistIds"), "artist")
         if application_id and not re.match(r"^\d{17,20}$", application_id):
             raise ValueError("Application ID Spotify invalide. Doit être un snowflake Discord.")
         if url and not re.match(r"^https?://", url):
             raise ValueError("L'URL Spotify RPC doit commencer par http:// ou https://")
         config["spotify"] = {**_normalize_spotify(config["spotify"]),
-                             "applicationId": application_id, "platform": platform, "url": url}
+                             "applicationId": application_id, "platform": platform, "url": url,
+                             "artistIds": artist_ids}
         return await _persist_and_apply()
 
     if action == "setStatus":

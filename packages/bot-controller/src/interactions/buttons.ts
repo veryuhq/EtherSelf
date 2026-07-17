@@ -411,7 +411,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       enabled:    !spotify.enabled,
       songId:     spotify.songId     ?? null,
       albumId:    spotify.albumId    ?? null,
-      artistIds:  spotify.artistIds  ?? [],
       details:    spotify.details    ?? null,
       state:      spotify.state      ?? null,
     });
@@ -421,12 +420,11 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id === "rpc:spotify") {
     const res = await sendAction("rpc.getState");
     const spotify = res?.data?.spotify ?? {};
-    const displayValue = [spotify.details ?? "", spotify.state ?? ""].filter(Boolean).join(" | ");
     return interaction.showModal(modal("modal:rpc_spotify", "Configurer Spotify RPC", [
-      { id: "songId",    label: "Track ID / URI / URL Spotify", placeholder: "https://open.spotify.com/track/...", value: spotify.songId ?? "", required: false, maxLength: 128 },
-      { id: "albumId",   label: "Album ID / URI / URL (optionnel)", placeholder: "spotify:album:...", value: spotify.albumId ?? "", required: false, maxLength: 128 },
-      { id: "artistIds", label: "Artist IDs Spotify (virgules)", placeholder: "artist1, artist2", value: (spotify.artistIds ?? []).join(", "), required: false, maxLength: 400 },
-      { id: "display",   label: "Affichage (titre | artiste, optionnel)", placeholder: "Nom du morceau | Nom de l'artiste", value: displayValue, required: false, maxLength: 128 },
+      { id: "songId",  label: "Track ID / URI / URL Spotify", placeholder: "https://open.spotify.com/track/...", value: spotify.songId ?? "", required: false, maxLength: 128 },
+      { id: "albumId", label: "Album ID / URI / URL (optionnel)", placeholder: "spotify:album:...", value: spotify.albumId ?? "", required: false, maxLength: 128 },
+      { id: "title",   label: "Titre affiché (optionnel)", placeholder: "Nom du morceau", value: spotify.details ?? "", required: false, maxLength: 128 },
+      { id: "artists", label: "Artiste(s) — texte libre (virgules)", placeholder: "Artiste 1, Artiste 2", value: spotify.state ?? "", required: false, maxLength: 128 },
     ]));
   }
   if (id === "rpc:spotifyAssets") {
@@ -457,6 +455,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
       { id: "applicationId", label: "Application ID (optionnel)", placeholder: "123456789012345678", value: spotify.applicationId ?? "", required: false, maxLength: 20 },
       { id: "platform",      label: "Plateforme", radio: platformOptions(spotify.platform) },
       { id: "url",           label: "URL (optionnel)",            placeholder: "https://open.spotify.com/track/...", value: spotify.url ?? "", required: false, maxLength: 256 },
+      { id: "artistIds",     label: "IDs artistes — liens cliquables (opt.)", description: "ID / URI / URL Spotify, séparés par des virgules", placeholder: "spotify:artist:... ou URL", value: (spotify.artistIds ?? []).join(", "), required: false, maxLength: 400 },
     ]));
   }
 

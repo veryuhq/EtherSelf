@@ -384,18 +384,11 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     // avec son garde-fou Track ID) : on préserve l'état courant.
     const current    = await sendAction("rpc.getState");
     const enabled    = current?.data?.spotify?.enabled ?? false;
-    const songId     = interaction.fields.getTextInputValue("songId").trim() || null;
-    const albumId    = interaction.fields.getTextInputValue("albumId").trim() || null;
-    const artistIds  = interaction.fields.getTextInputValue("artistIds").trim() || null;
-    const display    = interaction.fields.getTextInputValue("display").trim() || null;
-    let details: string | null = null;
-    let state: string | null = null;
-    if (display) {
-      const parts = display.split("|").map((s) => s.trim());
-      details = parts[0] || null;
-      state   = parts[1] || null;
-    }
-    const res = await sendAction("rpc.setSpotifyConfig", { enabled, songId, albumId, artistIds, details, state });
+    const songId  = interaction.fields.getTextInputValue("songId").trim() || null;
+    const albumId = interaction.fields.getTextInputValue("albumId").trim() || null;
+    const details = interaction.fields.getTextInputValue("title").trim() || null;
+    const state   = interaction.fields.getTextInputValue("artists").trim() || null;
+    const res = await sendAction("rpc.setSpotifyConfig", { enabled, songId, albumId, details, state });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.buildSpotify(res?.data ?? {}));
   }
@@ -425,7 +418,8 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const platformRaw   = interaction.fields.getRadioGroup("platform", true);
     const platform      = platformRaw === "none" ? null : platformRaw;
     const url           = interaction.fields.getTextInputValue("url").trim() || null;
-    const res = await sendAction("rpc.setSpotifyExtras", { applicationId, platform, url });
+    const artistIds     = interaction.fields.getTextInputValue("artistIds").trim() || null;
+    const res = await sendAction("rpc.setSpotifyExtras", { applicationId, platform, url, artistIds });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.buildSpotify(res?.data ?? {}));
   }
