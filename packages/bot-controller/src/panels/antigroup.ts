@@ -78,10 +78,7 @@ export function buildLeaveAllResult(data: LeaveAllResultData = {}): V2MessagePay
         `${statusLine}`
       ),
       separator(),
-      actionRow([
-        btn("◀️  Retour Anti-Group", "panel:antigroup", ButtonStyle.Secondary),
-        btn("🏠  Accueil",           "panel:home",      ButtonStyle.Secondary),
-      ]),
+      navRow("panel:antigroup", "Anti-Group"),
     ], 0xE67E22)
   );
 }

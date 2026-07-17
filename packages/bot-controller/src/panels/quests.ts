@@ -113,9 +113,7 @@ export function buildRunning(): V2MessagePayload {
         `*Les quêtes sont traitées une par une. Les logs apparaissent dans tes messages privés.*`
       ),
       separator(),
-      actionRow([
-        btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary),
-      ]),
+      navRow(null, null, true),
     ], 0x5865F2)
   );
 }

@@ -1,6 +1,7 @@
 import type { ModalMessageModalSubmitInteraction, ModalSubmitInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
+import { NAV_MAP, makeJobId } from "./common";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
 import { registerSnapshotJob } from "../store/jobs";
@@ -21,10 +22,6 @@ import * as configPanel from "../panels/config";
 import * as voice       from "../panels/voice";
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-function makeJobId(prefixStr = "job"): string {
-  return `${prefixStr}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
 
 async function resolveGuildName(guildId: string): Promise<string | null> {
   try {
@@ -47,25 +44,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     return interaction.update(panel!);
   }
 
-  const NAV_MAP: Record<string, string> = {
-    "panel:config":       "config",
-    "panel:afk":          "afk",
-    "panel:snipe":        "snipe",
-    "panel:tags":         "tags",
-    "panel:bookmarks":    "bookmarks",
-    "panel:msgbookmarks": "msgbookmarks",
-    "panel:antigroup":    "antigroup",
-    "panel:autobump":     "autobump",
-    "panel:purge":        "purge",
-    "panel:sysinfo":      "sysinfo",
-    "panel:rpc":          "rpc",
-    "panel:rpc_cs":       "rpc_cs",
-    "panel:rpc_spotify":  "rpc_spotify",
-    "panel:rpc_hub":      "rpc_hub",
-    "panel:quests":       "quests",
-    "panel:backups":      "backups",
-    "panel:voice":        "voice",
-  };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
     return interaction.update(panel!);

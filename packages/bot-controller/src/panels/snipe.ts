@@ -217,9 +217,7 @@ export function buildSnapshotRunning(data: { channelId?: string; channelName?: s
         `*Le fichier HTML te sera envoyé en DM une fois terminé.*`
       ),
       separator(),
-      actionRow([
-        btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary),
-      ]),
+      navRow(null, null, true),
     ], 0xED4245)
   );
 }

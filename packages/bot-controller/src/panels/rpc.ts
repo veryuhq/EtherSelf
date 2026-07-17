@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type SelectOption, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type ActionRowComponent, type ButtonComponent, type SelectOption, type V2MessagePayload } from "../utils/components";
 
 export interface RpcActivity {
   type?: string;
@@ -60,6 +60,18 @@ function short(value: string | null | undefined, max = 48): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
+/** Barre de navigation commune aux trois panels RPC : liens croisés vers les
+ *  deux panels frères + Accueil. Le retour au hub est inutile (il n'offre que
+ *  ces mêmes liens). */
+function rpcNavRow(current: "rpc" | "spotify" | "cs"): ActionRowComponent {
+  const buttons: ButtonComponent[] = [];
+  if (current !== "rpc")     buttons.push(btn("🎮  Rich Presence", "panel:rpc",         ButtonStyle.Primary));
+  if (current !== "spotify") buttons.push(btn("🎵  Spotify RPC",   "panel:rpc_spotify", ButtonStyle.Primary));
+  if (current !== "cs")      buttons.push(btn("💬  Custom Status", "panel:rpc_cs",      ButtonStyle.Primary));
+  buttons.push(btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary));
+  return actionRow(buttons);
+}
+
 // ── Panel hub : choix RPC ou Custom Status ────────────────────────────────────
 
 export function buildHub(): V2MessagePayload {
@@ -76,9 +88,7 @@ export function buildHub(): V2MessagePayload {
         btn("💬  Custom Status", "panel:rpc_cs",      ButtonStyle.Primary),
       ]),
       separator(1, false),
-      actionRow([
-        btn("🏠  Accueil",        "panel:home",   ButtonStyle.Secondary),
-      ]),
+      navRow(null, null, true),
     ], 0x7289DA)
   );
 }
@@ -129,28 +139,28 @@ export function build(data: RpcData = {}): V2MessagePayload {
     : "Statique (1ère activité)";
 
   const actionOptions: SelectOption[] = [
-    { label: enabled ? "🔴  Désactiver" : "🟢  Activer", value: "toggle", description: enabled ? "Désactive le Rich Presence" : "Active le Rich Presence" },
-    { label: "🔑  App ID", value: "setAppId", description: "Définir l'Application ID Discord" },
-    { label: "➕  Ajouter", value: "addActivity", description: "Ajouter une activité Rich Presence" },
-    { label: "👤  Statut", value: "setStatus", description: "Changer le statut en ligne" },
-    { label: mode === "rotate" ? "📌  Statique" : "🔄  Rotation", value: "toggleMode", description: "Basculer le mode d'affichage" },
+    { label: enabled ? "🔴  Désactiver" : "🟢  Activer", value: "rpc:toggle", description: enabled ? "Désactive le Rich Presence" : "Active le Rich Presence" },
+    { label: "🔑  App ID", value: "rpc:setAppId", description: "Définir l'Application ID Discord" },
+    { label: "➕  Ajouter", value: "rpc:addActivity", description: "Ajouter une activité Rich Presence" },
+    { label: "👤  Statut", value: "rpc:setStatus", description: "Changer le statut en ligne" },
+    { label: mode === "rotate" ? "📌  Statique" : "🔄  Rotation", value: "rpc:toggleMode", description: "Basculer le mode d'affichage" },
   ];
 
   if (activities.length) {
     actionOptions.push(
-      { label: "✏️  Éditer", value: "editActivity", description: "Modifier une activité existante" },
-      { label: "➖  Supprimer", value: "removeActivity", description: "Supprimer une activité" },
-      { label: "🖼️  Assets", value: "editAssets", description: "Configurer les assets d'une activité" },
-      { label: "⏱️  Temps", value: "editTimestamps", description: "Configurer start/end timestamp" },
-      { label: "💻  Plateforme", value: "setPlatform", description: "Définir la plateforme d'une activité" },
-      { label: "🔘  Boutons", value: "editButtons", description: "Gérer les boutons de l'activité" },
-      { label: "↕️  Déplacer", value: "move", description: "Monter ou descendre une activité dans la liste" },
-      { label: "🗑️  Vider", value: "clear", description: "Supprimer toutes les activités" },
+      { label: "✏️  Éditer", value: "rpc:editActivity", description: "Modifier une activité existante" },
+      { label: "➖  Supprimer", value: "rpc:removeActivity", description: "Supprimer une activité" },
+      { label: "🖼️  Assets", value: "rpc:editAssets", description: "Configurer les assets d'une activité" },
+      { label: "⏱️  Temps", value: "rpc:editTimestamps", description: "Configurer start/end timestamp" },
+      { label: "💻  Plateforme", value: "rpc:setPlatform", description: "Définir la plateforme d'une activité" },
+      { label: "🔘  Boutons", value: "rpc:editButtons", description: "Gérer les boutons de l'activité" },
+      { label: "↕️  Déplacer", value: "rpc:move", description: "Monter ou descendre une activité dans la liste" },
+      { label: "🗑️  Vider", value: "rpc:clear", description: "Supprimer toutes les activités" },
     );
   }
 
   if (mode === "rotate") {
-    actionOptions.push({ label: "⏱️  Intervalle", value: "setInterval", description: "Régler l'intervalle de rotation" });
+    actionOptions.push({ label: "⏱️  Intervalle", value: "rpc:setInterval", description: "Régler l'intervalle de rotation" });
   }
 
   return replyV2(
@@ -164,7 +174,7 @@ export function build(data: RpcData = {}): V2MessagePayload {
       separator(),
       separator(1, false),
       textDisplay("**Actions Rich Presence :**"),
-      selectMenu("rpc:actions", "Choisis une action…", actionOptions),
+      selectMenu("menu:rpc", "Choisis une action…", actionOptions),
       separator(1, false),
 
       actionRow([
@@ -173,12 +183,7 @@ export function build(data: RpcData = {}): V2MessagePayload {
 
       separator(),
 
-      actionRow([
-        btn("🎵  Spotify RPC",   "panel:rpc_spotify", ButtonStyle.Primary),
-        btn("💬  Custom Status", "panel:rpc_cs",  ButtonStyle.Primary),
-        btn("◀️  Retour",        "panel:rpc_hub", ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",    ButtonStyle.Secondary),
-      ]),
+      rpcNavRow("rpc"),
     ], 0x7289DA)
   );
 }
@@ -235,12 +240,7 @@ export function buildCs(data: RpcData = {}): V2MessagePayload {
 
       separator(),
 
-      actionRow([
-        btn("🎵  Spotify RPC",   "panel:rpc_spotify", ButtonStyle.Primary),
-        btn("🎮  Rich Presence", "panel:rpc",     ButtonStyle.Primary),
-        btn("◀️  Retour",        "panel:rpc_hub", ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",    ButtonStyle.Secondary),
-      ]),
+      rpcNavRow("cs"),
     ], 0x7289DA)
   );
 }
@@ -294,11 +294,11 @@ export function buildSpotify(data: RpcData = {}): V2MessagePayload {
     `\`🔗\` **URL :** ${urlLine}`;
 
   const actionOptions: SelectOption[] = [
-    { label: spotifyEnabled ? "🔴  Désactiver" : "🟢  Activer", value: "spotifyToggle",     description: spotifyEnabled ? "Désactiver Spotify RPC" : "Activer Spotify RPC" },
-    { label: "⚙️  Base (track / album / artistes)",             value: "spotifyBase",       description: "IDs Spotify, titre et sous-titre" },
-    { label: "🖼️  Assets (images)",                             value: "spotifyAssets",     description: "Images large et small" },
-    { label: "⏱️  Timestamps",                                  value: "spotifyTimestamps", description: "Début et durée de lecture" },
-    { label: "🧩  Extras (app ID / plateforme)",                value: "spotifyExtras",     description: "Réglages avancés" },
+    { label: spotifyEnabled ? "🔴  Désactiver" : "🟢  Activer", value: "rpc:spotifyToggle",     description: spotifyEnabled ? "Désactiver Spotify RPC" : "Activer Spotify RPC" },
+    { label: "⚙️  Base (track / album / artistes)",             value: "rpc:spotify",           description: "IDs Spotify, titre et sous-titre" },
+    { label: "🖼️  Assets (images)",                             value: "rpc:spotifyAssets",     description: "Images large et small" },
+    { label: "⏱️  Timestamps",                                  value: "rpc:spotifyTimestamps", description: "Début et durée de lecture" },
+    { label: "🧩  Extras (app ID / plateforme)",                value: "rpc:spotifyExtras",     description: "Réglages avancés" },
   ];
 
   return replyV2(
@@ -311,14 +311,9 @@ export function buildSpotify(data: RpcData = {}): V2MessagePayload {
       separator(),
       separator(1, false),
       textDisplay("**Actions Spotify RPC :**"),
-      selectMenu("rpc:spotifyActions", "Choisis une action…", actionOptions),
+      selectMenu("menu:rpc_spotify", "Choisis une action…", actionOptions),
       separator(),
-      actionRow([
-        btn("🎮  Rich Presence", "panel:rpc",     ButtonStyle.Primary),
-        btn("💬  Custom Status", "panel:rpc_cs",  ButtonStyle.Primary),
-        btn("◀️  Retour",        "panel:rpc_hub", ButtonStyle.Secondary),
-        btn("🏠  Accueil",        "panel:home",   ButtonStyle.Secondary),
-      ]),
+      rpcNavRow("spotify"),
     ], 0x7289DA)
   );
 }

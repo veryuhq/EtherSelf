@@ -4,6 +4,7 @@ import type { MessageComponentInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
 import { modal } from "../utils/components";
+import { NAV_MAP, makeJobId } from "./common";
 import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions, cloneOptionsCheckboxes } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
@@ -27,8 +28,14 @@ const execFileAsync = promisify(execFile);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeJobId(prefix = "job"): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+/** Modal de recherche snipe — partagé entre le menu et les boutons
+ *  « Autre recherche » des résultats (seuls les défauts des radios changent). */
+function snipeViewModal(type = "deleted", mode = "channel") {
+  return modal("modal:snipe_view", "Rechercher des messages", [
+    { id: "type",  label: "Type de messages",  radio: snipeTypeOptions(type) },
+    { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions(mode) },
+    { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
+  ]);
 }
 
 function validatePm2Name(name: string): string {
@@ -53,25 +60,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     return interaction.update(panel!);
   }
 
-  const NAV_MAP: Record<string, string> = {
-    "panel:config":       "config",
-    "panel:afk":          "afk",
-    "panel:snipe":        "snipe",
-    "panel:tags":         "tags",
-    "panel:bookmarks":    "bookmarks",
-    "panel:msgbookmarks": "msgbookmarks",
-    "panel:antigroup":    "antigroup",
-    "panel:autobump":     "autobump",
-    "panel:purge":        "purge",
-    "panel:sysinfo":      "sysinfo",
-    "panel:rpc":          "rpc",
-    "panel:rpc_cs":       "rpc_cs",
-    "panel:rpc_spotify":  "rpc_spotify",
-    "panel:rpc_hub":      "rpc_hub",
-    "panel:quests":       "quests",
-    "panel:backups":      "backups",
-    "panel:voice":        "voice",
-  };
   if (NAV_MAP[id]) {
     const panel = await fetchAndBuild(NAV_MAP[id]);
     return interaction.update(panel!);
@@ -90,11 +78,11 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id === "config:restart") {
     return interaction.update(config.buildRestartConfirm());
   }
-  if (id === "config:restart:skip" || id === "config:token:restart:skip") {
+  if (id === "config:restart:skip") {
     const panel = await fetchAndBuild("config");
     return interaction.update(panel!);
   }
-  if (id === "config:restart:confirm" || id === "config:token:restart") {
+  if (id === "config:restart:confirm") {
     const sbName = validatePm2Name(process.env.PM2_SB_NAME || "EtherSelf-SB");
     const ctrlName = validatePm2Name(process.env.PM2_CTRL_NAME || "EtherSelf-Bot");
 
@@ -110,11 +98,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     }, 5000);
     return;
   }
-  if (id === "config:sysinfo") {
-    const panel = await fetchAndBuild("sysinfo");
-    return interaction.update(panel!);
-  }
-
   // ── PREFIX ────────────────────────────────────────────────────────────────
   if (id === "prefix:edit") {
     const res = await sendAction("prefix.get");
@@ -160,11 +143,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     ]));
   }
   if (id === "snipe:view") {
-    return interaction.showModal(modal("modal:snipe_view", "Rechercher des messages", [
-      { id: "type",  label: "Type de messages",  radio: snipeTypeOptions("deleted") },
-      { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions("channel") },
-      { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
-    ]));
+    return interaction.showModal(snipeViewModal());
   }
   if (id.startsWith("snipe:page:")) {
     const parts = id.split(":");
@@ -181,11 +160,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id.startsWith("snipe:inputChannel:") || id.startsWith("snipe:inputGuild:") || id.startsWith("snipe:inputUser:")) {
     const [, kind, type] = id.split(":");
     const mode = kind === "inputGuild" ? "guild" : kind === "inputUser" ? "user" : "channel";
-    return interaction.showModal(modal("modal:snipe_view", "Voir les messages snipés", [
-      { id: "type",  label: "Type de messages",  radio: snipeTypeOptions(type) },
-      { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions(mode) },
-      { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
-    ]));
+    return interaction.showModal(snipeViewModal(type, mode));
   }
   if (id === "snipe:snapshot") {
     return interaction.showModal(modal("modal:snipe_snapshot", "Snapshot d'un salon", [
@@ -424,6 +399,24 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     return interaction.showModal(modal("modal:rpc_setAppId", "Définir l'Application ID", [
       { id: "applicationId", label: "Application ID (Discord Developer Portal)", placeholder: "123456789012345678", value: res?.data?.applicationId ?? "", required: false },
     ]));
+  }
+  if (id === "rpc:spotifyToggle") {
+    const state = await sendAction("rpc.getState");
+    const spotify = state?.data?.spotify ?? {};
+    // On ne peut pas activer sans songId
+    if (!spotify.enabled && !spotify.songId) {
+      return _error(interaction, "Définis d'abord un Track ID Spotify avant d'activer. Utilise **⚙️ Base** dans le menu.");
+    }
+    const res = await sendAction("rpc.setSpotifyConfig", {
+      enabled:    !spotify.enabled,
+      songId:     spotify.songId     ?? null,
+      albumId:    spotify.albumId    ?? null,
+      artistIds:  spotify.artistIds  ?? [],
+      details:    spotify.details    ?? null,
+      state:      spotify.state      ?? null,
+    });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(rpc.buildSpotify(res?.data ?? {}));
   }
   if (id === "rpc:spotify") {
     const res = await sendAction("rpc.getState");

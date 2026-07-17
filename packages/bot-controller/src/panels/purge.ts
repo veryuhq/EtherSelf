@@ -265,15 +265,12 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     : `${header}\n\n${progressLine}`;
 
   const buttons: ButtonComponent[] = [];
-  if (done) {
-    buttons.push(btn("◀️  Retour Purge", "panel:purge", ButtonStyle.Secondary));
-    buttons.push(btn("🏠  Accueil",      "panel:home",  ButtonStyle.Secondary));
-  } else {
-    if (jobId) {
-      buttons.push(btn("🛑  Arrêter",  `purge:cancel:${jobId}`, ButtonStyle.Danger));
-    }
-    buttons.push(btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary));
+  if (!done && jobId) {
+    buttons.push(btn("🛑  Arrêter", `purge:cancel:${jobId}`, ButtonStyle.Danger));
   }
+  const bottomRow = done
+    ? navRow("panel:purge", "Purge")
+    : actionRow([...buttons, btn("🏠  Accueil", "panel:home", ButtonStyle.Secondary)]);
 
   const accentColor = (done && !cancelled) ? 0x2ECC71 : 0xE74C3C;
 
@@ -281,7 +278,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     container([
       textDisplay(`# ${icon} ${title}\n${body}`),
       separator(),
-      actionRow(buttons),
+      bottomRow,
     ], accentColor)
   );
 }
