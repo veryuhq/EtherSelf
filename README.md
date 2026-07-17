@@ -66,7 +66,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
-| 🔊 **Salon Vocal** | Présence permanente dans un salon vocal (jamais mute/sourdine), maintenue par le voice state gateway (op4) sans aucune couche audio : insensible aux pannes du serveur vocal et aux hôtes qui filtrent l'UDP, ré-assertion automatique après resume/re-identify gateway, kick ou déplacement, watchdog + compteur de coupures dans le panel |
+| 🔊 **Salon Vocal** | Présence permanente dans le salon vocal de votre choix |
 
 ### ⚙️ Automatisation
 
