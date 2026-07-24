@@ -11,7 +11,7 @@ from ..commands.fun import mock, spoiler
 from ..commands.gestion import antigroup, msglog, prefix, token
 from ..commands.informations import hostinfo, ping, uptime
 from ..commands.utilitaires import (afk, autobump, backups, bookmark, msgbookmarks,
-                                     purge, quests, rpc, snapshot, snipe, tag, voice)
+                                     purge, quests, rpc, snapshot, snipe, tag)
 
 # action → async (client, payload) -> data
 ACTIONS = {
@@ -130,11 +130,6 @@ ACTIONS = {
     "backups.guilds.backup": lambda c, p: backups.execute(c, {"action": "guilds.backup"}),
     "backups.guilds.get": lambda c, p: backups.execute(c, {"action": "guilds.get"}),
     "backups.guilds.clearBackup": lambda c, p: backups.execute(c, {"action": "guilds.clearBackup"}),
-
-    # ── SALON VOCAL ──
-    "voice.getState": lambda c, p: voice.execute(c, {"action": "getState"}),
-    "voice.setChannel": lambda c, p: voice.execute(c, {"action": "setChannel", "channelId": p.get("channelId")}),
-    "voice.toggle": lambda c, p: voice.execute(c, {"action": "toggle"}),
 
     # ── FUN ──
     "fun.mock": lambda c, p: mock.execute(c, {"channelId": p.get("channelId"), "text": p.get("text")}),

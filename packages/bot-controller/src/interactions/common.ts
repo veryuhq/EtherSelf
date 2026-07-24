@@ -22,7 +22,6 @@ export const NAV_MAP: Record<string, string> = {
   "panel:rpc_hub":      "rpc_hub",
   "panel:quests":       "quests",
   "panel:backups":      "backups",
-  "panel:voice":        "voice",
 };
 
 /** Identifiant unique de job (purge, clone, snapshot…). */

@@ -22,7 +22,6 @@ import * as rpc       from "../panels/rpc";
 import * as quests    from "../panels/quests";
 import * as backups   from "../panels/backups";
 import * as config    from "../panels/config";
-import * as voice     from "../panels/voice";
 
 const execFileAsync = promisify(execFile);
 
@@ -559,22 +558,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const res = await sendAction("purge.cancel", { jobId });
     if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler la purge.");
     return interaction.update(purge.buildProgress({ scope: "dms", queue: [], activeLabel: "Arrêt en cours…", doneCount: 0, total: 0, totalDeleted: 0, done: false, cancelled: false, jobId }));
-  }
-
-  // ── SALON VOCAL ───────────────────────────────────────────────────────────
-  // « Se connecter » et « Quitter » sont deux boutons distincts (custom_id
-  // unique par message obligatoire) mais pilotent la même bascule côté selfbot :
-  // chacun n'est cliquable que dans l'état où il a du sens (l'autre est grisé).
-  if (id === "voice:connect" || id === "voice:quit") {
-    const res = await sendAction("voice.toggle");
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(voice.build(res?.data ?? {}));
-  }
-  if (id === "voice:setChannel") {
-    const res = await sendAction("voice.getState");
-    return interaction.showModal(modal("modal:voice_channel", "Définir le salon vocal", [
-      { id: "channelId", label: "ID du salon vocal", placeholder: "123456789012345678", value: res?.data?.channelId ?? "", maxLength: 20 },
-    ]));
   }
 
   // ── SYSINFO ───────────────────────────────────────────────────────────────

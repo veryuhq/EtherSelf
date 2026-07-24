@@ -19,7 +19,6 @@ import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
 import * as backups     from "../panels/backups";
 import * as configPanel from "../panels/config";
-import * as voice       from "../panels/voice";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -451,14 +450,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const res = await sendAction("rpc.setCsInterval", { intervalSec });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(rpc.buildCs(res?.data ?? {}));
-  }
-
-  // ── SALON VOCAL ───────────────────────────────────────────────────────────
-  if (id === "modal:voice_channel") {
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("voice.setChannel", { channelId });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(voice.build(res?.data ?? {}));
   }
 
   // ── QUESTS ────────────────────────────────────────────────────────────────

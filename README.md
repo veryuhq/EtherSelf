@@ -66,7 +66,6 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
-| 🔊 **Salon Vocal** | Présence permanente dans le salon vocal de votre choix |
 
 ### ⚙️ Automatisation
 
