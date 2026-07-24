@@ -1,4 +1,4 @@
-import { container, textDisplay, separator, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, selectMenu, navRow, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export interface MessageBookmark {
   content?: string;
@@ -15,10 +15,11 @@ export function build(data: MsgBookmarksData = {}): V2MessagePayload {
   const { bookmarks = [] } = data;
   const list = bookmarks.length
     ? bookmarks.map((b, i) => {
-        const content = (b.content ?? "").slice(0, 120) + ((b.content ?? "").length > 120 ? "…" : "");
-        const note    = b.note ? `  •  📎 *${b.note}*` : "";
-        const link    = b.url  ? `\n${b.url}` : "";
-        return `**${i + 1}. ${b.authorTag ?? "?"}**${note}\n> ${content || "*(vide)*"}${link}`;
+        // content / authorTag viennent du message d'origine (donc d'un tiers).
+        const content = plainText(b.content, 120) + ((b.content ?? "").length > 120 ? "…" : "");
+        const note    = b.note ? `  •  📎 *${plainText(b.note)}*` : "";
+        const link    = b.url  ? `\n${plainText(b.url)}` : "";
+        return `**${i + 1}. ${plainText(b.authorTag) || "?"}**${note}\n> ${content || "*(vide)*"}${link}`;
       }).join("\n\n")
     : "*Aucun message sauvegardé.*";
 

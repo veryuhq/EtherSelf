@@ -11,7 +11,11 @@ from ...func.logbus import logerr
 
 MSGBM_FILE = data_path("config", "msgbookmarks.json")
 
-_URL_RE = re.compile(r"discord\.com/channels/(\d+|@me)/(\d+)/(\d+)")
+# Ancré sur l'URL complète : un `search` non ancré acceptait
+# https://exemple.test/discord.com/channels/1/2/3, et cette URL arbitraire était
+# ensuite stockée puis affichée comme lien cliquable dans le panel.
+_URL_RE = re.compile(
+    r"^https://(?:(?:canary|ptb)\.)?discord(?:app)?\.com/channels/(\d{1,20}|@me)/(\d{1,20})/(\d{1,20})/?$")
 
 
 def _load() -> list:
@@ -39,7 +43,7 @@ async def execute(client, payload):
         url = payload.get("url")
         if not url:
             raise ValueError("url requis.")
-        match = _URL_RE.search(url)
+        match = _URL_RE.match(str(url).strip())
         if not match:
             raise ValueError("URL de message Discord invalide.")
         guild_id, channel_id, message_id = match.group(1), match.group(2), match.group(3)

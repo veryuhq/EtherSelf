@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export type SnipeType = "deleted" | "edited";
 export type SnipeSearchMode = "channel" | "guild" | "user";
@@ -52,7 +52,7 @@ export function build(data: SnipeData = {}): V2MessagePayload {
     ? whitelist.map((id, i) => {
         const guild = guilds.find((g) => g.id === id);
         const name  = guild?.name ?? null;
-        return `\`${i + 1}.\` ${name ? `**${name}** (\`${id}\`)` : `\`${id}\``}`;
+        return `\`${i + 1}.\` ${name ? `**${plainText(name)}** (\`${plainText(id)}\`)` : `\`${plainText(id)}\``}`;
       }).join("\n")
     : "*Aucun serveur dans la whitelist.*";
 
@@ -118,23 +118,23 @@ export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
   let backButtonId: string;
   if (searchMode === "guild") {
     scopeDisplay = guildName
-      ? `**${guildName}**`
+      ? `**${plainText(guildName)}**`
       : guildId
-        ? `\`${guildId}\``
+        ? `\`${plainText(guildId)}\``
         : `*serveur inconnu*`;
     backButtonId = `snipe:inputGuild:${type}`;
   } else if (searchMode === "user") {
     scopeDisplay = userTag
-      ? `**${userTag}**`
+      ? `**${plainText(userTag)}**`
       : userId
-        ? `\`${userId}\``
+        ? `\`${plainText(userId)}\``
         : `*utilisateur inconnu*`;
     backButtonId = `snipe:inputUser:${type}`;
   } else {
     scopeDisplay = channelName
-      ? `#${channelName}`
+      ? `#${plainText(channelName)}`
       : channelId
-        ? `\`${channelId}\``
+        ? `\`${plainText(channelId)}\``
         : `*salon inconnu*`;
     backButtonId = `snipe:inputChannel:${type}`;
   }
@@ -152,30 +152,31 @@ export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
       const ts  = new Date(m.createdTimestamp ?? m.deletedAt ?? m.editedAt ?? 0).toLocaleString("fr-FR");
       const num = page * PAGE_SIZE + i + 1;
 
-      // Nom d'auteur : fallback en cascade
+      // Nom d'auteur : fallback en cascade. Pseudos et contenus viennent de tiers,
+      // donc systématiquement neutralisés (cf. plainText).
       const author = m.authorTag && m.authorTag !== "unknown"
-        ? m.authorTag
+        ? plainText(m.authorTag)
         : m.authorId
-          ? `\`${m.authorId}\``
+          ? `\`${plainText(m.authorId)}\``
           : "*auteur inconnu*";
 
       // Info salon pour les recherches guild/user
       let channelInfo = "";
       if (searchMode === "guild" || searchMode === "user") {
         if (m.channelName) {
-          channelInfo = ` — #${m.channelName}`;
+          channelInfo = ` — #${plainText(m.channelName)}`;
         } else if (m.channelId) {
           channelInfo = ` — <#${m.channelId}>`;
         }
       }
 
       if (type === "edited") {
-        const before = (m.oldContent || "*(vide)*").slice(0, 80);
-        const after  = (m.newContent || "*(vide)*").slice(0, 80);
+        const before = m.oldContent ? plainText(m.oldContent, 80) : "*(vide)*";
+        const after  = m.newContent ? plainText(m.newContent, 80) : "*(vide)*";
         return `**${num}. ${author}**${channelInfo} — ${ts}\n> ✦ Avant : ${before}\n> ✦ Après : ${after}`;
       }
 
-      const content = (m.content || "*(vide)*").slice(0, 120);
+      const content = m.content ? plainText(m.content, 120) : "*(vide)*";
       return `**${num}. ${author}**${channelInfo} — ${ts}\n> ${content}`;
     }).join("\n\n");
     body = `*${messages.length} message(s) — page ${page + 1}/${totalPages}*\n\n${body}`;
@@ -206,7 +207,7 @@ export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
  */
 export function buildSnapshotRunning(data: { channelId?: string; channelName?: string | null } = {}): V2MessagePayload {
   const { channelName = null, channelId = "" } = data;
-  const display = channelName ? `#${channelName}` : `\`${channelId}\``;
+  const display = channelName ? `#${plainText(channelName)}` : `\`${plainText(channelId)}\``;
 
   return replyV2(
     container([
@@ -231,7 +232,7 @@ export function buildSnapshotResult(
   const { channelName = "?", messageCount = 0, sent = false, error = null } = data;
 
   const statusLine = error
-    ? `\`❌\` **Erreur :** ${error}`
+    ? `\`❌\` **Erreur :** ${plainText(error)}`
     : sent
       ? `\`✅\` **Fichier envoyé en DM !**`
       : `\`⚠️\` **Fichier généré mais non envoyé** *(DM inaccessible)*`;
@@ -240,7 +241,7 @@ export function buildSnapshotResult(
     container([
       textDisplay(
         `# 📸 Snapshot terminé\n` +
-        `\`📋\` **Salon :** #${channelName}\n` +
+        `\`📋\` **Salon :** #${plainText(channelName)}\n` +
         `\`💬\` **Messages archivés :** ${messageCount}\n` +
         `${statusLine}`
       ),

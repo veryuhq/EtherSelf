@@ -3,7 +3,7 @@ import { execFile } from "child_process";
 import type { MessageComponentInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
-import { modal } from "../utils/components";
+import { modal, NO_MENTIONS } from "../utils/components";
 import { NAV_MAP, makeJobId } from "./common";
 import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions, cloneOptionsCheckboxes } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
@@ -681,5 +681,9 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
 }
 
 function _error(interaction: MessageComponentInteraction, message: string | undefined = "Une erreur est survenue."): Promise<unknown> {
-  return interaction.reply({ content: `❌ ${message ?? "Une erreur est survenue."}`, ephemeral: true });
+  return interaction.reply({
+    content: `❌ ${message ?? "Une erreur est survenue."}`,
+    ephemeral: true,
+    allowedMentions: NO_MENTIONS,
+  });
 }

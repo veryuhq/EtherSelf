@@ -4,15 +4,28 @@ from __future__ import annotations
 
 import asyncio
 
-from ...func.data_path import data_path, read_json, write_json
+from ...func.data_path import (data_path, is_snowflake, read_json, safe_id_segment,
+                               write_json)
 from ...func.discord_util import resolve_channel_name, resolve_guild_name, resolve_user_tag
 
 WHITELIST_FILE = data_path("msg_log_data", "snipe_whitelist.json")
 DATA_PATH = data_path("msg_log_data")
 
+# Seuls types de log écrits par msglog : tout le reste deviendrait un nom de
+# fichier arbitraire (`{msg_type}_messages.json`) et pourrait sortir de data/.
+MSG_TYPES = ("deleted", "edited")
+
+
+def _safe_msg_type(msg_type) -> str:
+    if msg_type not in MSG_TYPES:
+        raise ValueError("Type de messages invalide (attendu : deleted ou edited).")
+    return msg_type
+
 
 def get_whitelist() -> list[str]:
-    return read_json(WHITELIST_FILE, [])
+    # On ignore les entrées non numériques : un ID corrompu ou hérité ne doit pas
+    # pouvoir servir de segment de chemin lors des recherches.
+    return [g for g in read_json(WHITELIST_FILE, []) if is_snowflake(g)]
 
 
 def save_whitelist(items) -> None:
@@ -28,6 +41,8 @@ def _sort_key(m):
 
 
 def _read_by_channel(channel_id, msg_type) -> list:
+    channel_id = safe_id_segment(channel_id, "channelId")
+    msg_type = _safe_msg_type(msg_type)
     results = []
     for guild_id in get_whitelist():
         msgs = _read(DATA_PATH / "SERVEURS" / guild_id / f"{msg_type}_messages.json")
@@ -38,11 +53,15 @@ def _read_by_channel(channel_id, msg_type) -> list:
 
 
 def _read_by_guild(guild_id, msg_type) -> list:
+    guild_id = safe_id_segment(guild_id, "guildId")
+    msg_type = _safe_msg_type(msg_type)
     msgs = _read(DATA_PATH / "SERVEURS" / guild_id / f"{msg_type}_messages.json")
     return sorted(msgs, key=_sort_key, reverse=True)
 
 
 def _read_by_user(user_id, msg_type) -> list:
+    user_id = safe_id_segment(user_id, "userId")
+    msg_type = _safe_msg_type(msg_type)
     results = []
     for guild_id in get_whitelist():
         msgs = _read(DATA_PATH / "SERVEURS" / guild_id / f"{msg_type}_messages.json")
@@ -90,6 +109,7 @@ async def execute(client, payload):
     if action == "addGuild":
         if not guild_id:
             raise ValueError("guildId requis.")
+        guild_id = safe_id_segment(guild_id, "guildId")
         items = get_whitelist()
         if guild_id not in items:
             items.append(guild_id)

@@ -42,11 +42,16 @@ def _write_token_to_env(token: str) -> dict:
 
     content = "\n".join(out).rstrip("\n") + "\n"
     tmp = ENV_FILE.with_suffix(f".{os.getpid()}.tmp")
-    tmp.write_text(content, encoding="utf-8")
+    # Le temporaire contient tout le .env (token ET BRIDGE_SECRET) : on le crée
+    # directement en 0600 plutôt que d'écrire puis chmod, sinon il reste lisible
+    # par les autres comptes de l'hôte le temps de l'écriture.
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
-        tmp.chmod(0o600)
-    except OSError:
-        pass
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     os.replace(tmp, ENV_FILE)
     os.environ["TOKEN"] = token
     return {"updated": True}

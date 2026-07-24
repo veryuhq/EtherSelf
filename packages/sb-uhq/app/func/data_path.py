@@ -3,15 +3,38 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 # app/func/data_path.py → parents[0]=func, [1]=app, [2]=racine du package sb-uhq
 SB_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = SB_ROOT / ".env"
 
+# Un ID Discord (snowflake) est un entier non signé sur 64 bits : au plus 20 chiffres.
+_SNOWFLAKE_RE = re.compile(r"^[0-9]{1,20}$")
+
 
 def data_path(*segments: str) -> Path:
     return SB_ROOT.joinpath("data", *segments)
+
+
+def is_snowflake(value) -> bool:
+    """True si la valeur est un ID Discord utilisable tel quel dans un chemin."""
+    return bool(_SNOWFLAKE_RE.match(str(value or "").strip()))
+
+
+def safe_id_segment(value, label: str = "identifiant") -> str:
+    """Valide un ID Discord destiné à devenir un segment de chemin sous data/.
+
+    Sans cette validation, une valeur comme ``../../..`` ou ``/etc`` sortirait de
+    data/ : pathlib fait repartir le chemin de zéro sur un segment absolu et
+    conserve les ``..`` que ``open()`` résout ensuite. Les IDs Discord étant
+    toujours numériques, on rejette tout le reste.
+    """
+    text = str(value or "").strip()
+    if not _SNOWFLAKE_RE.match(text):
+        raise ValueError(f"{label} invalide : un ID Discord numérique est attendu.")
+    return text
 
 
 def read_json(path: Path, default):

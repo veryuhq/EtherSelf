@@ -276,6 +276,16 @@ export function navRow(
 }
 
 /**
+ * Aucune mention n'est jamais résolue dans les messages du panel.
+ *
+ * Les Text Display notifient réellement, et les panels affichent du contenu tiers
+ * (messages snipés, pseudos, noms de salons/serveurs, logs du selfbot). Sans ça,
+ * un `@everyone` posté puis supprimé par n'importe qui dans un serveur whitelisté
+ * déclencherait un vrai ping au moment où le panel l'affiche.
+ */
+export const NO_MENTIONS = { parse: [] as never[] };
+
+/**
  * Réponse ephemeral Components V2 standard.
  * Encapsule les composants dans le flag is_components_v2.
  */
@@ -283,6 +293,7 @@ export function ephemeralV2(...components: TopLevelComponent[]): V2MessagePayloa
   return {
     flags: (1 << 15) | (1 << 6), // IS_COMPONENTS_V2 | EPHEMERAL
     components,
+    allowedMentions: NO_MENTIONS,
   } as unknown as V2MessagePayload;
 }
 
@@ -293,5 +304,21 @@ export function replyV2(...components: TopLevelComponent[]): V2MessagePayload {
   return {
     flags: 1 << 15, // IS_COMPONENTS_V2
     components,
+    allowedMentions: NO_MENTIONS,
   } as unknown as V2MessagePayload;
+}
+
+/**
+ * Neutralise le markdown d'un texte d'origine tierce avant de l'insérer dans un
+ * Text Display : sans ça, un message snipé contenant des backticks ou un `#`
+ * casse la mise en page du panel (sortie de bloc de code, faux titre, fausse
+ * citation). Les retours à la ligne sont aplatis pour que le contenu reste dans
+ * la citation `> ` qui l'entoure.
+ *
+ * @param maxLength longueur max AVANT échappement (0 = pas de troncature)
+ */
+export function plainText(value: unknown, maxLength = 0): string {
+  const raw = String(value ?? "").replace(/\r?\n/g, " ");
+  const sliced = maxLength > 0 ? raw.slice(0, maxLength) : raw;
+  return sliced.replace(/[\\`*_~|]/g, (char) => `\\${char}`);
 }

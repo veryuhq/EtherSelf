@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import discord
 
-from ...func.data_path import data_path, read_json, write_json
+from ...func.data_path import data_path, is_snowflake, read_json, safe_id_segment, write_json
 
 DATA_PATH = data_path("msg_log_data")
 WHITELIST_FILE = DATA_PATH / "snipe_whitelist.json"
@@ -20,9 +20,15 @@ DATA_PATH.mkdir(parents=True, exist_ok=True)
 
 _SCOPE_DIR = {"DM": "DMs", "GROUP_DM": "GROUP_DMs", "guild": "SERVEURS"}
 
+# Types de log écrits ici — bornés pour que `{msg_type}_messages.json` ne puisse
+# jamais devenir un nom de fichier arbitraire.
+MSG_TYPES = ("deleted", "edited")
+
 
 def get_whitelist() -> list[str]:
-    return read_json(WHITELIST_FILE, [])
+    # Les entrées non numériques sont ignorées : elles serviraient de segment de
+    # chemin sous data/ et permettraient d'en sortir.
+    return [g for g in read_json(WHITELIST_FILE, []) if is_snowflake(g)]
 
 
 def save_whitelist(items: list[str]) -> None:
@@ -30,15 +36,22 @@ def save_whitelist(items: list[str]) -> None:
 
 
 def _scope_path(scope_id: str, scope_type: str):
-    return DATA_PATH / _SCOPE_DIR.get(scope_type, "SERVEURS") / str(scope_id)
+    return (DATA_PATH / _SCOPE_DIR.get(scope_type, "SERVEURS")
+            / safe_id_segment(scope_id, "identifiant de scope"))
+
+
+def _messages_file(scope_id: str, msg_type: str, scope_type: str):
+    if msg_type not in MSG_TYPES:
+        raise ValueError("Type de messages invalide (attendu : deleted ou edited).")
+    return _scope_path(scope_id, scope_type) / f"{msg_type}_messages.json"
 
 
 def read_messages(scope_id: str, msg_type: str, scope_type: str = "guild") -> list:
-    return read_json(_scope_path(scope_id, scope_type) / f"{msg_type}_messages.json", [])
+    return read_json(_messages_file(scope_id, msg_type, scope_type), [])
 
 
 def _write_messages(scope_id, msg_type, messages, scope_type="guild") -> None:
-    write_json(_scope_path(scope_id, scope_type) / f"{msg_type}_messages.json", messages)
+    write_json(_messages_file(scope_id, msg_type, scope_type), messages)
 
 
 def _push_entry(scope_id, msg_type, entry, scope_type="guild") -> None:
@@ -294,6 +307,7 @@ async def execute(client, payload):
     if action == "add":
         if not guild_id:
             raise ValueError("guildId requis.")
+        guild_id = safe_id_segment(guild_id, "guildId")
         items = get_whitelist()
         if guild_id not in items:
             items.append(guild_id)

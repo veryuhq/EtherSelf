@@ -27,7 +27,7 @@ import * as purgelogs from "./commands/purgelogs";
 
 import { healthCheck } from "./bridge/client";
 import { getSecretBuffer, verifySignedRequest, registerSignature } from "./bridge/auth";
-import { container, textDisplay, separator, fileComponent, logLines, replyV2, type V2MessagePayload } from "./utils/components";
+import { container, textDisplay, separator, fileComponent, logLines, replyV2, NO_MENTIONS, type V2MessagePayload } from "./utils/components";
 import { updateProgressJob, cleanProgressJob, getCloneJob, cleanCloneJob, getSnapshotJob, cleanSnapshotJob } from "./store/jobs";
 
 import * as snipe from "./panels/snipe";
@@ -85,9 +85,18 @@ const SB_DATA_DIR = process.env.SB_DATA_DIR
   ? path.resolve(process.env.SB_DATA_DIR)
   : path.resolve(PKG_ROOT, "..", "sb-uhq", "data");
 
+/** Chemin réel (liens symboliques résolus), ou null si le chemin n'existe pas. */
+function realPathOrNull(target: string): string | null {
+  try { return fs.realpathSync(target); } catch { return null; }
+}
+
 function assertInSbData(localFilepath: unknown): string {
-  const resolved = path.resolve(String(localFilepath ?? ""));
-  if (resolved !== SB_DATA_DIR && !resolved.startsWith(`${SB_DATA_DIR}${path.sep}`)) {
+  // On compare les chemins RÉELS : `path.resolve` seul ne résout pas les liens
+  // symboliques, donc un lien déposé dans data/ et pointant ailleurs (vers .env
+  // par exemple) passait le test de préfixe et le fichier visé partait sur Discord.
+  const resolved = realPathOrNull(path.resolve(String(localFilepath ?? "")));
+  const root = realPathOrNull(SB_DATA_DIR);
+  if (!resolved || !root || (resolved !== root && !resolved.startsWith(`${root}${path.sep}`))) {
     throw new Error("Chemin de fichier hors du répertoire autorisé.");
   }
   return resolved;
@@ -437,7 +446,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isStringSelectMenu()) { await selects.handle(interaction); return; }
   } catch (err) {
     console.error("[CONTROLLER] Erreur interaction :", err);
-    const errMsg = { content: `❌ Erreur : \`${(err as Error).message}\``, ephemeral: true };
+    const errMsg = { content: `❌ Erreur : \`${(err as Error).message}\``, ephemeral: true, allowedMentions: NO_MENTIONS };
     if (interaction.isRepliable()) {
       if (interaction.deferred || interaction.replied) interaction.followUp(errMsg).catch(() => {});
       else interaction.reply(errMsg).catch(() => {});

@@ -1,6 +1,7 @@
 import type { ModalMessageModalSubmitInteraction, ModalSubmitInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
+import { NO_MENTIONS } from "../utils/components";
 import { NAV_MAP, makeJobId } from "./common";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
@@ -194,7 +195,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     if (!res?.success) return _error(interaction, res?.error);
     const tagContent = res?.data?.tags?.[name];
     if (!tagContent) return _error(interaction, `Tag \`${name}\` introuvable.`);
-    return interaction.reply({ content: tagContent, ephemeral: true });
+    return interaction.reply({ content: tagContent, ephemeral: true, allowedMentions: NO_MENTIONS });
   }
 
   // ── BOOKMARKS SALONS ──────────────────────────────────────────────────────
@@ -488,5 +489,9 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
 }
 
 function _error(interaction: ModalMessageModalSubmitInteraction, message: string | undefined = "Une erreur est survenue."): Promise<unknown> {
-  return interaction.reply({ content: `❌ ${message ?? "Une erreur est survenue."}`, ephemeral: true });
+  return interaction.reply({
+    content: `❌ ${message ?? "Une erreur est survenue."}`,
+    ephemeral: true,
+    allowedMentions: NO_MENTIONS,
+  });
 }
