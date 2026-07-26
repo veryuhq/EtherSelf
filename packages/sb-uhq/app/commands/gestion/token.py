@@ -6,6 +6,7 @@ Comme en JS, on met aussi à jour os.environ (la reconnexion effective nécessit
 
 from __future__ import annotations
 
+import hmac
 import os
 import re
 
@@ -57,11 +58,30 @@ def _write_token_to_env(token: str) -> dict:
     return {"updated": True}
 
 
+def _assert_owner_confirmed(payload) -> None:
+    """Second facteur de `token.set` : l'OWNER_ID doit être confirmé explicitement.
+
+    La comparaison directe `payload.get(...) != os.environ.get(...)` était
+    contournable : quand OWNER_ID n'est pas défini dans le .env du selfbot (le
+    cas par défaut, `npm run check:env` ne l'exigeait que côté controller), les
+    deux côtés valaient `None` et omettre simplement `ownerIdConfirm` du payload
+    validait la garde. On exige donc des deux côtés une valeur non vide, et on
+    compare en temps constant.
+    """
+    owner_id = str(os.environ.get("OWNER_ID") or "").strip()
+    if not owner_id:
+        raise ValueError(
+            "OWNER_ID n'est pas configuré dans le .env du selfbot : "
+            "modification du token refusée.")
+    confirm = str(payload.get("ownerIdConfirm") or "").strip()
+    if not confirm or not hmac.compare_digest(confirm, owner_id):
+        raise ValueError("Confirmation OWNER_ID invalide.")
+
+
 async def execute(client, payload):
     action = payload.get("action")
     if action == "set":
-        if payload.get("ownerIdConfirm") != os.environ.get("OWNER_ID"):
-            raise ValueError("Confirmation OWNER_ID invalide.")
+        _assert_owner_confirmed(payload)
         next_token = str(payload.get("token") or "").strip()
         if not next_token:
             raise ValueError("Le token ne peut pas être vide.")

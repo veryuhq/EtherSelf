@@ -83,9 +83,23 @@ def safe_url(val) -> str:
 def js_text(s) -> str:
     """Texte sûr à l'intérieur d'une chaîne JS d'un attribut inline.
 
-    Retire les caractères qui, une fois l'attribut décodé par le parseur HTML,
-    permettraient de sortir de la chaîne (' " \\) ou d'injecter du markup (< > `)."""
-    return _JS_UNSAFE.sub("", str(s or ""))
+    Deux protections complémentaires, toutes deux indispensables :
+
+    1. ``&`` est ré-encodé en ``&amp;`` EN PREMIER. Le parseur HTML décode les
+       entités de l'attribut AVANT que le moteur JS ne l'évalue : sans cette
+       étape, un nom de pièce jointe (ou de sticker, d'emoji…) contenant
+       ``&#39;`` redevenait une apostrophe au décodage et refermait la chaîne
+       JS — n'importe quel utilisateur Discord pouvait ainsi exécuter du code
+       dans le snapshot HTML ouvert par le propriétaire. Ré-encodé, ``&#39;``
+       se décode en le TEXTE ``&#39;`` et reste inerte.
+    2. Les caractères qui casseraient la chaîne littéralement (' " \\) ou
+       injecteraient du markup (< > `) sont retirés, ainsi que les retours
+       ligne et le NUL.
+
+    L'ordre importe : ``&amp;`` n'introduit ni guillemet ni chevron, l'échapper
+    d'abord ne réintroduit donc rien que le second passage devrait nettoyer.
+    """
+    return _JS_UNSAFE.sub("", str(s or "").replace("&", "&amp;"))
 
 
 # ── Messages système ──────────────────────────────────────────────────────────

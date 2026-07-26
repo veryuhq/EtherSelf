@@ -27,7 +27,7 @@ import * as purgelogs from "./commands/purgelogs";
 
 import { healthCheck } from "./bridge/client";
 import { getSecretBuffer, verifySignedRequest, registerSignature } from "./bridge/auth";
-import { container, textDisplay, separator, fileComponent, logLines, replyV2, NO_MENTIONS, type V2MessagePayload } from "./utils/components";
+import { container, textDisplay, separator, fileComponent, logLines, plainText, replyV2, NO_MENTIONS, type V2MessagePayload } from "./utils/components";
 import { updateProgressJob, cleanProgressJob, getCloneJob, cleanCloneJob, getSnapshotJob, cleanSnapshotJob } from "./store/jobs";
 
 import * as snipe from "./panels/snipe";
@@ -173,11 +173,13 @@ function buildSnapshotEmbed(meta: SnapshotFileMeta, attachment: AttachmentBuilde
   const { channelName, guildName, messageCount, filename, fileSizeKb } = meta;
   const now = new Date().toLocaleString("fr-FR");
 
+  // channelName / guildName viennent du salon archivé : contenu tiers, donc
+  // neutralisé avant d'entrer dans un Text Display (cf. plainText).
   const lines = [
-    `## 📸 Snapshot — \`#${channelName}\``,
-    guildName ? `> 🏠 **Serveur :** ${guildName}` : null,
+    `## 📸 Snapshot — \`#${plainText(channelName)}\``,
+    guildName ? `> 🏠 **Serveur :** ${plainText(guildName)}` : null,
     `> \`💬\` **Messages archivés :** \`${messageCount}\``,
-    `> \`📄\` **Fichier :** \`${filename}\``,
+    `> \`📄\` **Fichier :** \`${plainText(filename)}\``,
     `> \`📦\` **Taille :** \`${fileSizeKb} Ko\``,
     `> \`🕐\` **Généré le :** ${now}`,
     ``,

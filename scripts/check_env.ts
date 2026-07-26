@@ -11,7 +11,10 @@ const ENV_PATHS: Record<Scope, string> = {
 };
 
 const REQUIRED: Record<Scope, string[]> = {
-  selfbot: ["TOKEN", "BRIDGE_SECRET", "BRIDGE_PORT"],
+  // OWNER_ID est exigé des DEUX côtés : c'est le second facteur de `token.set`
+  // côté selfbot (app/commands/gestion/token.py). Sans lui, l'action refuse
+  // désormais de s'exécuter.
+  selfbot: ["TOKEN", "BRIDGE_SECRET", "BRIDGE_PORT", "OWNER_ID"],
   controller: [
     "BOT_TOKEN",
     "CLIENT_ID",
@@ -111,6 +114,12 @@ function run(): void {
 
   if (sbEnv.BRIDGE_SECRET && ctrlEnv.BRIDGE_SECRET && sbEnv.BRIDGE_SECRET !== ctrlEnv.BRIDGE_SECRET) {
     errors.push("BRIDGE_SECRET ne match pas entre selfbot et bot-controller.");
+  }
+
+  // Les deux OWNER_ID doivent désigner le même compte : le controller vérifie
+  // la confirmation saisie dans le modal, le selfbot la revérifie de son côté.
+  if (sbEnv.OWNER_ID && ctrlEnv.OWNER_ID && sbEnv.OWNER_ID !== ctrlEnv.OWNER_ID) {
+    errors.push("OWNER_ID ne match pas entre selfbot et bot-controller.");
   }
 
   const sbBridgePort = parsePort(sbEnv.BRIDGE_PORT, "selfbot.BRIDGE_PORT", errors);

@@ -158,7 +158,9 @@ BRIDGE_PORT=3000
 # 🌐 URL du serveur logs/progress/file du controller (défaut : http://127.0.0.1:3001)
 BRIDGE_CONTROLLER_URL=http://127.0.0.1:3001
 
-# 👤 Ton ID Discord — requis uniquement pour l'action token.set
+# 👤 Ton ID Discord — obligatoire, et identique à celui du bot-controller.
+# C'est le second facteur de l'action token.set : sans lui, le selfbot refuse
+# toute modification du token.
 OWNER_ID=ton_id_discord
 ```
 

@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type ButtonComponent, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, plainText, replyV2, type ButtonComponent, type V2MessagePayload } from "../utils/components";
 
 export type PurgeScope = "channel" | "guild" | "dms" | "guilds";
 
@@ -98,8 +98,10 @@ export function buildExclusions(data: PurgeData = {}): V2MessagePayload {
     const items = excluded.filter((e) => e.kind === kind);
     if (!items.length) continue;
     const meta = KIND_META[kind];
+    // `label` est un nom de serveur / salon / groupe DM : contenu tiers, donc
+    // neutralisé (cf. plainText) avant d'entrer dans un Text Display.
     const lines = items
-      .map((e) => `> \`${e.id}\`${e.label ? ` — ${e.label}` : ""}`)
+      .map((e) => `> \`${plainText(e.id)}\`${e.label ? ` — ${plainText(e.label)}` : ""}`)
       .join("\n");
     sections.push(`${meta.icon} **${meta.title}** (${items.length})\n${lines}`);
   }
@@ -139,9 +141,9 @@ export function buildConfirm(data: PurgeConfirmData = {}): V2MessagePayload {
       ? `Le salon <#${channelId}> sera entièrement vidé de tes messages.`
       : "Tous tes messages dans le salon sélectionné seront supprimés.",
     guild: guildName
-      ? `Tous tes messages dans le serveur **${guildName}** (tous les salons accessibles) seront supprimés.`
+      ? `Tous tes messages dans le serveur **${plainText(guildName)}** (tous les salons accessibles) seront supprimés.`
       : guildId
-        ? `Tous tes messages dans le serveur \`${guildId}\` (tous les salons accessibles) seront supprimés.`
+        ? `Tous tes messages dans le serveur \`${plainText(guildId)}\` (tous les salons accessibles) seront supprimés.`
         : "Tous tes messages dans le serveur sélectionné seront supprimés.",
     dms:    "Tous tes messages dans **chaque DM** seront supprimés. Cette action est irréversible.",
     guilds: "Tous tes messages dans **chaque serveur** (chaque salon accessible) seront supprimés. Cette action est **très longue** et irréversible.",
@@ -205,7 +207,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     channel: "Purge du salon",
     dms:     "Purge des DMs",
     guilds:  "Purge des serveurs",
-    guild:   guildName ? `Purge de ${guildName}` : "Purge du serveur",
+    guild:   guildName ? `Purge de ${plainText(guildName)}` : "Purge du serveur",
   };
 
   const icon  = SCOPE_ICONS[scope]  ?? "🗑️";
@@ -221,8 +223,10 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
   const lines: string[] = [];
 
   if (!done) {
+    // activeLabel / item.label = noms de salons, serveurs et interlocuteurs de
+    // DM : du contenu tiers, neutralisé avant affichage.
     if (activeLabel) {
-      lines.push(`⏳ **${activeLabel}**`);
+      lines.push(`⏳ **${plainText(activeLabel)}**`);
     }
 
     const DISPLAY_LIMIT = 12;
@@ -230,7 +234,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     const hidden    = queue.length - displayed.length;
 
     for (const item of displayed) {
-      lines.push(`⬜ ${item.label}`);
+      lines.push(`⬜ ${plainText(item.label)}`);
     }
 
     if (hidden > 0) {
