@@ -70,12 +70,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   }
 
   // ── AFK ───────────────────────────────────────────────────────────────────
-  if (id === "modal:afk_reason") {
-    const reason = interaction.fields.getTextInputValue("reason");
-    const res = await sendAction("afk.setReason", { reason });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(afk.build(res?.data ?? {}));
-  }
   if (id === "modal:afk_msg") {
     const msg = interaction.fields.getTextInputValue("msg");
     const res = await sendAction("afk.setMessage", { message: msg || null });

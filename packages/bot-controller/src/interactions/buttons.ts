@@ -107,16 +107,10 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
 
   // ── AFK ───────────────────────────────────────────────────────────────────
   if (id === "afk:toggle") { const res = await sendAction("afk.toggle"); return interaction.update(afk.build(res?.data ?? {})); }
-  if (id === "afk:setReason") {
-    const res = await sendAction("afk.getState");
-    return interaction.showModal(modal("modal:afk_reason", "Raison AFK", [
-      { id: "reason", label: "Raison", placeholder: "Je suis absent…", value: res?.data?.reason ?? "", required: false },
-    ]));
-  }
   if (id === "afk:setMessage") {
     const res = await sendAction("afk.getState");
     return interaction.showModal(modal("modal:afk_msg", "Message AFK", [
-      { id: "msg", label: "Message ({reason} = raison, vide = défaut)", placeholder: "Je suis AFK ({reason})…", value: res?.data?.message ?? "", required: false, long: true },
+      { id: "msg", label: "Message (vide = défaut)", placeholder: "Je suis AFK…", value: res?.data?.message ?? "", required: false, long: true },
     ]));
   }
   if (id === "afk:addExclusion") {

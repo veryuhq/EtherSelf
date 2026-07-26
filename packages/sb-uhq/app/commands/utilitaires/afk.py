@@ -11,11 +11,22 @@ AFK_FILE = data_path("config", "afk.json")
 
 _DEFAULT = {
     "enabled": False,
-    "reason": "",
     "excluded": [],
     "notified": [],
     "message": None,
 }
+
+
+def _strip_reason_placeholder(text: str) -> str:
+    """Retire le placeholder ``{reason}`` et les résidus qu'il laisse derrière lui.
+
+    Nettoie les parenthèses/crochets vides et les espaces superflus.
+    """
+    text = text.replace("{reason}", "")
+    text = re.sub(r"[([{][\s—–-]*[)\]}]", "", text)  # () / [] / {} vides
+    text = re.sub(r"[ \t]+([,.;:!?])", r"\1", text)   # espace avant ponctuation
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    return text.strip()
 
 
 def _load() -> dict:
@@ -23,6 +34,10 @@ def _load() -> dict:
     # Migration : l'ancien champ "messageNormal" devient "message".
     if "messageNormal" in data:
         data.setdefault("message", data.pop("messageNormal"))
+    # Migration : la raison n'existe plus, on la retire de l'état et du message.
+    data.pop("reason", None)
+    if data.get("message") and "{reason}" in data["message"]:
+        data["message"] = _strip_reason_placeholder(data["message"]) or None
     return data
 
 
@@ -33,26 +48,9 @@ def _save(data) -> None:
 def _build_message(data: dict) -> str:
     """Construit le message AFK à envoyer.
 
-    - Si un message personnalisé est défini, le placeholder ``{reason}`` y est
-      remplacé par la raison configurée. Sans raison, le placeholder est retiré
-      proprement (parenthèses/crochets vides et espaces superflus nettoyés).
-    - Sinon, message par défaut ``Je suis AFK — <raison>.``.
+    Message personnalisé s'il est défini, sinon message par défaut.
     """
-    reason = (data.get("reason") or "").strip()
-    custom = data.get("message")
-
-    if custom:
-        if reason:
-            return custom.replace("{reason}", reason)
-        # Pas de raison : on retire le placeholder et les résidus éventuels.
-        text = custom.replace("{reason}", "")
-        text = re.sub(r"[([{][\s—–-]*[)\]}]", "", text)  # () / [] / {} vides
-        text = re.sub(r"[ \t]+([,.;:!?])", r"\1", text)   # espace avant ponctuation
-        text = re.sub(r"[ \t]{2,}", " ", text)
-        return text.strip()
-
-    suffix = f" — {reason}" if reason else ""
-    return f"Je suis AFK{suffix}."
+    return data.get("message") or "Je suis AFK."
 
 
 async def execute(client, payload):
@@ -81,11 +79,6 @@ async def execute(client, payload):
                 await client.user.edit(global_name=original)
             except Exception as err:  # noqa: BLE001
                 logerr(f"[AFK] Impossible de restaurer le globalName : {err}")
-        return data
-
-    if action == "setReason":
-        data["reason"] = payload.get("reason") or ""
-        _save(data)
         return data
 
     if action == "setMessage":
