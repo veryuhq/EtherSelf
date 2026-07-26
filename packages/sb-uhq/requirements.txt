@@ -3,7 +3,14 @@
 #    ne pas installer les deux dans le même environnement).
 # L'extra [voice] (PyNaCl) est conservé même si le selfbot n'utilise plus de
 # couche audio : il ne coûte rien et laisse la porte ouverte à un usage vocal.
-discord.py-self[voice]>=2.1.0
+#
+# 🔒 Version ÉPINGLÉE volontairement. Cette bibliothèque non officielle a le
+# contrôle total du compte (token, gateway, requêtes REST) : c'est la plus
+# grosse surface d'attaque de chaîne d'approvisionnement du projet. Avec une
+# borne `>=`, un simple `pip install -r` pouvait tirer une version publiée
+# entre-temps sans relecture. Monter la version doit rester un geste explicite,
+# après avoir regardé le diff en amont.
+discord.py-self[voice]==2.1.0
 aiohttp>=3.9
 python-dotenv>=1.0
 psutil>=5.9
