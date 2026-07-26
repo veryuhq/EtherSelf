@@ -33,6 +33,14 @@ class _RateLimiter:
 
     def allow(self, key: str) -> bool:
         now = int(time.time() * 1000)
+        # La clé du limiteur « destructif » contient le nom d'action, qui vient
+        # du payload : `purge.<n_importe_quoi>` matche le préfixe et créait une
+        # entrée de plus à chaque appel, sans jamais être évacuée. On purge les
+        # fenêtres expirées avant d'insérer.
+        if len(self.buckets) > 1000:
+            for k, b in list(self.buckets.items()):
+                if b["resetAt"] <= now:
+                    self.buckets.pop(k, None)
         bucket = self.buckets.get(key)
         if not bucket or bucket["resetAt"] <= now:
             bucket = {"count": 0, "resetAt": now + self.window_ms}
