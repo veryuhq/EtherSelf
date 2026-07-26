@@ -11,9 +11,35 @@ from urllib.parse import urlencode, urlparse, parse_qs
 
 import aiohttp
 
+from .data_path import is_snowflake
 from .discord_headers import make_android_headers, make_desktop_headers
 
 API = "https://discord.com/api/v9"
+
+
+def _safe_id(value, label: str) -> str:
+    """Valide un identifiant Discord AVANT de l'interpoler dans une URL.
+
+    Ces identifiants proviennent tous de la réponse de l'API quêtes, donc d'une
+    source distante que le selfbot ne contrôle pas. Sans validation :
+
+    - `application_id` est interpolé dans le HOST de
+      ``https://{application_id}.discordsays.com/.proxy/acf/authorize`` — une
+      valeur du type ``a@exemple.test/`` y déplacerait la requête vers un
+      serveur tiers, à qui partirait le **code d'autorisation OAuth2 du compte**
+      (scopes identify / applications.commands / applications.entitlements) ;
+    - `quest_id` et `token_id` sont interpolés dans le CHEMIN d'appels à
+      discord.com : un ``#`` ou un ``?`` y tronque l'URL et un ``../`` la
+      redirige vers un autre endpoint de l'API.
+
+    Les IDs Discord sont toujours des snowflakes numériques : on rejette tout le
+    reste. Un ID malformé fait échouer la quête concernée (l'appelant journalise
+    l'erreur dans l'historique) plutôt que d'émettre une requête douteuse.
+    """
+    text = str(value or "").strip()
+    if not is_snowflake(text):
+        raise ValueError(f"{label} invalide : un ID Discord numérique est attendu.")
+    return text
 
 
 async def _request(method: str, path: str, token: str, body=None, is_android: bool = False):
@@ -34,7 +60,8 @@ async def fetch_quests(token: str):
 
 
 async def enroll_quest(token: str, quest: dict, is_android: bool = False):
-    return await _request("POST", f"/quests/{quest['id']}/enroll", token, {
+    quest_id = _safe_id(quest.get("id"), "questId")
+    return await _request("POST", f"/quests/{quest_id}/enroll", token, {
         "location": 12 if is_android else 11,
         "is_targeted": False,
         "metadata_sealed": None,
@@ -44,19 +71,23 @@ async def enroll_quest(token: str, quest: dict, is_android: bool = False):
 
 
 async def post_video_progress(token: str, quest_id: str, timestamp):
+    quest_id = _safe_id(quest_id, "questId")
     return await _request("POST", f"/quests/{quest_id}/video-progress", token,
                           {"timestamp": timestamp})
 
 
 async def post_heartbeat(token: str, quest_id: str, body: dict):
+    quest_id = _safe_id(quest_id, "questId")
     return await _request("POST", f"/quests/{quest_id}/heartbeat", token, body)
 
 
 async def fetch_application_public(token: str, application_id: str):
+    application_id = _safe_id(application_id, "applicationId")
     return await _request("GET", f"/applications/public?application_ids={application_id}", token)
 
 
 async def authorize_oauth2(token: str, application_id: str):
+    application_id = _safe_id(application_id, "applicationId")
     params = urlencode({
         "response_type": "code",
         "client_id": application_id,
@@ -76,10 +107,12 @@ async def get_oauth2_tokens(token: str):
 
 
 async def delete_oauth2_token(token: str, token_id: str):
+    token_id = _safe_id(token_id, "tokenId")
     return await _request("DELETE", f"/oauth2/tokens/{token_id}", token)
 
 
 async def get_proxy_ticket(token: str, application_id: str) -> str:
+    application_id = _safe_id(application_id, "applicationId")
     res = await _request("POST", f"/applications/{application_id}/proxy-tickets", token, {})
     ticket = (res.get("data") or {}).get("ticket") if res.get("ok") else None
     if not res.get("ok") or not ticket:
@@ -88,6 +121,7 @@ async def get_proxy_ticket(token: str, application_id: str) -> str:
 
 
 async def get_activity_referrer(token: str, application_id: str) -> str:
+    application_id = _safe_id(application_id, "applicationId")
     proxy_ticket = await get_proxy_ticket(token, application_id)
     params = urlencode({
         "instance_id": "example-cl-instance",
@@ -110,6 +144,10 @@ def _activity_headers(quest_id: str, ds_token: str = "", referrer: str | None = 
 
 async def authorize_discord_says(discord_token: str, application_id: str, quest_id: str,
                                  auth_code: str):
+    # C'est ici que part le code d'autorisation OAuth2 du compte : l'ID doit être
+    # validé AVANT de construire le host, sans quoi le code file chez un tiers.
+    application_id = _safe_id(application_id, "applicationId")
+    quest_id = _safe_id(quest_id, "questId")
     referrer = await get_activity_referrer(discord_token, application_id)
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -126,6 +164,8 @@ async def authorize_discord_says(discord_token: str, application_id: str, quest_
 
 async def progress_discord_says(application_id: str, quest_id: str, ds_token: str,
                                 quest_target, referrer: str) -> bool:
+    application_id = _safe_id(application_id, "applicationId")
+    quest_id = _safe_id(quest_id, "questId")
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"https://{application_id}.discordsays.com/.proxy/acf/quest/progress",
