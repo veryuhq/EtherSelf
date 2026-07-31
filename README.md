@@ -87,7 +87,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 
 | Module | Description |
 |---|---|
-| 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs (et groupes), tous les serveurs — exclusions serveurs / groupes DM / salons, annulation en temps réel |
+| 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs (groupes et conversations fermées inclus), tous les serveurs — exclusions serveurs / groupes DM / salons, annulation en temps réel |
 | 🔁 **Clone de serveur** | Copie rôles, salons, emojis et paramètres d'un serveur vers un autre |
 | 📊 **Infos système** | Ping WebSocket, uptime du processus, CPU / RAM / OS de l'hôte |
 
@@ -247,6 +247,7 @@ Au démarrage, le bot controller t'envoie automatiquement un DM confirmant que t
 ## 📝 Notes diverses
 
 - 🗃️ **Cache Discord** — certaines fonctionnalités (quitter tous les groupes, purge DMs) effectuent un `fetch()` au préalable pour peupler le cache, mais la couverture dépend de l'état de l'API au moment de l'appel.
+- 💬 **Purge des DMs & conversations fermées** — fermer un DM le retire de ta liste de messages sans rien supprimer côté serveur : il n'apparaît alors dans aucune liste renvoyée par l'API. La purge reconstitue ces conversations à partir de tes relations (amis, bloqués, demandes en attente) et de tes affinités (comptes les plus fréquentés), rouvre chaque DM le temps de le vider, puis le referme. Un DM fermé avec quelqu'un qui n'est ni une relation ni une affinité reste hors de portée : ajoute-le à ta liste de messages avant de lancer la purge.
 - 🏆 **Quests** — les endpoints utilisés sont non officiels et peuvent changer sans préavis à chaque mise à jour de Discord.
 - ⏱️ **Purge** — la suppression de messages est intentionnellement ralentie (100ms entre chaque message) pour limiter le risque de rate-limit ou de flag de compte.
 - 🐍 **discord.py-self** — le selfbot dépend de `discord.py-self`. Certaines fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib et de l'API Discord ; valide-les sur ton compte avant de compter dessus.

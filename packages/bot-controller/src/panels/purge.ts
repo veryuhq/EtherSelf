@@ -26,9 +26,15 @@ export interface PurgeConfirmData {
   amount?: number | null;
 }
 
+/** Étape préliminaire d'une purge de DMs, avant la suppression elle-même. */
+export type PurgeStage = "discovery" | "scan";
+
 export interface PurgeProgressData {
   scope?: PurgeScope;
   guildName?: string | null;
+  stage?: PurgeStage | null;
+  discovered?: number;
+  scanned?: number;
   queue?: Array<{ id: string; label: string }>;
   activeLabel?: string | null;
   doneCount?: number;
@@ -145,7 +151,8 @@ export function buildConfirm(data: PurgeConfirmData = {}): V2MessagePayload {
       : guildId
         ? `Tous tes messages dans le serveur \`${plainText(guildId)}\` (tous les salons accessibles) seront supprimés.`
         : "Tous tes messages dans le serveur sélectionné seront supprimés.",
-    dms:    "Tous tes messages dans **chaque DM** seront supprimés. Cette action est irréversible.",
+    dms:    "Tous tes messages dans **chaque DM** et **chaque groupe** seront supprimés, y compris les conversations **fermées** " +
+            "(retirées de ta liste de messages) : elles sont rouvertes le temps de la purge, puis refermées. Cette action est irréversible.",
     guilds: "Tous tes messages dans **chaque serveur** (chaque salon accessible) seront supprimés. Cette action est **très longue** et irréversible.",
   };
 
@@ -187,6 +194,9 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
   const {
     scope        = "dms",
     guildName    = null,
+    stage        = null,
+    discovered   = 0,
+    scanned      = 0,
     queue        = [],
     activeLabel  = null,
     doneCount    = 0,
@@ -244,8 +254,18 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
 
   const listText = lines.length ? lines.join("\n") : "";
 
+  // Étapes préliminaires (DMs) : rien à afficher en dehors de l'en-tête, la
+  // liste des conversations n'est pas encore connue.
+  const preliminary = !done && stage !== null;
+
   let header: string;
-  if (done && cancelled) {
+  if (preliminary && stage === "discovery") {
+    header =
+      `\`🔎\` **Recherche des conversations…** — \`${discovered}\` trouvée(s)\n` +
+      `-# Les DMs fermés sont rouverts le temps de la purge, puis refermés.`;
+  } else if (preliminary) {
+    header = `\`🔎\` **Analyse des conversations…** — \`${scanned}/${discovered}\``;
+  } else if (done && cancelled) {
     header = `\`🛑\` **Arrêté !** \`${totalDeleted}\` message(s) supprimé(s) avant l'arrêt.`;
   } else if (done) {
     // total === 0 = tous les canaux skippés (aucun message à supprimer)
@@ -264,9 +284,11 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     header = `\`🔄\` **Démarrage…**`;
   }
 
-  const body = listText
-    ? `${header}\n\n${progressLine}\n\n${listText}`
-    : `${header}\n\n${progressLine}`;
+  const body = preliminary
+    ? header
+    : listText
+      ? `${header}\n\n${progressLine}\n\n${listText}`
+      : `${header}\n\n${progressLine}`;
 
   const buttons: ButtonComponent[] = [];
   if (!done && jobId) {
