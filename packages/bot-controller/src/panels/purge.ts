@@ -27,7 +27,7 @@ export interface PurgeConfirmData {
 }
 
 /** Étape préliminaire d'une purge de DMs, avant la suppression elle-même. */
-export type PurgeStage = "discovery" | "scan";
+export type PurgeStage = "search" | "discovery" | "scan";
 
 export interface PurgeProgressData {
   scope?: PurgeScope;
@@ -259,10 +259,14 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
   const preliminary = !done && stage !== null;
 
   let header: string;
-  if (preliminary && stage === "discovery") {
+  if (preliminary && stage === "search") {
     header =
       `\`🔎\` **Recherche des conversations…** — \`${discovered}\` trouvée(s)\n` +
-      `-# Les DMs fermés sont rouverts le temps de la purge, puis refermés.`;
+      `-# Y compris les conversations fermées, absentes de ta liste de messages.`;
+  } else if (preliminary && stage === "discovery") {
+    header =
+      `\`🔎\` **Vérification des conversations fermées…** — \`${discovered}\` trouvée(s)\n` +
+      `-# Celles qu'il faut rouvrir le sont le temps de la purge, puis refermées.`;
   } else if (preliminary) {
     header = `\`🔎\` **Analyse des conversations…** — \`${scanned}/${discovered}\``;
   } else if (done && cancelled) {

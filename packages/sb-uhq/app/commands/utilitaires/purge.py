@@ -8,32 +8,37 @@ from __future__ import annotations
 import asyncio
 import math
 
-import aiohttp
 import discord
 
 from ...bridge.controller_client import post_progress
-from ...func.client_token import get_token
 from ...func.data_path import data_path, read_json, write_json
 from ...func.discord_util import fetch_channel, user_tag
-from ...func.discord_headers import make_desktop_headers
 
 PARALLEL_DELETE = 5
 BATCH_DELAY = 0.05
 
 # Découverte des DMs — un DM « fermé » (retiré de la liste de messages) reste
-# intact côté serveur mais n'apparaît dans aucune liste : il faut le rouvrir
-# pour y accéder. POST /users/@me/channels est fortement rate-limité, d'où les
-# délais entre deux ouvertures / refermetures.
+# intact côté serveur mais n'apparaît dans aucune liste : il faut le retrouver
+# pour y accéder. GET /channels/{id} et POST /users/@me/channels sont
+# rate-limités, d'où les délais entre deux résolutions / ouvertures.
+DM_FETCH_DELAY = 0.25
 DM_OPEN_DELAY = 0.35
 DM_CLOSE_DELAY = 0.25
 # Fréquence des notifications de progression pendant la découverte.
 DM_DISCOVERY_NOTIFY_EVERY = 5
 
-# Recherche « ai-je écrit ici ? » : requêtes lancées en parallèle, pause entre
-# deux lots, et tentatives max quand l'index de Discord n'est pas encore prêt.
+# Recherche globale (GET /users/@me/messages/search) : pagination du plus ancien
+# au plus récent, bornée — parcourir tout l'historique d'un gros compte
+# représenterait des milliers de requêtes.
+SEARCH_GLOBAL_PAGE = 25
+SEARCH_GLOBAL_MAX_PAGES = 200
+SEARCH_GLOBAL_IDLE_PAGES = 20
+SEARCH_GLOBAL_DELAY = 0.35
+
+# Pré-filtre « ai-je écrit ici ? » : requêtes lancées en parallèle, pause entre
+# deux lots.
 SEARCH_BATCH = 10
 SEARCH_BATCH_DELAY = 0.5
-SEARCH_MAX_RETRIES = 4
 
 # Exclusions de purge — serveurs / groupes DM / salons épargnés par les purges
 # larges (serveur, tous serveurs, tous DMs). Persistées dans data/config/purge.json.
@@ -122,39 +127,27 @@ async def _notify(job_id, data):
 async def _has_own_messages(client, channel_id) -> bool:
     """Le compte a-t-il des messages dans ce salon ? (pré-filtre de purge)
 
-    En cas de doute (erreur, index indisponible), retourne True : le salon sera
-    parcouru pour rien au pire, alors qu'un faux négatif le sauterait
-    définitivement — et laisserait des messages derrière.
+    Passe par la couche HTTP de discord.py-self plutôt que par une requête
+    brute : elle signe déjà les requêtes comme un client de bureau, gère les
+    rate-limits, et surtout réessaie les réponses `202 Accepted` — Discord les
+    renvoie quand l'index de recherche du salon n'est pas encore construit,
+    avec un corps sans résultat. Lu tel quel, ce 202 signifiait « aucun
+    message » et faisait sauter le salon pour de bon.
+
+    En cas de doute (erreur, index toujours indisponible), retourne True : au
+    pire le salon est parcouru pour rien, alors qu'un faux négatif laisserait
+    des messages derrière.
     """
-    token = get_token(client)
-    url = (f"https://discord.com/api/v9/channels/{channel_id}/messages/search"
-           f"?author_id={client.user.id}&limit=1")
     try:
-        async with aiohttp.ClientSession() as session:
-            for _ in range(SEARCH_MAX_RETRIES):
-                async with session.get(url, headers=make_desktop_headers(token)) as res:
-                    if res.status == 404:
-                        return False
-                    if res.status == 403:
-                        return True
-                    # 202 = index de recherche pas encore construit pour ce salon,
-                    # 429 = rate-limit : dans les deux cas Discord renvoie un
-                    # `retry_after` et la réponse ne contient aucun résultat.
-                    if res.status in (202, 429):
-                        data = await res.json(content_type=None) or {}
-                        try:
-                            wait = float(data.get("retry_after") or 1)
-                        except (TypeError, ValueError):
-                            wait = 1.0
-                        await asyncio.sleep(min(max(wait, 0.5), 5))
-                        continue
-                    if res.status >= 400:
-                        return True
-                    data = await res.json(content_type=None)
-                    return (data.get("total_results") or 0) > 0
-        return True
+        data = await client.http.search_channel(
+            channel_id, {"author_id": [str(client.user.id)], "limit": 1}
+        )
+    except discord.NotFound:
+        return False
     except Exception:
         return True
+    total = data.get("total_results")
+    return True if total is None else total > 0
 
 
 async def _purge_channel(client, channel, limit=math.inf, job_id=None) -> int:
@@ -242,15 +235,96 @@ async def _open_private_channels(client) -> dict[int, object]:
     return channels
 
 
+async def _searched_private_channels(client, job_id, on_progress) -> set[int]:
+    """Conversations privées où le compte a écrit, via la recherche globale.
+
+    `GET /users/@me/messages/search` est la recherche « tous salons » du client
+    Discord. C'est le seul moyen de retrouver un DM fermé avec quelqu'un qui
+    n'est ni une relation ni une affinité : la conversation n'apparaît alors
+    dans aucune liste, mais ses messages restent indexés.
+
+    Les messages de serveur portent un `guild_id`, pas ceux des DMs : c'est ce
+    qui les distingue. On remonte du plus ancien au plus récent (les
+    conversations oubliées sont vieilles, les récentes sont déjà dans la liste
+    de messages) et on s'arrête dès que plus rien de neuf ne sort, pour ne pas
+    parcourir tout l'historique du compte.
+    """
+    found: set[int] = set()
+    payload = {
+        "author_id": [str(client.user.id)],
+        "limit": SEARCH_GLOBAL_PAGE,
+        "sort_order": "asc",
+        "sort_by": "timestamp",
+    }
+    idle_pages = 0
+
+    for page in range(SEARCH_GLOBAL_MAX_PAGES):
+        if is_cancelled(job_id):
+            break
+        try:
+            data = await client.http.search_user(dict(payload))
+        except Exception:
+            break  # recherche indisponible : les autres sources prennent le relais
+
+        # `messages` est une liste de groupes [contexte, résultat, contexte] ;
+        # le résultat est toujours le premier élément.
+        groups = [g for g in (data.get("messages") or []) if g]
+        if not groups:
+            break
+
+        new = 0
+        for group in groups:
+            message = group[0]
+            if message.get("guild_id"):
+                continue
+            channel_id = message.get("channel_id")
+            if channel_id and int(channel_id) not in found:
+                found.add(int(channel_id))
+                new += 1
+
+        idle_pages = 0 if new else idle_pages + 1
+        if idle_pages >= SEARCH_GLOBAL_IDLE_PAGES or len(groups) < SEARCH_GLOBAL_PAGE:
+            break
+
+        payload["min_id"] = str(groups[-1][0]["id"])
+        if on_progress:
+            await on_progress(len(found))
+        await asyncio.sleep(SEARCH_GLOBAL_DELAY)
+
+    return found
+
+
+async def _resolve_private_channels(client, channel_ids, known: dict) -> dict[int, object]:
+    """Résout des conversations trouvées par la recherche, sans les rouvrir.
+
+    `GET /channels/{id}` suffit à récupérer un DM fermé : on reste destinataire
+    de la conversation, seule sa présence dans la liste de messages a disparu.
+    La liste de l'utilisateur n'est donc pas touchée.
+    """
+    resolved: dict[int, object] = {}
+    for channel_id in channel_ids:
+        if channel_id in known:
+            continue
+        channel = client.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await client.fetch_channel(channel_id)
+            except Exception:
+                channel = None
+            await asyncio.sleep(DM_FETCH_DELAY)
+        if _is_private(channel):
+            resolved[channel_id] = channel
+    return resolved
+
+
 async def _closed_dm_candidates(client, known: dict) -> list[int]:
     """Interlocuteurs dont le DM est fermé (absent de la liste de messages).
 
-    Fermer un DM ne supprime rien côté serveur : la conversation disparaît juste
-    de la liste et d'`/users/@me/channels`, donc une purge basée sur cette seule
-    liste laisse ces messages intacts. Aucun endpoint ne liste les DMs fermés :
-    on reconstitue les interlocuteurs via les relations (amis, bloqués, demandes
-    en attente) et les affinités (comptes les plus fréquentés), puis on rouvre
-    le DM — ce qui restitue l'historique complet.
+    Filet de sécurité derrière la recherche globale, qui peut ne pas tout voir :
+    son index se construit en arrière-plan (`doing_deep_historical_index`) et sa
+    pagination est bornée. On reconstitue donc aussi les interlocuteurs via les
+    relations (amis, bloqués, demandes en attente) et les affinités (comptes les
+    plus fréquentés), puis on rouvre le DM — ce qui restitue l'historique.
     """
     # Uniquement les DMs 1-à-1 : les membres d'un groupe DM ne disent rien de
     # l'état du DM privé qu'on a avec eux.
@@ -328,10 +402,20 @@ async def _purge_dms(client, job_id) -> dict:
                                "scanned": scanned, "done": False, "cancelled": False})
 
     try:
-        # 1. Conversations ouvertes (cache + REST), puis DMs fermés rouverts.
+        # 1. Conversations visibles dans la liste de messages (cache + REST).
         known = await _open_private_channels(client)
-        await _stage("discovery", len(known))
+        await _stage("search", len(known))
 
+        # 2. Recherche globale : conversations où on a écrit, fermées comprises.
+        searched = await _searched_private_channels(
+            client, job_id,
+            lambda count: _stage("search", len(known) + count),
+        )
+        known.update(await _resolve_private_channels(client, searched, known))
+
+        # 3. Filet de sécurité : rouvrir les DMs fermés des relations / affinités
+        #    que la recherche n'aurait pas remontés.
+        await _stage("discovery", len(known))
         candidates = await _closed_dm_candidates(client, known)
         reopened = await _reopen_dms(
             client, candidates, job_id,
@@ -342,16 +426,19 @@ async def _purge_dms(client, job_id) -> dict:
 
         dm_channels = [c for cid, c in known.items() if str(cid) not in excluded]
 
-        # 2. Pré-filtre : ne garder que les conversations où on a écrit.
-        filtered = []
-        for i in range(0, len(dm_channels), SEARCH_BATCH):
+        # 4. Pré-filtre : ne garder que les conversations où on a écrit. Celles
+        #    que la recherche globale a remontées sont déjà confirmées.
+        confirmed = [c for c in dm_channels if c.id in searched]
+        to_check = [c for c in dm_channels if c.id not in searched]
+        filtered = list(confirmed)
+        for i in range(0, len(to_check), SEARCH_BATCH):
             if is_cancelled(job_id):
                 break
-            batch = dm_channels[i:i + SEARCH_BATCH]
+            batch = to_check[i:i + SEARCH_BATCH]
             checks = await asyncio.gather(*(_has_own_messages(client, c.id) for c in batch))
             filtered.extend(c for c, has in zip(batch, checks) if has)
-            await _stage("scan", len(dm_channels), min(i + SEARCH_BATCH, len(dm_channels)))
-            if i + SEARCH_BATCH < len(dm_channels):
+            await _stage("scan", len(to_check), min(i + SEARCH_BATCH, len(to_check)))
+            if i + SEARCH_BATCH < len(to_check):
                 await asyncio.sleep(SEARCH_BATCH_DELAY)
 
         total = len(filtered)
