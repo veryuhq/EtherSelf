@@ -215,7 +215,7 @@ export function buildSnapshotRunning(data: { channelId?: string; channelName?: s
         `# 📸 Snapshot en cours…\n` +
         `\`⏳\` **Récupération des messages de ${display}…**\n\n` +
         `*Cette opération peut prendre plusieurs secondes à quelques minutes selon la taille du salon.*\n` +
-        `*Le fichier HTML te sera envoyé en DM une fois terminé.*`
+        `*Tu recevras le fichier HTML en DM une fois le snapshot terminé.*`
       ),
       separator(),
       navRow(null, null, true),

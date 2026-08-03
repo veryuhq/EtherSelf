@@ -59,7 +59,7 @@ export function build(data: PurgeData = {}): V2MessagePayload {
       "ce salon";
     status =
       `\`⏳\` **Purge de ${scopeLabel} en cours…**\n` +
-      `*Les messages sont supprimés un par un. Le panel se mettra à jour automatiquement.*`;
+      `*Le selfbot supprime les messages un par un. Le panel se mettra à jour tout seul.*`;
   } else if (deleted !== null) {
     const scopeLabel =
       scope === "dms"    ? "des DMs" :
@@ -144,8 +144,8 @@ export function buildConfirm(data: PurgeConfirmData = {}): V2MessagePayload {
 
   const SCOPE_WARNINGS: Record<PurgeScope, string> = {
     channel: channelId
-      ? `Le salon <#${channelId}> sera entièrement vidé de tes messages.`
-      : "Tous tes messages dans le salon sélectionné seront supprimés.",
+      ? `Le selfbot videra le salon <#${channelId}> de tous tes messages.`
+      : "Le selfbot supprimera tous tes messages dans le salon sélectionné.",
     guild: guildName
       ? `Tous tes messages dans le serveur **${plainText(guildName)}** (tous les salons accessibles) seront supprimés.`
       : guildId

@@ -298,7 +298,7 @@ export function buildCloneRunning(data: CloneRunningData = {}): V2MessagePayload
   return replyV2(
     container([
       textDisplay(
-        `# 🔁 Clone en cours…\n-# Ce panneau se met à jour automatiquement.\n\n` +
+        `# 🔁 Clone en cours…\n-# Ce panneau se met à jour tout seul.\n\n` +
         // Noms de serveurs, et `label` = nom du rôle / salon / emoji en cours
         // de clonage : tous définis par des tiers, donc neutralisés.
         `### Serveurs\n> \`📤\` **Source :** ${plainText(sourceGuild)}\n> \`📥\` **Cible :**  ${plainText(targetGuild)}\n\n` +
@@ -320,7 +320,7 @@ export function buildCloneResult(data: CloneResultData = {}): V2MessagePayload {
   let statusLine: string;
   if (cancelled) {
     accentColor = 0x95A5A6;
-    statusLine  = `\`🛑\` **Clonage annulé**\n> *L'opération a été interrompue manuellement.*`;
+    statusLine  = `\`🛑\` **Clonage annulé**\n> *Tu as interrompu l'opération.*`;
   } else if (success) {
     accentColor = 0x2ECC71;
     statusLine  =

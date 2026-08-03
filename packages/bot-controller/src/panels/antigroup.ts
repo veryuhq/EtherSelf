@@ -19,7 +19,7 @@ export function build(data: AntigroupData = {}): V2MessagePayload {
       textDisplay(
         `# 🔇 Anti-Group DM\n` +
         `${enabled ? "`🟢`" : "`🔴`"} **Statut :** ${enabled ? "Activé" : "Désactivé"}\n\n` +
-        `*Quitte automatiquement tout groupe DM entrant dès sa création.*`
+        `*Quitte tout groupe DM entrant dès sa création.*`
       ),
       separator(),
       actionRow([
