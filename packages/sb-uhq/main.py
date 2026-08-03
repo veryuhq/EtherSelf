@@ -26,7 +26,7 @@ platform_identity.install()
 from app.bridge.server import run_bridge_server  # noqa: E402
 from app.commands.fun import mock, spoiler  # noqa: E402
 from app.commands.gestion import antigroup, msglog, prefix  # noqa: E402
-from app.commands.utilitaires import afk, autobump, quests, rpc, snapshot, tag  # noqa: E402
+from app.commands.utilitaires import afk, quests, rpc, snapshot, tag  # noqa: E402
 from app.func import shutdown  # noqa: E402
 from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
@@ -56,8 +56,6 @@ async def on_ready():
         rpc.on_ready(client)
         # Quests
         quests.on_ready(client)
-        # Autobump
-        autobump.on_ready(client)
         # Snapshots périodiques
         snapshot.on_ready(client)
 

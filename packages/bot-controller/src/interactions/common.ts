@@ -18,7 +18,6 @@ export const NAV_MAP: Record<string, string> = {
   "panel:bookmarks":    "bookmarks",
   "panel:msgbookmarks": "msgbookmarks",
   "panel:antigroup":    "antigroup",
-  "panel:autobump":     "autobump",
   "panel:purge":        "purge",
   "panel:sysinfo":      "sysinfo",
   "panel:rpc":          "rpc",

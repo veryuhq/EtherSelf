@@ -12,7 +12,6 @@ import * as tags      from "../panels/tags";
 import * as bookmarks from "../panels/bookmarks";
 import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
-import * as autobump  from "../panels/autobump";
 import * as purge     from "../panels/purge";
 import * as sysinfo   from "../panels/sysinfo";
 import * as rpc       from "../panels/rpc";
@@ -55,7 +54,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     bookmarks:    () => sendAction("bookmark.list"),
     msgbookmarks: () => sendAction("msgbm.list"),
     antigroup:    () => sendAction("antigroup.getState"),
-    autobump:     () => sendAction("autobump.list"),
     purge_exclusions: () => sendAction("purge.getExclusions"),
     rpc:          () => sendAction("rpc.getState"),
     rpc_cs:       () => sendAction("rpc.getState"),
@@ -97,7 +95,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     bookmarks:    (d) => bookmarks.build(d),
     msgbookmarks: (d) => msgbm.build(d),
     antigroup:    (d) => antigroup.build(d),
-    autobump:     (d) => autobump.build(d),
     purge:            ()  => purge.build(),
     purge_exclusions: (d) => purge.buildExclusions(d),
     sysinfo:      ()  => sysinfo.build(),

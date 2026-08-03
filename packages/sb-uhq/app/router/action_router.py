@@ -10,8 +10,8 @@ from __future__ import annotations
 from ..commands.fun import mock, spoiler
 from ..commands.gestion import antigroup, msglog, prefix, token
 from ..commands.informations import hostinfo, ping, roles, uptime
-from ..commands.utilitaires import (afk, autobump, backups, bookmark, msgbookmarks,
-                                     purge, quests, rpc, snapshot, snipe, tag)
+from ..commands.utilitaires import (afk, backups, bookmark, msgbookmarks,
+                                    purge, quests, rpc, snapshot, snipe, tag)
 
 # action → async (client, payload) -> data
 ACTIONS = {
@@ -59,13 +59,6 @@ ACTIONS = {
     "antigroup.toggle": lambda c, p: antigroup.execute(c, {"action": "toggle"}),
     "antigroup.getState": lambda c, p: antigroup.execute(c, {"action": "getState"}),
     "antigroup.leaveAll": lambda c, p: antigroup.execute(c, {"action": "leaveAll"}),
-
-    # ── AUTOBUMP ──
-    "autobump.add": lambda c, p: autobump.execute(c, {"action": "add", "guildId": p.get("guildId"), "channelId": p.get("channelId"), "appId": p.get("appId"), "commandName": p.get("commandName")}),
-    "autobump.remove": lambda c, p: autobump.execute(c, {"action": "remove", "guildId": p.get("guildId"), "channelId": p.get("channelId")}),
-    "autobump.start": lambda c, p: autobump.execute(c, {"action": "start"}),
-    "autobump.stop": lambda c, p: autobump.execute(c, {"action": "stop"}),
-    "autobump.list": lambda c, p: autobump.execute(c, {"action": "list"}),
 
     # ── MSGLOG ──
     "msglog.add": lambda c, p: msglog.execute(c, {"action": "add", "guildId": p.get("guildId")}),

@@ -16,7 +16,6 @@ import * as afk       from "../panels/afk";
 import * as snipe     from "../panels/snipe";
 import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
-import * as autobump  from "../panels/autobump";
 import * as purge     from "../panels/purge";
 import * as sysinfo   from "../panels/sysinfo";
 import * as rpc       from "../panels/rpc";
@@ -273,33 +272,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const res = await sendAction("antigroup.leaveAll");
     if (!res?.success) return interaction.editReply({ content: `❌ ${res?.error ?? "Erreur inconnue."}` }).catch(() => {});
     return interaction.editReply(antigroup.buildLeaveAllResult(res?.data ?? {})).catch(() => {});
-  }
-
-  // ── AUTOBUMP ──────────────────────────────────────────────────────────────
-  if (id === "autobump:add") {
-    return interaction.showModal(modal("modal:autobump_add", "Ajouter un salon autobump", [
-      { id: "guildId",     label: "ID du serveur", placeholder: "123456789012345678" },
-      { id: "channelId",   label: "ID du salon",   placeholder: "123456789012345678" },
-      { id: "appId",       label: "APP ID du bot de bump", placeholder: "302050872383242240" },
-      { id: "commandName", label: "Nom de la commande", placeholder: "bump" },
-    ]));
-  }
-  if (id === "autobump:remove") {
-    return interaction.showModal(modal("modal:autobump_remove", "Retirer un salon autobump", [
-      { id: "guildId",   label: "ID du serveur", placeholder: "123456789012345678" },
-      { id: "channelId", label: "ID du salon",   placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "autobump:start") {
-    const res = await sendAction("autobump.start");
-    if (!res?.success) return _error(interaction, res?.error);
-    const state = await sendAction("autobump.list");
-    return interaction.update(autobump.build(state?.data ?? {}));
-  }
-  if (id === "autobump:stop") {
-    await sendAction("autobump.stop");
-    const state = await sendAction("autobump.list");
-    return interaction.update(autobump.build(state?.data ?? {}));
   }
 
   // ── RPC — Activités ───────────────────────────────────────────────────────

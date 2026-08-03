@@ -15,7 +15,6 @@ import * as snipe       from "../panels/snipe";
 import * as tags        from "../panels/tags";
 import * as bookmarks   from "../panels/bookmarks";
 import * as msgbm       from "../panels/msgbookmarks";
-import * as autobump    from "../panels/autobump";
 import * as purge       from "../panels/purge";
 import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
@@ -228,26 +227,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const res = await sendAction("msgbm.note", { index, note });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(msgbm.build(res?.data ?? {}));
-  }
-
-  // ── AUTOBUMP ──────────────────────────────────────────────────────────────
-  if (id === "modal:autobump_add") {
-    const guildId     = interaction.fields.getTextInputValue("guildId").trim();
-    const channelId   = interaction.fields.getTextInputValue("channelId").trim();
-    const appId       = interaction.fields.getTextInputValue("appId").trim();
-    const commandName = interaction.fields.getTextInputValue("commandName").trim();
-    const res = await sendAction("autobump.add", { guildId, channelId, appId, commandName });
-    if (!res?.success) return _error(interaction, res?.error);
-    const state = await sendAction("autobump.list");
-    return interaction.update(autobump.build(state?.data ?? {}));
-  }
-  if (id === "modal:autobump_remove") {
-    const guildId   = interaction.fields.getTextInputValue("guildId").trim();
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("autobump.remove", { guildId, channelId });
-    if (!res?.success) return _error(interaction, res?.error);
-    const state = await sendAction("autobump.list");
-    return interaction.update(autobump.build(state?.data ?? {}));
   }
 
   // ── PURGE ─────────────────────────────────────────────────────────────────

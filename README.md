@@ -73,7 +73,6 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | Module | Description |
 |---|---|
 | 🔇 **Anti-Group DM** | Quitte automatiquement tout groupe DM entrant — option pour quitter tous les groupes existants |
-| ⬆️ **Auto-Bump** | Envoi automatique de `/bump` Disboard toutes les 2h dans les salons que tu veux |
 | 🏆 **Discord Quests** | Complétion automatique des quêtes Discord (vidéo, plateforme, activité…) |
 
 ### 🎨 Personnalisation
