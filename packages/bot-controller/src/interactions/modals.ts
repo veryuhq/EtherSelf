@@ -2,9 +2,10 @@ import type { ModalMessageModalSubmitInteraction, ModalSubmitInteraction } from 
 
 import { sendAction } from "../bridge/client";
 import { NO_MENTIONS } from "../utils/components";
-import { NAV_MAP, makeJobId } from "./common";
+import { NAV_MAP, makeJobId, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
+import { getRolesConfig } from "../store/roles-config";
 import { registerSnapshotJob } from "../store/jobs";
 
 // Panels
@@ -20,6 +21,7 @@ import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
 import * as backups     from "../panels/backups";
 import * as configPanel from "../panels/config";
+import * as rolesPanel  from "../panels/roles";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -45,7 +47,7 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
   }
 
   if (NAV_MAP[id]) {
-    const panel = await fetchAndBuild(NAV_MAP[id]);
+    const panel = await fetchAndBuild(NAV_MAP[id], interaction.user.id);
     return interaction.update(panel!);
   }
 
@@ -479,6 +481,42 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     cfg.cloneEmojis   = values.includes("emojis");
     cfg.cloneSettings = values.includes("settings");
     return interaction.update(backups.buildClone(cfg));
+  }
+
+  // ── RÔLES ─────────────────────────────────────────────────────────────────
+  if (id === "modal:roles_guild") {
+    const guildId = interaction.fields.getTextInputValue("guildId").trim();
+    const res = await sendAction("roles.guildInfo", { guildId });
+    if (!res?.success) return _error(interaction, res?.error);
+    const cfg = getRolesConfig(interaction.user.id);
+    cfg.guildId   = guildId;
+    cfg.guildName = res.data?.guild?.name ?? null;
+    return interaction.update(rolesPanel.build({ guild: res.data?.guild ?? null }));
+  }
+  if (id === "modal:roles_member" || id === "modal:roles_role") {
+    const guildId = interaction.fields.getTextInputValue("guildId").trim();
+    // Le serveur saisi devient le serveur ciblé : la recherche suivante est préremplie.
+    if (guildId) {
+      const cfg = getRolesConfig(interaction.user.id);
+      if (cfg.guildId !== guildId) {
+        cfg.guildId   = guildId;
+        cfg.guildName = null;
+      }
+    }
+    // Les recherches interrogent le gateway Discord : on acquitte d'abord
+    // l'interaction (fenêtre de 3 s) avant de rendre le résultat.
+    await interaction.deferUpdate();
+    const { panel, error } = id === "modal:roles_member"
+      ? await fetchMemberRolesPanel(guildId, interaction.fields.getTextInputValue("userId").trim())
+      : await fetchRoleMembersPanel(guildId, interaction.fields.getTextInputValue("roleId").trim());
+    if (!panel) {
+      return interaction.followUp({
+        content: `❌ ${error ?? "Une erreur est survenue."}`,
+        ephemeral: true,
+        allowedMentions: NO_MENTIONS,
+      });
+    }
+    return interaction.editReply(panel);
   }
 }
 

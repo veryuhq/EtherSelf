@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ..commands.fun import mock, spoiler
 from ..commands.gestion import antigroup, msglog, prefix, token
-from ..commands.informations import hostinfo, ping, uptime
+from ..commands.informations import hostinfo, ping, roles, uptime
 from ..commands.utilitaires import (afk, autobump, backups, bookmark, msgbookmarks,
                                      purge, quests, rpc, snapshot, snipe, tag)
 
@@ -133,6 +133,12 @@ ACTIONS = {
     # ── FUN ──
     "fun.mock": lambda c, p: mock.execute(c, {"channelId": p.get("channelId"), "text": p.get("text")}),
     "fun.spoiler": lambda c, p: spoiler.execute(c, {"channelId": p.get("channelId"), "text": p.get("text")}),
+
+    # ── RÔLES ──
+    "roles.guildInfo": lambda c, p: roles.execute(c, {"action": "guildInfo", "guildId": p.get("guildId")}),
+    "roles.listRoles": lambda c, p: roles.execute(c, {"action": "listRoles", "guildId": p.get("guildId")}),
+    "roles.memberRoles": lambda c, p: roles.execute(c, {"action": "memberRoles", "guildId": p.get("guildId"), "userId": p.get("userId")}),
+    "roles.roleMembers": lambda c, p: roles.execute(c, {"action": "roleMembers", "guildId": p.get("guildId"), "roleId": p.get("roleId"), "deep": p.get("deep")}),
 
     # ── INFORMATIONS ──
     "info.ping": lambda c, p: ping.execute(c),

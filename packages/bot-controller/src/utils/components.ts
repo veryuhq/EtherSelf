@@ -59,10 +59,23 @@ export interface ActionRowComponent {
   components: Array<ButtonComponent | StringSelectComponent>;
 }
 
+export interface ThumbnailComponent {
+  type: 11;
+  media: { url: string };
+  description?: string;
+}
+
+export interface SectionComponent {
+  type: 9;
+  components: TextDisplayComponent[];
+  accessory: ThumbnailComponent | ButtonComponent;
+}
+
 export type ContainerChild =
   | TextDisplayComponent
   | SeparatorComponent
   | FileDisplayComponent
+  | SectionComponent
   | ActionRowComponent;
 
 export interface ContainerComponent {
@@ -100,6 +113,21 @@ export function separator(spacing = 1, divider = true): SeparatorComponent {
 /** File (type 13) — affiche un fichier attaché, à référencer par son nom d'attachment */
 export function fileComponent(attachmentName: string): FileDisplayComponent {
   return { type: 13, file: { url: `attachment://${attachmentName}` } };
+}
+
+/** Thumbnail (type 11) — uniquement en accessoire de Section */
+export function thumbnail(url: string, description?: string): ThumbnailComponent {
+  const t: ThumbnailComponent = { type: 11, media: { url } };
+  if (description) t.description = description;
+  return t;
+}
+
+/** Section (type 9) — 1 à 3 Text Display + un accessoire (bouton ou thumbnail) */
+export function section(
+  texts: string[],
+  accessory: ThumbnailComponent | ButtonComponent,
+): SectionComponent {
+  return { type: 9, components: texts.slice(0, 3).map(textDisplay), accessory };
 }
 
 /** ActionRow (type 1) */

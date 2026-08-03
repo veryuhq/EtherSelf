@@ -66,6 +66,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
+| 🎭 **Rôles** | Les rôles d'un membre et les membres d'un rôle, à partir des IDs — liste des rôles du serveur, scan complet optionnel de la liste des membres |
 
 ### ⚙️ Automatisation
 
@@ -250,6 +251,7 @@ Au démarrage, le bot controller t'envoie automatiquement un DM confirmant que t
 - 💬 **Purge des DMs & conversations fermées** — fermer un DM le retire de ta liste de messages sans rien supprimer côté serveur : il n'apparaît alors dans aucune liste renvoyée par l'API. La purge les retrouve via la recherche globale du compte (`/users/@me/messages/search`, celle du client Discord), qui remonte toutes les conversations où tu as écrit, fermées comprises ; elles sont ensuite lues sans être rouvertes. En complément, les DMs fermés de tes relations (amis, bloqués, demandes en attente) et de tes affinités (comptes les plus fréquentés) sont rouverts le temps d'être vidés, puis refermés — ta liste de messages retrouve son état d'origine. Reste un angle mort : l'index de recherche de Discord se construit en arrière-plan et la pagination est volontairement bornée, donc une très vieille conversation fermée avec quelqu'un qui n'est ni relation ni affinité peut échapper au balayage. Rouvre-la depuis Discord avant la purge si tu la connais.
 - 🏆 **Quests** — les endpoints utilisés sont non officiels et peuvent changer sans préavis à chaque mise à jour de Discord.
 - ⏱️ **Purge** — la suppression de messages est intentionnellement ralentie (100ms entre chaque message) pour limiter le risque de rate-limit ou de flag de compte.
+- 🎭 **Rôles** — Discord ne renvoie que les 100 premiers membres d'un rôle : au-delà, le panel l'affiche clairement et propose un **scan complet**, qui parcourt la liste des membres par lots espacés d'une seconde (plafonné à 20 000 membres et 4 minutes, résultat gardé 10 min pour la pagination). Le compte exact d'un rôle dépend de tes permissions sur le serveur.
 - 🐍 **discord.py-self** — le selfbot dépend de `discord.py-self`. Certaines fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib et de l'API Discord ; valide-les sur ton compte avant de compter dessus.
 
 ---

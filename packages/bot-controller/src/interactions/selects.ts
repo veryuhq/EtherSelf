@@ -32,7 +32,7 @@ export async function handle(interaction: StringSelectMenuInteraction): Promise<
   // Defer immédiatement pour éviter le timeout Discord (3s)
   await interaction.deferUpdate();
 
-  const panel = await fetchAndBuild(val);
+  const panel = await fetchAndBuild(val, interaction.user.id);
 
   if (!panel) {
     return interaction.followUp({ content: `❌ Module \`${val}\` inconnu.`, ephemeral: true });

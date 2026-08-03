@@ -1,4 +1,5 @@
 import { sendAction } from "../bridge/client";
+import { getRolesConfig } from "../store/roles-config";
 import type { V2MessagePayload } from "../utils/components";
 
 // Panels
@@ -17,6 +18,7 @@ import * as sysinfo   from "../panels/sysinfo";
 import * as rpc       from "../panels/rpc";
 import * as quests    from "../panels/quests";
 import * as backups   from "../panels/backups";
+import * as roles     from "../panels/roles";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PanelData = any;
@@ -24,8 +26,12 @@ type PanelData = any;
 /**
  * Récupère l'état d'un module auprès du selfbot puis construit son panel.
  * Point d'entrée commun aux boutons de navigation, aux selects et aux modals.
+ *
+ * @param userId utilisateur à l'origine de l'interaction — nécessaire aux seuls
+ *               panels dont l'état vit côté controller (serveur ciblé du panel
+ *               Rôles), optionnel partout ailleurs.
  */
-export async function fetchAndBuild(panelKey: string): Promise<V2MessagePayload | null> {
+export async function fetchAndBuild(panelKey: string, userId?: string): Promise<V2MessagePayload | null> {
   const fetchers: Record<string, () => Promise<PanelData> | null> = {
     home:         () => sendAction("prefix.get"),
     config:       () => null,
@@ -69,6 +75,16 @@ export async function fetchAndBuild(panelKey: string): Promise<V2MessagePayload 
         friendsSavedAt: fData?.savedAt  ?? null,
       };
     },
+    roles:        async () => {
+      const cfg = userId ? getRolesConfig(userId) : null;
+      if (!cfg?.guildId) return {};
+      const res = await sendAction("roles.guildInfo", { guildId: cfg.guildId });
+      // Serveur quitté ou ID devenu invalide : on garde la trace pour l'expliquer
+      // dans le panel plutôt que de faire disparaître la sélection en silence.
+      if (!res?.success) return { staleGuildId: cfg.guildId, staleGuildName: cfg.guildName };
+      cfg.guildName = res.data?.guild?.name ?? cfg.guildName;
+      return { guild: res.data?.guild ?? null };
+    },
   };
 
   const builders: Record<string, (d: PanelData) => V2MessagePayload> = {
@@ -91,6 +107,7 @@ export async function fetchAndBuild(panelKey: string): Promise<V2MessagePayload 
     rpc_hub:      ()  => rpc.buildHub(),
     quests:       (d) => quests.build(d),
     backups:      (d) => backups.build(d ?? {}),
+    roles:        (d) => roles.build(d ?? {}),
   };
 
   if (!builders[panelKey]) return null;
@@ -98,7 +115,7 @@ export async function fetchAndBuild(panelKey: string): Promise<V2MessagePayload 
   let data: PanelData = {};
   if (fetchers[panelKey]) {
     const res = await fetchers[panelKey]();
-    if (panelKey === "tags" || panelKey === "backups" || panelKey === "snipe") {
+    if (panelKey === "tags" || panelKey === "backups" || panelKey === "snipe" || panelKey === "roles") {
       data = res ?? {};
     } else if (res === null) {
       data = {};

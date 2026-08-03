@@ -4,10 +4,11 @@ import type { MessageComponentInteraction } from "discord.js";
 
 import { sendAction } from "../bridge/client";
 import { modal, NO_MENTIONS } from "../utils/components";
-import { NAV_MAP, makeJobId } from "./common";
+import { NAV_MAP, makeJobId, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
 import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions, cloneOptionsCheckboxes } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getCloneConfig } from "../store/clone-config";
+import { getRolesConfig } from "../store/roles-config";
 import { registerProgressJob, registerCloneJob } from "../store/jobs";
 
 // Panels
@@ -22,6 +23,7 @@ import * as rpc       from "../panels/rpc";
 import * as quests    from "../panels/quests";
 import * as backups   from "../panels/backups";
 import * as config    from "../panels/config";
+import * as roles     from "../panels/roles";
 
 const execFileAsync = promisify(execFile);
 
@@ -34,6 +36,22 @@ function snipeViewModal(type = "deleted", mode = "channel") {
     { id: "type",  label: "Type de messages",  radio: snipeTypeOptions(type) },
     { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions(mode) },
     { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
+  ]);
+}
+
+/** Modals de recherche du panel Rôles — l'ID du serveur est prérempli quand on
+ *  en a un (serveur ciblé, ou serveur du résultat d'où l'on relance une recherche). */
+function rolesMemberModal(guildId: string) {
+  return modal("modal:roles_member", "Rôles d'un membre", [
+    { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678", value: guildId, maxLength: 20 },
+    { id: "userId",  label: "ID du membre",  description: "Mode développeur → clic droit sur la personne → Copier l'identifiant", placeholder: "123456789012345678", maxLength: 20 },
+  ]);
+}
+
+function rolesRoleModal(guildId: string) {
+  return modal("modal:roles_role", "Membres d'un rôle", [
+    { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678", value: guildId, maxLength: 20 },
+    { id: "roleId",  label: "ID du rôle",    description: "Paramètres du serveur → Rôles → clic droit → Copier l'identifiant", placeholder: "123456789012345678", maxLength: 20 },
   ]);
 }
 
@@ -60,7 +78,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   }
 
   if (NAV_MAP[id]) {
-    const panel = await fetchAndBuild(NAV_MAP[id]);
+    const panel = await fetchAndBuild(NAV_MAP[id], interaction.user.id);
     return interaction.update(panel!);
   }
 
@@ -672,10 +690,95 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
   if (id === "clone:history") { const res = await sendAction("backups.clone.getHistory"); return interaction.update(backups.buildCloneHistory(res?.data ?? {})); }
   if (id === "clone:clearHistory") { const res = await sendAction("backups.clone.clearHistory"); return interaction.update(backups.buildCloneHistory(res?.data ?? {})); }
   if (id === "clone:listGuilds") { const res = await sendAction("backups.listGuilds"); return interaction.update(backups.buildCloneGuildList(res?.data ?? {})); }
+
+  // ── RÔLES ─────────────────────────────────────────────────────────────────
+  if (id === "roles:pickGuild" || id.startsWith("roles:guildPage:")) {
+    const page = id.startsWith("roles:guildPage:") ? parseInt(id.split(":")[2], 10) || 0 : 0;
+    const res = await sendAction("backups.listGuilds");
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(roles.buildGuildPicker({
+      guilds:          res.data?.guilds ?? [],
+      page,
+      selectedGuildId: getRolesConfig(interaction.user.id).guildId,
+    }));
+  }
+  if (id.startsWith("roles:useGuild:")) {
+    const guildId = id.split(":")[2];
+    const res = await sendAction("roles.guildInfo", { guildId });
+    if (!res?.success) return _error(interaction, res?.error);
+    const cfg = getRolesConfig(interaction.user.id);
+    cfg.guildId   = guildId;
+    cfg.guildName = res.data?.guild?.name ?? null;
+    return interaction.update(roles.build({ guild: res.data?.guild ?? null }));
+  }
+  if (id === "roles:setGuild") {
+    return interaction.showModal(modal("modal:roles_guild", "Cibler un serveur", [
+      { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678", value: getRolesConfig(interaction.user.id).guildId ?? "", maxLength: 20 },
+    ]));
+  }
+  if (id === "roles:member" || id.startsWith("roles:member:")) {
+    return interaction.showModal(rolesMemberModal(id.split(":")[2] ?? getRolesConfig(interaction.user.id).guildId ?? ""));
+  }
+  if (id === "roles:role" || id.startsWith("roles:role:")) {
+    return interaction.showModal(rolesRoleModal(id.split(":")[2] ?? getRolesConfig(interaction.user.id).guildId ?? ""));
+  }
+  if (id === "roles:list" || id.startsWith("roles:listPage:")) {
+    const parts   = id.split(":");
+    const guildId = id === "roles:list" ? (getRolesConfig(interaction.user.id).guildId ?? "") : parts[2];
+    const page    = id === "roles:list" ? 0 : parseInt(parts[3], 10) || 0;
+    if (!guildId) return _error(interaction, "Aucun serveur ciblé — utilise **📂 Mes serveurs** ou **⌨️ Saisir l'ID du serveur**.");
+    const res = await sendAction("roles.listRoles", { guildId });
+    if (!res?.success) return _error(interaction, res?.error);
+    return interaction.update(roles.buildRolesList({ ...(res.data ?? {}), page }));
+  }
+  // Les deux recherches interrogent le gateway Discord : on acquitte d'abord
+  // l'interaction (fenêtre de 3 s) avant de rendre le résultat.
+  if (id.startsWith("roles:showRole:") || id.startsWith("roles:rolePage:")) {
+    const parts = id.split(":");
+    const guildId = parts[2];
+    const roleId  = parts[3];
+    const deep    = id.startsWith("roles:rolePage:") ? parts[4] === "1" : false;
+    const page    = id.startsWith("roles:rolePage:") ? parseInt(parts[5], 10) || 0 : 0;
+    await interaction.deferUpdate();
+    const { panel, error } = await fetchRoleMembersPanel(guildId, roleId, page, deep);
+    if (!panel) return _lateError(interaction, error);
+    return interaction.editReply(panel);
+  }
+  if (id.startsWith("roles:memberPage:")) {
+    const [, , guildId, userId, rawPage] = id.split(":");
+    await interaction.deferUpdate();
+    const { panel, error } = await fetchMemberRolesPanel(guildId, userId, parseInt(rawPage, 10) || 0);
+    if (!panel) return _lateError(interaction, error);
+    return interaction.editReply(panel);
+  }
+  if (id.startsWith("roles:deepScan:")) {
+    const [, , guildId, roleId] = id.split(":");
+    // Le scan peut durer plusieurs minutes : on affiche un panel d'attente,
+    // puis on remplace par le résultat une fois le selfbot revenu.
+    const info = await sendAction("roles.guildInfo", { guildId });
+    await interaction.update(roles.buildScanning({ guild: info?.data?.guild ?? { id: guildId }, role: { id: roleId } }));
+    const { panel, error } = await fetchRoleMembersPanel(guildId, roleId, 0, true);
+    if (!panel) {
+      await interaction.followUp({ content: `❌ ${error ?? "Scan impossible."}`, ephemeral: true, allowedMentions: NO_MENTIONS }).catch(() => {});
+      const { panel: fallback } = await fetchRoleMembersPanel(guildId, roleId, 0, false);
+      return fallback ? interaction.editReply(fallback).catch(() => {}) : undefined;
+    }
+    return interaction.editReply(panel).catch(() => {});
+  }
 }
 
 function _error(interaction: MessageComponentInteraction, message: string | undefined = "Une erreur est survenue."): Promise<unknown> {
   return interaction.reply({
+    content: `❌ ${message ?? "Une erreur est survenue."}`,
+    ephemeral: true,
+    allowedMentions: NO_MENTIONS,
+  });
+}
+
+/** Même chose, mais après un deferUpdate() : l'interaction est déjà acquittée,
+ *  reply() échouerait — il faut passer par followUp(). */
+function _lateError(interaction: MessageComponentInteraction, message: string | undefined = "Une erreur est survenue."): Promise<unknown> {
+  return interaction.followUp({
     content: `❌ ${message ?? "Une erreur est survenue."}`,
     ephemeral: true,
     allowedMentions: NO_MENTIONS,
