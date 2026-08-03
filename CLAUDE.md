@@ -9,8 +9,8 @@ classique en Node, les deux communiquant par un bridge HTTP local signé.
 - **`packages/sb-uhq`** — le selfbot : Python 3.11+, [`discord.py-self`](https://discordpy-self.readthedocs.io/en/latest/) épinglé à 2.1.0, aiohttp, python-dotenv, psutil. Virtualenv dédié dans `packages/sb-uhq/.venv`.
 - **`packages/bot-controller`** — le bot panel : TypeScript 7 (strict, compilateur natif) sur Node.js 18+, discord.js v14 (**Components V2**), dotenv, `fetch` natif de Node. Compilé avec `tsc` vers `dist/` (gitignoré).
 - **Bridge** : HTTP sur `127.0.0.1`, signé HMAC-SHA256 (`BRIDGE_SECRET`). Controller → selfbot sur `BRIDGE_PORT` (3000), selfbot → controller (logs/progress/fichiers) sur `LOG_PORT` (3001).
-- **Prod** : pm2 via `ecosystem.config.js` (reste en JS : pm2 charge sa config directement, sans support TypeScript).
-- ⚠️ `discord.py-self` s'importe sous le nom `discord` — ne jamais installer le `discord.py` officiel dans le même environnement.
+- **Prod** : pm2 via `ecosystem.config.js` (reste en JS : pm2 charge sa config lui-même, sans support TypeScript).
+- ⚠️ `discord.py-self` s'importe sous le nom `discord` : ne jamais installer le `discord.py` officiel dans le même environnement.
 
 ## Commandes
 
@@ -25,10 +25,10 @@ npm run clean:data        # supprime packages/sb-uhq/data/ (état runtime)
 npm run check:env         # valide la cohérence des .env des deux packages
 ```
 
-Les scripts utilitaires de `scripts/` sont en TypeScript exécuté **nativement**
-par Node via le type stripping (Node 22.18+ requis pour les lancer) — pas de
-build, pas de dépendance : `node scripts/<nom>.ts`. Syntaxe effaçable uniquement
-(`erasableSyntaxOnly`) ; typecheck avec `npm run typecheck:scripts`.
+Node exécute les scripts utilitaires de `scripts/` en TypeScript via le type
+stripping (Node 22.18+ requis pour les lancer) : pas de build, pas de dépendance,
+`node scripts/<nom>.ts`. Syntaxe effaçable uniquement (`erasableSyntaxOnly`) ;
+typecheck avec `npm run typecheck:scripts`.
 
 Vérifications rapides (pas de suite de tests ni de linter configurés) :
 
@@ -39,8 +39,8 @@ packages/sb-uhq/.venv/bin/python -m py_compile packages/sb-uhq/app/commands/fun/
 packages/sb-uhq/.venv/bin/python -c "import app"              # depuis packages/sb-uhq/, vérifie tous les imports
 ```
 
-Le vrai test est manuel : lancer les deux process et cliquer dans `/panel`.
-Un agent ne peut généralement pas le faire (il faut deux tokens Discord) —
+Le test qui compte est manuel : lancer les deux process et cliquer dans `/panel`.
+Un agent n'en a pas les moyens la plupart du temps (il faut deux tokens Discord) :
 signale-le dans ta réponse au lieu de prétendre avoir testé.
 
 ## Structure du projet
@@ -93,8 +93,8 @@ Caveats à respecter :
 - Avec ce flag, **interdiction** d'envoyer `content`, `poll`, `embeds` ou `stickers`.
 - On ne peut pas revenir en arrière (opt-out) en éditant un message déjà en Components V2.
 - **40 composants max** par message (les composants imbriqués comptent), **4000 caractères max** cumulés sur tous les Text Display.
-- Tout fichier attaché doit être référencé explicitement par un composant (`attachment://nom.ext` dans Thumbnail, Media Gallery ou File).
-- Les mentions dans un Text Display notifient réellement — contrôler avec `allowedMentions`.
+- Un composant doit référencer chaque fichier attaché (`attachment://nom.ext` dans Thumbnail, Media Gallery ou File).
+- Les mentions dans un Text Display déclenchent une vraie notification ; contrôler avec `allowedMentions`.
 
 Types de composants (numéro = champ `type` du JSON, helper local s'il existe) :
 
@@ -142,14 +142,14 @@ des modals.
 - **Tout en français** : commentaires, docstrings, messages du panel, erreurs, README.
 - Suivre les modèles existants : `commands/fun/mock.py` (module selfbot), `panels/afk.ts` (panel), `action_router.py` (enregistrement d'actions).
 - Python : modules avec `from __future__ import annotations`, imports relatifs (`...func.discord_util`), erreurs métier via `raise ValueError("message en français")`.
-- TypeScript : mode `strict`, syntaxe ESM (`import`/`export`) compilée en CommonJS par `tsc`, interfaces de données optionnelles par panel, UI construite exclusivement avec les helpers de `utils/components.ts` (jamais d'embeds classiques — Components V2 uniquement). Les réponses du bridge restent en `any` côté `data` (leur forme est définie côté Python).
+- TypeScript : mode `strict`, syntaxe ESM (`import`/`export`) compilée en CommonJS par `tsc`, interfaces de données optionnelles par panel, UI construite avec les seuls helpers de `utils/components.ts` (jamais d'embeds classiques, Components V2 seulement). Les réponses du bridge restent en `any` côté `data` : le côté Python définit leur forme.
 - Les réponses du bridge gardent des clés camelCase identiques des deux côtés.
 
 ## Git
 
-- **Conventional Commits obligatoires** ([spécification 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/)) : chaque commit suit strictement le format `type(scope): description` — aucun commit hors format n'est accepté.
+- **Conventional Commits obligatoires** ([spécification 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/)) : chaque commit suit le format `type(scope): description`, et rien d'autre ne passe.
   - Types autorisés : `feat`, `fix`, `refactor`, `docs`, `chore`, `perf`, `style`, `test`, `build`, `ci`, `revert`.
-  - Le `scope` est fortement recommandé (module ou package concerné : `afk`, `snipe`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
+  - Mets un `scope` dès que tu peux (module ou package concerné : `afk`, `snipe`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
   - Breaking change : suffixe `!` après le type/scope (ex. `refactor(bridge)!: …`) et/ou footer `BREAKING CHANGE:` expliquant la rupture.
   - Ex. `feat(afk): réponse automatique personnalisable en mode AFK`, `fix(purge): respecter le délai anti rate-limit…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
@@ -177,4 +177,4 @@ des modals.
 ### ✅ Toujours faire
 - Vérifier les fichiers modifiés (`npm --workspace=packages/bot-controller run typecheck`, `py_compile`) avant de committer.
 - Préserver la parité bridge : chaque action côté panel doit exister dans `ACTIONS` côté Python.
-- Rester dans l'esprit du projet : outil personnel, un seul utilisateur (`OWNER_ID`), ralenti volontairement pour protéger le compte.
+- Rester dans l'esprit du projet : outil personnel, un seul utilisateur (`OWNER_ID`), ralenti à dessein pour protéger le compte.

@@ -92,9 +92,8 @@ def js_text(s) -> str:
        JS — n'importe quel utilisateur Discord pouvait ainsi exécuter du code
        dans le snapshot HTML ouvert par le propriétaire. Ré-encodé, ``&#39;``
        se décode en le TEXTE ``&#39;`` et reste inerte.
-    2. Les caractères qui casseraient la chaîne littéralement (' " \\) ou
-       injecteraient du markup (< > `) sont retirés, ainsi que les retours
-       ligne et le NUL.
+    2. On retire les caractères qui casseraient la chaîne JS (' " \\) ou
+       injecteraient du markup (< > `), ainsi que les retours ligne et le NUL.
 
     L'ordre importe : ``&amp;`` n'introduit ni guillemet ni chevron, l'échapper
     d'abord ne réintroduit donc rien que le second passage devrait nettoyer.

@@ -16,19 +16,19 @@
 ---
 
 > ### ⚠️ Avertissement légal
-> L'utilisation d'un selfbot est une violation des [Conditions d'Utilisation de Discord](https://discord.com/terms). Ton compte peut être banni définitivement à tout moment sans préavis. Ce projet est fourni **à des fins éducatives uniquement**. Tu l'utilises à tes **propres risques**, sans aucune responsabilité de la part des contributeurs.
+> L'utilisation d'un selfbot est une violation des [Conditions d'Utilisation de Discord](https://discord.com/terms). Discord peut bannir ton compte à tout moment, sans préavis et sans retour en arrière. Ce projet n'existe qu'**à des fins éducatives**. Tu l'utilises à tes **propres risques** : les contributeurs n'assument aucune responsabilité.
 
 ---
 
 > ### 🤖 Vibecodé avec des modèles d'IA
-> Ce projet a été **entièrement généré par une IA** (Claude Fable 5, Claude Sonnet 4.6 et 5, Claude Opus 4.8, Codex/GPT-5.4 et Codex/GPT-5.5). Si tu envisages de faire quelque chose de similaire, il est **fortement recommandé de l'implémenter toi-même** sans IA — tu comprendras réellement ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer quand ça casse. Et ça cassera.
+> Des modèles d'IA ont écrit **tout le code de ce projet** (Claude Fable 5, Claude Sonnet 4.6 et 5, Claude Opus 4.8, Codex/GPT-5.4 et Codex/GPT-5.5). Si tu envisages quelque chose de similaire, **implémente-le toi-même** sans IA : tu comprendras ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer le jour où ça cassera.
 
 ---
 
 > ### 🔀 Migration — le selfbot est passé à `discord.py-self`
-> Le selfbot était historiquement écrit en `discord.js-selfbot-v13`, **non maintenu depuis octobre 2025**. Il a été **entièrement réécrit en Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)), qui est activement maintenu.
+> Le selfbot tournait sous `discord.js-selfbot-v13`, que ses auteurs **n'ont plus touché depuis octobre 2025**. Il tourne maintenant en **Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)), une lib que ses mainteneurs suivent toujours.
 >
-> - 🟢 Le **bot-controller est écrit en TypeScript** (discord.js v14), compilé en JavaScript avant exécution (`npm run build`).
+> - 🟢 Le **bot-controller reste en TypeScript** (discord.js v14) ; `npm run build` le compile en JavaScript avant le lancement.
 > - 🟢 Les deux process communiquent toujours via le **même bridge HTTP local signé (HMAC-SHA256)** : le contrat réseau est identique au byte près, donc le controller n'a pas eu à changer.
 > - 🔴 Les endpoints non officiels (quêtes, Discord Says, Spotify RPC) restent sensibles aux évolutions de Discord et peuvent casser sans préavis.
 
@@ -43,9 +43,9 @@ EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensembl
 | 🤖 **`EtherSelf-SB`** | 🐍 Python | Le selfbot (discord.py-self), expose un bridge HTTP local |
 | 🎛️ **`EtherSelf-Bot`** | 🟦 TypeScript | Bot Discord classique (discord.js 14), interface via un panel Components V2 |
 
-Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Ton compte utilisateur n'interagit jamais directement avec Discord depuis l'interface — c'est propre, cloisonné, et facile à déboguer.
+Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Ton compte utilisateur ne touche pas à Discord depuis l'interface, ce qui cloisonne les deux rôles et simplifie le débogage.
 
-**Comment un selfbot Python et un controller TypeScript cohabitent ?** Ce sont **deux process indépendants** qui ne partagent ni mémoire ni runtime : ils dialoguent uniquement par des requêtes HTTP sur `127.0.0.1`, signées avec un secret partagé (`BRIDGE_SECRET`, HMAC-SHA256). Le langage de chaque côté n'a donc aucune importance — Python parle à Node exactement comme Node parlait à Node. `pm2` supervise les deux (voir plus bas), chacun avec son propre interpréteur.
+Le selfbot Python et le controller TypeScript sont **deux process indépendants** qui ne partagent ni mémoire ni runtime : ils dialoguent par des requêtes HTTP sur `127.0.0.1`, signées avec un secret partagé (`BRIDGE_SECRET`, HMAC-SHA256). Le langage de chaque côté n'a donc aucune importance : le selfbot Python s'adresse au controller comme le faisait l'ancien selfbot JS. `pm2` supervise les deux (voir plus bas), chacun avec son propre interpréteur.
 
 ```
 Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Discord API
@@ -72,7 +72,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 
 | Module | Description |
 |---|---|
-| 🔇 **Anti-Group DM** | Quitte automatiquement tout groupe DM entrant — option pour quitter tous les groupes existants |
+| 🔇 **Anti-Group DM** | Quitte tout groupe DM entrant dès sa création — option pour quitter tous les groupes existants |
 | 🏆 **Discord Quests** | Complétion automatique des quêtes Discord (vidéo, plateforme, activité…) |
 
 ### 🎨 Personnalisation
@@ -107,7 +107,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 
 Si tu cherches un outil pour nuire à d'autres utilisateurs de Discord — détruire des serveurs, spammer des membres ou autre chose dans ce goût-là — ferme ce README, **sors dehors, et touche de l'herbe**. 🌿
 
-Ces fonctionnalités ne seront **jamais** ajoutées, quelle que soit la demande. Ce n'est pas une question de technique, c'est une question de ne pas être un boulet pour les autres.
+Elles n'arriveront **jamais** dans ce repo, quelle que soit la demande. C'est une question de ne pas être un boulet pour les autres.
 
 ---
 
@@ -203,11 +203,11 @@ npm run deploy
 # Terminal 1 — selfbot (Python)
 npm run start:selfbot          # ou : cd packages/sb-uhq && .venv/bin/python main.py
 
-# Terminal 2 — bot controller (TypeScript, compilé automatiquement avant lancement)
+# Terminal 2 — bot controller (TypeScript, compilation incluse avant le lancement)
 npm run start:controller
 ```
 
-**En production** avec PM2 — un seul fichier `ecosystem.config.js` gère les deux process (Python + Node). Compile d'abord le controller (PM2 lance le JavaScript émis dans `dist/`) :
+**En production** avec PM2, un seul fichier `ecosystem.config.js` gère les deux process (Python + Node). Compile d'abord le controller (PM2 lance le JavaScript émis dans `dist/`) :
 
 ```bash
 npm run build:controller
@@ -228,33 +228,33 @@ pm2 start packages/bot-controller/dist/index.js  --name EtherSelf-Bot
 
 Une fois les deux processus en ligne, tape **`/panel`** dans n'importe quel salon où ton bot a accès (ou en DM avec lui).
 
-Le panel s'ouvre en éphémère — visible uniquement par toi. La navigation se fait entièrement via le menu déroulant et les boutons, aucune commande texte supplémentaire n'est requise.
+Le panel s'ouvre en éphémère : toi seul le vois. Tu navigues avec le menu déroulant et les boutons, sans taper la moindre commande.
 
-Au démarrage, le bot controller t'envoie automatiquement un DM confirmant que tout est en ligne, avec le ping WebSocket et l'uptime du selfbot.
+Au démarrage, le bot controller t'envoie un DM confirmant que tout est en ligne, avec le ping WebSocket et l'uptime du selfbot.
 
 ---
 
 ## 🔒 Sécurité
 
-> **🚨 Ne partage jamais ton token utilisateur.** Ne le commit jamais. `.env` est dans le `.gitignore` — vérifie avant chaque `git push`.
+> **🚨 Ne partage jamais ton token utilisateur.** Ne le commit jamais. `.env` est dans le `.gitignore` ; vérifie quand même avant chaque `git push`.
 
 - **`BRIDGE_SECRET`** — protège la communication entre les deux packages. Utilise un gestionnaire de mots de passe pour générer une chaîne aléatoire solide (32+ caractères).
-- **`OWNER_ID`** — seul cet ID Discord peut interagir avec le panel. Toute autre tentative est rejetée silencieusement.
-- Le bridge HTTP n'écoute que sur `127.0.0.1` (localhost) — il n'est pas exposé sur le réseau.
+- **`OWNER_ID`** — seul cet ID Discord peut interagir avec le panel. Le controller ignore toute autre tentative, sans répondre.
+- Le bridge HTTP n'écoute que sur `127.0.0.1` (localhost) et reste hors de portée du réseau.
 
 ---
 
 ## 📝 Notes diverses
 
 - 🗃️ **Cache Discord** — certaines fonctionnalités (quitter tous les groupes, purge DMs) effectuent un `fetch()` au préalable pour peupler le cache, mais la couverture dépend de l'état de l'API au moment de l'appel.
-- 💬 **Purge des DMs & conversations fermées** — fermer un DM le retire de ta liste de messages sans rien supprimer côté serveur : il n'apparaît alors dans aucune liste renvoyée par l'API. La purge les retrouve via la recherche globale du compte (`/users/@me/messages/search`, celle du client Discord), qui remonte toutes les conversations où tu as écrit, fermées comprises ; elles sont ensuite lues sans être rouvertes. En complément, les DMs fermés de tes relations (amis, bloqués, demandes en attente) et de tes affinités (comptes les plus fréquentés) sont rouverts le temps d'être vidés, puis refermés — ta liste de messages retrouve son état d'origine. Reste un angle mort : l'index de recherche de Discord se construit en arrière-plan et la pagination est volontairement bornée, donc une très vieille conversation fermée avec quelqu'un qui n'est ni relation ni affinité peut échapper au balayage. Rouvre-la depuis Discord avant la purge si tu la connais.
+- 💬 **Purge des DMs & conversations fermées** — fermer un DM le retire de ta liste de messages sans rien supprimer côté serveur : il n'apparaît alors dans aucune liste renvoyée par l'API. La purge les retrouve via la recherche globale du compte (`/users/@me/messages/search`, celle du client Discord), qui remonte toutes les conversations où tu as écrit, fermées comprises ; le selfbot les lit ensuite sans les rouvrir. En complément, il rouvre les DMs fermés de tes relations (amis, bloqués, demandes en attente) et de tes affinités (comptes les plus fréquentés) le temps de les vider, puis les referme : ta liste de messages retrouve son état d'origine. Reste un angle mort : Discord construit son index de recherche en arrière-plan et borne sa pagination à dessein, donc une vieille conversation fermée avec quelqu'un qui n'est ni relation ni affinité peut échapper au balayage. Rouvre-la depuis Discord avant la purge si tu la connais.
 - 🏆 **Quests** — les endpoints utilisés sont non officiels et peuvent changer sans préavis à chaque mise à jour de Discord.
-- ⏱️ **Purge** — la suppression de messages est intentionnellement ralentie (100ms entre chaque message) pour limiter le risque de rate-limit ou de flag de compte.
-- 🎭 **Rôles** — Discord ne renvoie que les 100 premiers membres d'un rôle : au-delà, le panel l'affiche clairement et propose un **scan complet**, qui parcourt la liste des membres par lots espacés d'une seconde (plafonné à 20 000 membres et 4 minutes, résultat gardé 10 min pour la pagination). Le compte exact d'un rôle dépend de tes permissions sur le serveur.
+- ⏱️ **Purge** — le selfbot attend 100 ms entre deux suppressions, un délai posé exprès pour limiter le risque de rate-limit ou de flag de compte.
+- 🎭 **Rôles** — Discord ne renvoie que les 100 premiers membres d'un rôle : au-delà, le panel te le signale et propose un **scan complet**, qui parcourt la liste des membres par lots espacés d'une seconde (plafonné à 20 000 membres et 4 minutes, résultat gardé 10 min pour la pagination). Le compte exact d'un rôle dépend de tes permissions sur le serveur.
 - 🐍 **discord.py-self** — le selfbot dépend de `discord.py-self`. Certaines fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib et de l'API Discord ; valide-les sur ton compte avant de compter dessus.
 
 ---
 
 ## 📄 Licence
 
-**[PolyForm Noncommercial License 1.0.0](./LICENSE)** — usage privé, modification et distribution autorisés **à des fins non commerciales uniquement** (interdiction de se faire de l'argent avec). Fourni **sans aucune garantie ni responsabilité**. Et dans tous les cas : assume les conséquences vis-à-vis de Discord toi-même.
+**[PolyForm Noncommercial License 1.0.0](./LICENSE)** — usage privé, modification et distribution autorisés **à des fins non commerciales** (interdiction de se faire de l'argent avec). Les contributeurs ne donnent **aucune garantie et n'assument aucune responsabilité**. Et dans tous les cas : assume les conséquences vis-à-vis de Discord toi-même.
