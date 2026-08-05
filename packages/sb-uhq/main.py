@@ -1,7 +1,7 @@
 """Point d'entrée du selfbot EtherSelf (discord.py-self).
 
-Réécriture Python de packages/sb-uhq/index.js. Expose le même bridge HTTP local
-(port BRIDGE_PORT) que le controller JS consomme, et redirige les logs vers lui.
+Expose le bridge HTTP local (port BRIDGE_PORT) que le bot-controller consomme, et
+redirige les logs vers lui.
 """
 
 from __future__ import annotations

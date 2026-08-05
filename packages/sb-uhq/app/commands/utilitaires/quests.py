@@ -1,6 +1,6 @@
 """quests — complétion automatique des quêtes Discord.
 
-Port de src/self/commands/utilitaires/quests.js. Endpoints non officiels (voir func/quest_http).
+Endpoints non officiels (voir func/quest_http).
 """
 
 from __future__ import annotations

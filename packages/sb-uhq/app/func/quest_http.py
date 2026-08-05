@@ -1,6 +1,6 @@
 """Requêtes REST brutes pour la complétion des quêtes Discord.
 
-Port de src/self/func/quest-http.js. Endpoints non officiels — susceptibles de casser.
+Endpoints non officiels — susceptibles de casser.
 Basé sur https://github.com/aiko-chan-ai/Discord-Quest-Auto-Completion-Selfbot
 """
 

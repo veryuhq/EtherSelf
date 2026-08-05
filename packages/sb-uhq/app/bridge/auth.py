@@ -1,11 +1,11 @@
-"""Signature HMAC-SHA256 du bridge — compatible byte-pour-byte avec le bot-controller JS.
+"""Signature HMAC-SHA256 du bridge — compatible byte-pour-byte avec le bot-controller.
 
-Le contrat (identique à packages/*/src/bridge/auth.js) :
+Le contrat (identique à packages/bot-controller/src/bridge/auth.ts) :
   payload_signé = f"{timestamp_ms}.{body}"
   signature     = HMAC-SHA256(BRIDGE_SECRET, payload_signé).hexdigest()
   headers       = X-Bridge-Timestamp (ms epoch) + X-Bridge-Signature (hex 64)
 
-Toute divergence ici casserait la communication avec le controller resté en JS.
+Toute divergence ici casserait la communication avec le controller.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def verify_signed_request(headers, body: str = "") -> bool:
     except (TypeError, ValueError):
         return False
     # Rejette explicitement nan/inf : `nan > MAX_SKEW_MS` vaut False et laisserait
-    # sinon passer un horodatage "nan" (le côté JS rejette déjà via Number.isFinite).
+    # sinon passer un horodatage "nan" (le controller rejette déjà via Number.isFinite).
     if not math.isfinite(ts_num):
         return False
     if abs(_now_ms() - ts_num) > MAX_SKEW_MS:

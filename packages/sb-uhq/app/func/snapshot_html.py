@@ -1,7 +1,7 @@
-"""Rendu HTML des snapshots de salon / MP — port de src/self/func/snapshot-html.js.
+"""Rendu HTML des snapshots de salon / MP.
 
-Reproduit le mini-moteur markdown → HTML, le rendu des embeds / stickers / réactions
-/ pièces jointes, et le document complet (même CSS, même structure)."""
+Contient le mini-moteur markdown → HTML, le rendu des embeds / stickers / réactions
+/ pièces jointes, et le document complet (CSS inclus)."""
 
 from __future__ import annotations
 

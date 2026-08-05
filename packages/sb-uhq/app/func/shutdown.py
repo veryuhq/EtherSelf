@@ -1,4 +1,4 @@
-"""Arrêt « brutal » du process pour préserver la session Discord (parité JS).
+"""Arrêt « brutal » du process pour préserver la session Discord.
 
 Une fermeture propre (SIGINT → Client.close() → close 1000) invalide la session côté
 Discord et fait passer le compte hors-ligne à chaque restart pm2. On sort donc via

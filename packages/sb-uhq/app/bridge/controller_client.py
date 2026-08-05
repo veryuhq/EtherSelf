@@ -1,6 +1,6 @@
-"""Appels sortants vers le bot-controller (resté en JS).
+"""Appels sortants vers le bot-controller.
 
-Endpoints côté controller (voir packages/bot-controller/index.js) :
+Endpoints côté controller (voir packages/bot-controller/src/index.ts) :
   POST /log              { text }
   POST /progress         { jobId, ... }               (purge)
   POST /clone-progress   { jobId, ... }               (clone de serveur)

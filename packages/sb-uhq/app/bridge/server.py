@@ -1,6 +1,6 @@
-"""Serveur HTTP bridge (aiohttp) — équivalent de src/bridge/server.js.
+"""Serveur HTTP bridge (aiohttp).
 
-Écoute sur 127.0.0.1:BRIDGE_PORT. Le controller JS envoie :
+Écoute sur 127.0.0.1:BRIDGE_PORT. Le controller envoie :
   POST /action  headers signés + { action, payload }  → { success, data } | { success:false, error }
   GET  /health  headers signés (body vide)            → { success, data:{ status, user, uptime, ping } }
 """
@@ -21,7 +21,7 @@ BRIDGE_PORT = int(os.environ.get("BRIDGE_PORT", "3000"))
 
 _START_TIME = time.time()
 
-# Actions destructives : rate-limit plus strict (5/min), comme en JS.
+# Actions destructives : rate-limit plus strict (5/min).
 _DESTRUCTIVE = re.compile(r"^(purge\.|backups\.clone\.run|token\.set)")
 
 

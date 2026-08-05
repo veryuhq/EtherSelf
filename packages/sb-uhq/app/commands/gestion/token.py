@@ -1,7 +1,7 @@
 """token.set — met à jour le token du compte dans le fichier .env.
 
 Écriture atomique (fichier temporaire + rename), permissions 0600. Confirmation par OWNER_ID.
-Comme en JS, on met aussi à jour os.environ (la reconnexion effective nécessite un redémarrage).
+On met aussi à jour os.environ (la reconnexion effective nécessite un redémarrage).
 """
 
 from __future__ import annotations

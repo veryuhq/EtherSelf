@@ -1,8 +1,9 @@
-"""Routeur d'actions du bridge — port fidèle de src/router/action-router.js.
+"""Routeur d'actions du bridge.
 
 Chaque clé mappe un nom d'action (envoyé par le controller) vers un appel
 `module.execute(client, payload_interne)`. Les noms d'actions, les clés de payload
-et les formes de réponse sont conservés à l'identique pour ne rien casser côté controller.
+et les formes de réponse forment le contrat du bridge : toute modification doit être
+synchronisée côté controller.
 """
 
 from __future__ import annotations

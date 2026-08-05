@@ -1,6 +1,6 @@
 """msglog — logging des messages supprimés / édités (event handlers + whitelist).
 
-Structure fichiers (identique au JS) :
+Structure fichiers :
   data/msg_log_data/SERVEURS/<guildId>/<type>_messages.json
   data/msg_log_data/DMs/<channelId>/<type>_messages.json
   data/msg_log_data/GROUP_DMs/<channelId>/<type>_messages.json

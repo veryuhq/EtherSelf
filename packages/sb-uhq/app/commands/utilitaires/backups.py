@@ -1,7 +1,7 @@
 """backups — clone de serveur + sauvegarde des amis / serveurs.
 
-Port de src/self/commands/utilitaires/backups.js. Le clone tourne en tâche de fond
-et relaie sa progression au bot-controller (POST /clone-progress).
+Le clone tourne en tâche de fond et relaie sa progression au bot-controller
+(POST /clone-progress).
 """
 
 from __future__ import annotations

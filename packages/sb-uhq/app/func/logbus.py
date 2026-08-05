@@ -1,7 +1,7 @@
-"""Redirection des logs vers le bot-controller (équivalent du console.log override JS).
+"""Redirection des logs vers le bot-controller.
 
 `log()`  → affiché en stdout ET relayé au controller via POST /log (MP à OWNER_ID).
-`logerr()` → stderr uniquement (comme console.error côté JS, non relayé).
+`logerr()` → stderr uniquement, non relayé.
 """
 
 from __future__ import annotations
