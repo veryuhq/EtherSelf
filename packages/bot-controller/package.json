@@ -1,6 +1,6 @@
 {
   "name": "etherself-bot",
-  "version": "2026.4.1",
+  "version": "2026.8.1",
   "description": "Bot contrôleur pour EtherSelf, avec Components V2 (TypeScript)",
   "main": "dist/index.js",
   "scripts": {
