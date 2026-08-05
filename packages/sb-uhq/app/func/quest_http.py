@@ -12,9 +12,19 @@ from urllib.parse import urlencode, urlparse, parse_qs
 import aiohttp
 
 from .data_path import is_snowflake
-from .discord_headers import make_android_headers, make_desktop_headers
+from .discord_headers import (
+    DESKTOP_HEARTBEAT_SESSION_ID,
+    make_android_headers,
+    make_desktop_headers,
+)
 
 API = "https://discord.com/api/v9"
+
+# Emplacements où le client officiel réclame des quêtes (« quest placement area »).
+# Ce sont ceux d'un client Desktop : la bannière de l'onglet Quêtes et l'encart du
+# panneau de compte, en bas à gauche.
+PLACEMENT_DESKTOP_ACCOUNT_PANEL = 1
+PLACEMENT_QUEST_HOME_BANNER_DESKTOP = 3
 
 
 def _safe_id(value, label: str) -> str:
@@ -57,6 +67,23 @@ async def _request(method: str, path: str, token: str, body=None, is_android: bo
 
 async def fetch_quests(token: str):
     return await _request("GET", "/quests/@me", token)
+
+
+async def fetch_quest_decisions(token: str, placement: int, num_decisions: int = 5):
+    """Réclame des quêtes pour un emplacement, comme le client à l'ouverture de l'onglet.
+
+    Les quêtes sont distribuées par le système de décision publicitaire de Discord :
+    une quête n'est rattachée au compte qu'une fois « décidée » pour un emplacement
+    donné. C'est ce que déclenche l'onglet Quêtes du client officiel, et c'est ce qui
+    manquait ici — d'où des quêtes visibles seulement après les avoir acceptées à la
+    main. ``/quests/@me`` ne fait que lister ce qui a déjà été attribué.
+    """
+    params = urlencode({
+        "placement": placement,
+        "num_decisions_requested": max(1, min(num_decisions, 15)),
+        "client_heartbeat_session_id": DESKTOP_HEARTBEAT_SESSION_ID,
+    })
+    return await _request("GET", f"/quests/get-decisions?{params}", token)
 
 
 async def enroll_quest(token: str, quest: dict, is_android: bool = False):

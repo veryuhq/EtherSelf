@@ -17,7 +17,7 @@ export interface Quest {
 
 export interface QuestsData {
   quests?: Quest[];
-  stats?: { total?: number; todo?: number; enroll?: number; completed?: number };
+  stats?: { total?: number; todo?: number; enroll?: number; completed?: number; excluded?: number };
   blockedUntil?: string | number | null;
   config?: { enabled?: boolean; intervalMin?: number };
 }
@@ -44,13 +44,15 @@ export function build(data: QuestsData = {}): V2MessagePayload {
     config       = {},
   } = data;
 
-  const { total = 0, todo = 0, enroll = 0, completed = 0 } = stats;
+  const { total = 0, todo = 0, enroll = 0, completed = 0, excluded = 0 } = stats;
   const enabled     = config.enabled     ?? false;
   const intervalMin = config.intervalMin ?? 360;
 
   let questList: string;
   if (!quests.length) {
-    questList = "*Aucune quête active en ce moment.*";
+    questList = excluded
+      ? "*Aucune quête disponible : Discord n'en distribue que des inéligibles pour ce compte.*"
+      : "*Aucune quête active en ce moment.*";
   } else {
     questList = quests.map((q) => {
       const statusEmoji = q.completed ? "`✅`" : q.enrolled ? "`⏳`" : "`📋`";
@@ -66,6 +68,10 @@ export function build(data: QuestsData = {}): V2MessagePayload {
     }).join("\n\n");
   }
 
+  const excludedLine = excluded
+    ? `\n\`🚫\` **${excluded}** quête(s) distribuée(s) mais inéligible(s) pour ce compte`
+    : "";
+
   const blockedLine = blockedUntil
     ? `\n⚠️ **Inscription bloquée jusqu'au** <t:${Math.floor(new Date(blockedUntil).getTime() / 1000)}:f>`
     : "";
@@ -78,7 +84,7 @@ export function build(data: QuestsData = {}): V2MessagePayload {
       textDisplay(
         `# 🏆 Discord Quests\n` +
         `${autoLine}\n` +
-        `\`📊\` **${total}** quête(s) active(s) — \`✅\` ${completed} complétée(s) — \`⏳\` ${todo} à faire — \`📋\` ${enroll} à inscrire${blockedLine}\n\n` +
+        `\`📊\` **${total}** quête(s) active(s) — \`✅\` ${completed} complétée(s) — \`⏳\` ${todo} à faire — \`📋\` ${enroll} à inscrire${excludedLine}${blockedLine}\n\n` +
         `**Quêtes :**\n${questList}`
       ),
       separator(),

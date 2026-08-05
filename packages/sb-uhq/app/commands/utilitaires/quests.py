@@ -252,6 +252,34 @@ async def _run_quest(token, quest, on_progress):
     raise RuntimeError(f"TaskName inconnu: {task_name}")
 
 
+# Dernière sollicitation du système de distribution, pour ne pas la rejouer à chaque
+# ouverture du panel : le client officiel espace lui aussi ces appels.
+_last_delivery_ms = 0
+_DELIVERY_COOLDOWN_MS = 60_000
+
+
+async def _request_delivery(token, force: bool = False) -> None:
+    """Réclame à Discord les quêtes du moment, comme l'ouverture de l'onglet Quêtes.
+
+    Sans cet appel, ``/quests/@me`` ne renvoie que les quêtes déjà rattachées au compte
+    — en pratique celles acceptées à la main dans le client officiel. L'échec n'est pas
+    bloquant : on continue avec la liste telle quelle.
+    """
+    global _last_delivery_ms
+    if not force and _now_ms() - _last_delivery_ms < _DELIVERY_COOLDOWN_MS:
+        return
+    _last_delivery_ms = _now_ms()
+    for placement in (http.PLACEMENT_QUEST_HOME_BANNER_DESKTOP,
+                      http.PLACEMENT_DESKTOP_ACCOUNT_PANEL):
+        try:
+            res = await http.fetch_quest_decisions(token, placement)
+            if not res["ok"]:
+                log(f"[QUESTS] ⚠️ Distribution refusée pour l'emplacement "
+                    f"{placement} (HTTP {res['status']})")
+        except Exception as err:  # noqa: BLE001
+            log(f"[QUESTS] ⚠️ Distribution injoignable pour l'emplacement {placement} : {err}")
+
+
 def _unique(quests):
     seen = set()
     out = []
@@ -266,6 +294,7 @@ def _unique(quests):
 async def run_all(client) -> None:
     token = get_token(client)
     log("[QUESTS] 🔄 Lancement de la complétion automatique des quêtes…")
+    await _request_delivery(token, force=True)
     try:
         res = await http.fetch_quests(token)
         if not res["ok"]:
@@ -367,11 +396,13 @@ async def execute(client, payload):
         return config
 
     if action == "list":
+        await _request_delivery(token)
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")
         raw = res["data"] or {}
         quests = raw.get("quests") or []
+        excluded = raw.get("excluded_quests") or []
         all_active = _filter_active(quests)
         todo = _filter_valid(quests)
         enroll = _filter_enrollable(quests)
@@ -390,12 +421,17 @@ async def execute(client, payload):
                 "progress": (q.get("user_status") or {}).get("progress") or {},
             } for q in all_active],
             "blockedUntil": raw.get("quest_enrollment_blocked_until"),
+            # `excluded` compte les quêtes que Discord distribue mais auxquelles le
+            # compte n'est pas éligible : sans ce chiffre, une liste vide ne dit pas
+            # si rien n'a été distribué ou si tout a été écarté.
             "stats": {"total": len(all_active), "todo": len(todo),
-                      "enroll": len(enroll), "completed": len(completed)},
+                      "enroll": len(enroll), "completed": len(completed),
+                      "excluded": len(excluded)},
             "config": config,
         }
 
     if action == "run":
+        await _request_delivery(token, force=True)
         res = await http.fetch_quests(token)
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")

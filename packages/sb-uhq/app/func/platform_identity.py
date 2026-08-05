@@ -34,6 +34,7 @@ from app.func.discord_headers import (
     DESKTOP_SUPER_PROPERTIES,
     DESKTOP_USER_AGENT,
     _encode_super_properties,
+    launch_identity_fields,
 )
 
 # Type cordapi (`.../api/v2/properties/{type}`) selon la plateforme voulue.
@@ -99,6 +100,13 @@ def install(platform: str | None = None) -> None:
                 cls.get_api_properties(session, target, proxy=proxy, proxy_auth=proxy_auth),
                 timeout=3,
             )
+            # Le profil cordapi décrit une build, pas une session : il lui manque les
+            # identifiants de lancement. On y ajoute ceux des requêtes REST pour que la
+            # gateway et le REST parlent d'un seul client (cf. livraison des quêtes),
+            # puis on ré-encode — l'en-tête fourni par cordapi ne les contient pas.
+            if target in ("desktop", "android"):
+                properties = {**properties, **launch_identity_fields(target == "android")}
+                encoded = _encode_super_properties(properties)
             return cls(
                 platform=_PLATFORM_OS.get(target, "Windows"),
                 major_version=_chrome_major(properties.get("browser_user_agent", "")),
