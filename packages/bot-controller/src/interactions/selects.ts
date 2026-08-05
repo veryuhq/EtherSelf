@@ -5,11 +5,9 @@ import { handle as handleButton } from "./buttons";
 
 export async function handle(interaction: StringSelectMenuInteraction): Promise<unknown> {
   // ── menu:* — boutons regroupés en menu déroulant ──────────────────────────
-  // Quand un panel dépasse 3 boutons d'action, ceux-ci sont regroupés dans un
-  // select (les boutons de navigation, de pagination et les bascules à état
-  // restent des boutons). La valeur choisie correspond au custom_id du bouton
-  // d'origine : on la redispatche vers le handler de boutons pour réutiliser
-  // toute sa logique existante (modals, updates, etc.).
+  // Au-delà de 3 boutons d'action, un panel les regroupe dans un select. La valeur
+  // choisie est le custom_id du bouton d'origine : on la redispatche au handler
+  // de boutons pour en réutiliser toute la logique.
   if (interaction.customId.startsWith("menu:")) {
     const selected = interaction.values?.[0];
     if (!selected) return;

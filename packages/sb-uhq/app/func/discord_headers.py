@@ -1,9 +1,7 @@
 """En-têtes client Discord pour les requêtes REST brutes (quests, purge, backups).
 
-Port de src/self/func/discord-client-headers.js, réaligné depuis sur les super
-properties de l'implémentation de référence des quêtes (aiko-chan-ai/
-Discord-Quest-Auto-Completion-Selfbot, src/constants.ts) : l'ancien portage
-omettait les champs de session d'un lancement client (voir plus bas).
+Super properties alignées sur aiko-chan-ai/Discord-Quest-Auto-Completion-Selfbot
+(src/constants.ts), champs de session d'un lancement client compris.
 """
 
 from __future__ import annotations
@@ -12,12 +10,9 @@ import base64
 import json
 import uuid
 
-# Identifiants de session tirés au sort à chaque lancement du process, comme le fait
-# un vrai client Discord à chaque démarrage. Ils comptent surtout pour les quêtes :
-# Discord les livre via son système de décision publicitaire, qui rattache chaque
-# livraison à un `client_heartbeat_session_id`. Un client qui n'en présente jamais et
-# qui ne se déclare jamais « focused » n'est pas ciblé, et /quests/@me se limite alors
-# aux quêtes déjà acceptées à la main dans le client officiel.
+# Identifiants de session tirés au sort à chaque lancement, comme un vrai client.
+# Discord rattache la livraison des quêtes au `client_heartbeat_session_id` : sans lui
+# (et sans état « focused »), le compte n'est jamais ciblé.
 DESKTOP_HEARTBEAT_SESSION_ID = str(uuid.uuid4())
 ANDROID_HEARTBEAT_SESSION_ID = str(uuid.uuid4())
 
@@ -82,12 +77,10 @@ def _encode_super_properties(properties: dict) -> str:
 
 
 def launch_identity_fields(is_android: bool = False) -> dict:
-    """Renvoie les champs de session d'un lancement client, à fusionner ailleurs.
+    """Champs de session d'un lancement client, à fusionner ailleurs.
 
-    Le profil de super properties récupéré en ligne par ``platform_identity`` ne les
-    contient pas. Les y ajouter aligne l'identité annoncée à la gateway sur celle des
-    requêtes REST brutes : Discord voit un seul et même client, avec un unique
-    identifiant de session, au lieu de deux.
+    Absents du profil récupéré en ligne par ``platform_identity`` : les y ajouter aligne
+    l'identité gateway sur celle des requêtes REST (un seul client vu par Discord).
     """
     source = ANDROID_SUPER_PROPERTIES if is_android else DESKTOP_SUPER_PROPERTIES
     return {key: source[key] for key in (

@@ -16,21 +16,21 @@
 ---
 
 > ### ⚠️ Avertissement légal
-> L'utilisation d'un selfbot est une violation des [Conditions d'Utilisation de Discord](https://discord.com/terms). Discord peut bannir ton compte à tout moment, sans préavis et sans retour en arrière. Ce projet n'existe qu'**à des fins éducatives**. Tu l'utilises à tes **propres risques** : les contributeurs n'assument aucune responsabilité.
+> Un selfbot viole les [CGU de Discord](https://discord.com/terms) : ton compte peut être banni sans préavis. Projet **éducatif**, utilisé à tes **propres risques**, sans responsabilité des contributeurs.
 
 ---
 
 > ### 🤖 Vibecodé avec des modèles d'IA
-> Des modèles d'IA ont écrit **tout le code de ce projet** (Claude Fable 5, Claude Sonnet 4.6 et 5, Claude Opus 4.8, Codex/GPT-5.4 et Codex/GPT-5.5). Si tu envisages quelque chose de similaire, **implémente-le toi-même** sans IA : tu comprendras ce que tu fais tourner sur ton compte Discord, et tu sauras le déboguer le jour où ça cassera.
+> **Tout le code** vient de modèles d'IA (Claude Fable 5, Sonnet 4.6 et 5, Opus 4.8, Codex/GPT-5.4 et 5.5). Pour un projet similaire, **écris-le toi-même** : tu sauras ce qui tourne sur ton compte et comment le déboguer.
 
 ---
 
 > ### 🔀 Migration — le selfbot est passé à `discord.py-self`
-> Le selfbot tournait sous `discord.js-selfbot-v13`, que ses auteurs **n'ont plus touché depuis octobre 2025**. Il tourne maintenant en **Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)), une lib que ses mainteneurs suivent toujours.
+> `discord.js-selfbot-v13` n'est plus maintenu depuis octobre 2025. Le selfbot tourne désormais en **Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)).
 >
-> - 🟢 Le **bot-controller reste en TypeScript** (discord.js v14) ; `npm run build` le compile en JavaScript avant le lancement.
-> - 🟢 Les deux process communiquent toujours via le **même bridge HTTP local signé (HMAC-SHA256)** : le contrat réseau est identique au byte près, donc le controller n'a pas eu à changer.
-> - 🔴 Les endpoints non officiels (quêtes, Discord Says, Spotify RPC) restent sensibles aux évolutions de Discord et peuvent casser sans préavis.
+> - 🟢 Le **bot-controller reste en TypeScript** (discord.js v14), compilé par `npm run build`.
+> - 🟢 **Bridge HTTP local signé (HMAC-SHA256)** inchangé au byte près : le controller n'a pas bougé.
+> - 🔴 Les endpoints non officiels (quêtes, Discord Says, Spotify RPC) peuvent casser sans préavis.
 
 ---
 
@@ -43,9 +43,7 @@ EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensembl
 | 🤖 **`EtherSelf-SB`** | 🐍 Python | Le selfbot (discord.py-self), expose un bridge HTTP local |
 | 🎛️ **`EtherSelf-Bot`** | 🟦 TypeScript | Bot Discord classique (discord.js 14), interface via un panel Components V2 |
 
-Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Ton compte utilisateur ne touche pas à Discord depuis l'interface, ce qui cloisonne les deux rôles et simplifie le débogage.
-
-Le selfbot Python et le controller TypeScript sont **deux process indépendants** qui ne partagent ni mémoire ni runtime : ils dialoguent par des requêtes HTTP sur `127.0.0.1`, signées avec un secret partagé (`BRIDGE_SECRET`, HMAC-SHA256). Le langage de chaque côté n'a donc aucune importance : le selfbot Python s'adresse au controller comme le faisait l'ancien selfbot JS. `pm2` supervise les deux (voir plus bas), chacun avec son propre interpréteur.
+Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Les deux sont des **process indépendants**, sans mémoire ni runtime partagés — ils ne dialoguent que par des requêtes signées (`BRIDGE_SECRET`, HMAC-SHA256) sur `127.0.0.1`. Le langage de chaque côté n'a donc aucune importance, et `pm2` supervise les deux avec leur propre interpréteur (voir plus bas).
 
 ```
 Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Discord API
@@ -66,7 +64,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
-| 🎭 **Rôles** | Les rôles d'un membre et les membres d'un rôle, à partir des IDs — liste des rôles du serveur, scan complet optionnel de la liste des membres |
+| 🎭 **Rôles** | Les rôles d'un membre et les membres d'un rôle, à partir des IDs — scan complet optionnel |
 
 ### ⚙️ Automatisation
 
@@ -87,7 +85,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 
 | Module | Description |
 |---|---|
-| 🗑️ **Purge** | Suppression de tes propres messages : salon, serveur, tous les DMs (groupes et conversations fermées inclus), tous les serveurs — exclusions serveurs / groupes DM / salons, annulation en temps réel |
+| 🗑️ **Purge** | Suppression de tes propres messages — un salon, un serveur, tous les DMs (conversations fermées comprises) ou tout, avec exclusions et annulation en temps réel |
 | 🔁 **Clone de serveur** | Copie rôles, salons, emojis et paramètres d'un serveur vers un autre |
 | 📊 **Infos système** | Ping WebSocket, uptime du processus, CPU / RAM / OS de l'hôte |
 
@@ -105,9 +103,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 
 **Le spam, le raid de serveurs, le mass-DM, le flood de salons et le harcèlement collectif n'auront pas leur place ici.**
 
-Si tu cherches un outil pour nuire à d'autres utilisateurs de Discord — détruire des serveurs, spammer des membres ou autre chose dans ce goût-là — ferme ce README, **sors dehors, et touche de l'herbe**. 🌿
-
-Elles n'arriveront **jamais** dans ce repo, quelle que soit la demande. C'est une question de ne pas être un boulet pour les autres.
+Ces fonctionnalités n'arriveront **jamais** ici, quelle que soit la demande. Si tu cherches un outil pour nuire à d'autres utilisateurs, ferme ce README et **va toucher de l'herbe**. 🌿
 
 ---
 
@@ -246,15 +242,15 @@ Au démarrage, le bot controller t'envoie un DM confirmant que tout est en ligne
 
 ## 📝 Notes diverses
 
-- 🗃️ **Cache Discord** — certaines fonctionnalités (quitter tous les groupes, purge DMs) effectuent un `fetch()` au préalable pour peupler le cache, mais la couverture dépend de l'état de l'API au moment de l'appel.
-- 💬 **Purge des DMs & conversations fermées** — fermer un DM le retire de ta liste de messages sans rien supprimer côté serveur : il n'apparaît alors dans aucune liste renvoyée par l'API. La purge les retrouve via la recherche globale du compte (`/users/@me/messages/search`, celle du client Discord), qui remonte toutes les conversations où tu as écrit, fermées comprises ; le selfbot les lit ensuite sans les rouvrir. En complément, il rouvre les DMs fermés de tes relations (amis, bloqués, demandes en attente) et de tes affinités (comptes les plus fréquentés) le temps de les vider, puis les referme : ta liste de messages retrouve son état d'origine. Reste un angle mort : Discord construit son index de recherche en arrière-plan et borne sa pagination à dessein, donc une vieille conversation fermée avec quelqu'un qui n'est ni relation ni affinité peut échapper au balayage. Rouvre-la depuis Discord avant la purge si tu la connais.
-- 🏆 **Quests** — les endpoints utilisés sont non officiels et peuvent changer sans préavis à chaque mise à jour de Discord. Discord distribue les quêtes via son système de décision publicitaire : `/quests/@me` ne liste que celles déjà rattachées au compte. Le panel réclame donc lui-même une distribution avant de lister, comme le fait le client officiel à l'ouverture de l'onglet Quêtes — tu n'as plus à y accepter une quête à la main pour la voir apparaître. Une quête distribuée mais inéligible pour ton compte est comptée à part (`🚫`) plutôt que passée sous silence.
-- ⏱️ **Purge** — le selfbot attend 100 ms entre deux suppressions, un délai posé exprès pour limiter le risque de rate-limit ou de flag de compte.
-- 🎭 **Rôles** — Discord ne renvoie que les 100 premiers membres d'un rôle : au-delà, le panel te le signale et propose un **scan complet**, qui parcourt la liste des membres par lots espacés d'une seconde (plafonné à 20 000 membres et 4 minutes, résultat gardé 10 min pour la pagination). Le compte exact d'un rôle dépend de tes permissions sur le serveur.
-- 🐍 **discord.py-self** — le selfbot dépend de `discord.py-self`. Certaines fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib et de l'API Discord ; valide-les sur ton compte avant de compter dessus.
+- 🗃️ **Cache Discord** — certaines fonctionnalités (quitter tous les groupes, purge DMs) peuplent le cache par un `fetch()` préalable, dont la couverture dépend de l'API au moment de l'appel.
+- 💬 **Purge des DMs & conversations fermées** — un DM fermé reste intact côté serveur mais n'apparaît dans aucune liste de l'API. La purge le retrouve via la recherche globale (`/users/@me/messages/search`) et le lit sans le rouvrir ; les DMs de tes relations et affinités sont rouverts le temps du vidage, puis refermés. Angle mort : l'index de recherche de Discord est incomplet et sa pagination bornée, donc une vieille conversation fermée avec un inconnu peut échapper au balayage — rouvre-la à la main avant la purge.
+- 🏆 **Quests** — endpoints non officiels, susceptibles de casser à chaque mise à jour de Discord. `/quests/@me` ne liste que les quêtes déjà rattachées au compte : le panel en réclame donc lui-même la distribution avant de lister, comme le client officiel. Une quête inéligible est comptée à part (`🚫`) plutôt que passée sous silence.
+- ⏱️ **Purge** — 100 ms entre deux suppressions, pour limiter le risque de rate-limit ou de flag de compte.
+- 🎭 **Rôles** — Discord ne renvoie que les 100 premiers membres d'un rôle ; au-delà, le panel propose un **scan complet** par lots espacés d'une seconde (max 20 000 membres et 4 min, résultat gardé 10 min). Le compte exact dépend de tes permissions.
+- 🐍 **discord.py-self** — les fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib ; valide-les sur ton compte avant de compter dessus.
 
 ---
 
 ## 📄 Licence
 
-**[PolyForm Noncommercial License 1.0.0](./LICENSE)** — usage privé, modification et distribution autorisés **à des fins non commerciales** (interdiction de se faire de l'argent avec). Les contributeurs ne donnent **aucune garantie et n'assument aucune responsabilité**. Et dans tous les cas : assume les conséquences vis-à-vis de Discord toi-même.
+**[PolyForm Noncommercial License 1.0.0](./LICENSE)** — usage, modification et distribution **à des fins non commerciales** uniquement. Aucune garantie, aucune responsabilité des contributeurs : les conséquences vis-à-vis de Discord sont pour toi.

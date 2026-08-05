@@ -1,9 +1,6 @@
 /**
- * Serveur ciblé par le panel Rôles, mémorisé par utilisateur.
- *
- * Purement confort : il préremplit l'ID de serveur des modals de recherche pour
- * ne pas avoir à le retaper. Rien n'est persisté sur disque — la sélection est
- * perdue au redémarrage du controller, ce qui est sans conséquence.
+ * Serveur ciblé par le panel Rôles, mémorisé par utilisateur pour préremplir les
+ * modals de recherche. Rien n'est persisté : la sélection est perdue au redémarrage.
  */
 export interface RolesConfig {
   guildId: string | null;

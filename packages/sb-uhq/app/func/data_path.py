@@ -26,10 +26,8 @@ def is_snowflake(value) -> bool:
 def safe_id_segment(value, label: str = "identifiant") -> str:
     """Valide un ID Discord destiné à devenir un segment de chemin sous data/.
 
-    Sans cette validation, une valeur comme ``../../..`` ou ``/etc`` sortirait de
-    data/ : pathlib fait repartir le chemin de zéro sur un segment absolu et
-    conserve les ``..`` que ``open()`` résout ensuite. Les IDs Discord étant
-    toujours numériques, on rejette tout le reste.
+    Sans ça, un ``../../..`` ou un ``/etc`` sortirait de data/ (pathlib repart de zéro
+    sur un segment absolu et conserve les ``..``). Seul le numérique est accepté.
     """
     text = str(value or "").strip()
     if not _SNOWFLAKE_RE.match(text):

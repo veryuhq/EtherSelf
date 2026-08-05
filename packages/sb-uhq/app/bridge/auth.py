@@ -82,10 +82,8 @@ def verify_signed_request(headers, body: str = "") -> bool:
 
 
 # ── Anti-rejeu ───────────────────────────────────────────────────────────────
-# Une signature valide = HMAC(timestamp.body). Deux actions distinctes ont des
-# timestamps distincts, donc des signatures distinctes : seul un rejeu byte-à-byte
-# réutilise la même signature. On mémorise les signatures vues pendant la fenêtre
-# de dérive et on rejette les répétitions.
+# Deux requêtes distinctes ont des timestamps donc des signatures distinctes : seul un
+# rejeu réutilise la même. On mémorise celles vues pendant la fenêtre de dérive.
 
 _seen_signatures: dict[str, float] = {}
 

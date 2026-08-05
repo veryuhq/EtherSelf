@@ -1,8 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Utilitaires partagés entre les routeurs d'interactions (buttons.ts,
-//  modals.ts) — évite de dupliquer la table de navigation, la génération
-//  d'identifiants de jobs et les recherches du panel Rôles (déclenchées aussi
-//  bien depuis un modal que depuis les boutons de pagination des résultats).
+//  Utilitaires partagés entre buttons.ts et modals.ts : table de navigation,
+//  identifiants de jobs et recherches du panel Rôles.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { sendAction } from "../bridge/client";

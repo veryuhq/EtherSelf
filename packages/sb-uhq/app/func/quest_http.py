@@ -30,21 +30,10 @@ PLACEMENT_QUEST_HOME_BANNER_DESKTOP = 3
 def _safe_id(value, label: str) -> str:
     """Valide un identifiant Discord AVANT de l'interpoler dans une URL.
 
-    Ces identifiants proviennent tous de la réponse de l'API quêtes, donc d'une
-    source distante que le selfbot ne contrôle pas. Sans validation :
-
-    - `application_id` est interpolé dans le HOST de
-      ``https://{application_id}.discordsays.com/.proxy/acf/authorize`` — une
-      valeur du type ``a@exemple.test/`` y déplacerait la requête vers un
-      serveur tiers, à qui partirait le **code d'autorisation OAuth2 du compte**
-      (scopes identify / applications.commands / applications.entitlements) ;
-    - `quest_id` et `token_id` sont interpolés dans le CHEMIN d'appels à
-      discord.com : un ``#`` ou un ``?`` y tronque l'URL et un ``../`` la
-      redirige vers un autre endpoint de l'API.
-
-    Les IDs Discord sont toujours des snowflakes numériques : on rejette tout le
-    reste. Un ID malformé fait échouer la quête concernée (l'appelant journalise
-    l'erreur dans l'historique) plutôt que d'émettre une requête douteuse.
+    Ces IDs viennent de l'API quêtes, une source distante non contrôlée. Interpolés tels
+    quels ils détournent la requête : `application_id` sert d'hôte à ``discordsays.com``
+    (fuite du code OAuth2 du compte), `quest_id`/`token_id` de chemin sur discord.com.
+    On n'accepte donc que des snowflakes numériques.
     """
     text = str(value or "").strip()
     if not is_snowflake(text):
@@ -72,11 +61,8 @@ async def fetch_quests(token: str):
 async def fetch_quest_decisions(token: str, placement: int, num_decisions: int = 5):
     """Réclame des quêtes pour un emplacement, comme le client à l'ouverture de l'onglet.
 
-    Les quêtes sont distribuées par le système de décision publicitaire de Discord :
-    une quête n'est rattachée au compte qu'une fois « décidée » pour un emplacement
-    donné. C'est ce que déclenche l'onglet Quêtes du client officiel, et c'est ce qui
-    manquait ici — d'où des quêtes visibles seulement après les avoir acceptées à la
-    main. ``/quests/@me`` ne fait que lister ce qui a déjà été attribué.
+    Discord ne rattache une quête au compte qu'une fois « décidée » pour un emplacement ;
+    ``/quests/@me`` se contente de lister ce qui l'est déjà.
     """
     params = urlencode({
         "placement": placement,

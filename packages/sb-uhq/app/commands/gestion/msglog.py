@@ -156,11 +156,8 @@ async def handle_message_delete(message, client) -> None:
 async def handle_raw_message_delete(payload, client) -> None:
     """Point d'entrée branché sur on_raw_message_delete.
 
-    Contrairement à on_message_delete, cet événement se déclenche aussi pour les
-    messages absents du cache interne (messages antérieurs au démarrage ou évincés
-    du cache) — c'est le cas le plus fréquent sur les serveurs actifs. Le gateway
-    ne fournit alors ni contenu ni auteur : on logge une entrée minimale, comme le
-    faisait la version JS avec les partials dont le fetch échouait.
+    Couvre aussi les messages absents du cache (cas le plus fréquent), pour lesquels la
+    gateway ne fournit ni contenu ni auteur : on logge alors une entrée minimale.
     """
     if payload.cached_message is not None:
         await handle_message_delete(payload.cached_message, client)

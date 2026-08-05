@@ -1,13 +1,7 @@
 """rpc — Rich Presence, Spotify RPC et Custom Status (rotation).
 
-Port de src/self/commands/utilitaires/rpc.js. La logique de configuration est identique ;
-seule l'application de la présence utilise l'API discord.py-self (change_presence).
-
-NOTE discord.py-self : discord.js-selfbot exposait des classes dédiées (RichPresence,
-SpotifyRPC, CustomStatus). discord.py-self fournit lui aussi une classe dédiée
-`discord.Spotify` (cf. examples/spotify_presence.py) que l'on utilise ici pour un rendu
-Spotify fidèle ; les Rich Presence classiques et le Custom Status passent respectivement
-par discord.Activity / discord.CustomActivity.
+La présence est appliquée via `change_presence` : `discord.Spotify` pour le rendu
+Spotify, `discord.Activity` / `discord.CustomActivity` pour le reste.
 """
 
 from __future__ import annotations
@@ -182,13 +176,9 @@ def _split_artists(state) -> list:
 def _build_spotify(spotify, client):
     """Construit une présence Spotify via la classe dédiée `discord.Spotify`.
 
-    Voir dolfies/discord.py-self examples/spotify_presence.py. On mappe la config :
-      details          -> title (nom du morceau)
-      state            -> artists (découpé)
-      songId/albumId   -> track_id / album_id
-      artistIds        -> artist_ids
-      assets.largeText -> album ; assets.largeImage -> album_cover_url
-      timestamps       -> start_time / duration
+    Mapping de la config : details → title, state → artists, songId/albumId →
+    track_id/album_id, artistIds → artist_ids, assets → album/album_cover_url,
+    timestamps → start_time/duration.
     """
     assets = spotify.get("assets") or {}
     ts = spotify.get("timestamps") or {}
@@ -291,25 +281,17 @@ def _build_presence(config, client):
 async def apply_presence(client, config) -> None:
     status, activities = _build_presence(config, client)
     try:
-        # edit_settings=False : on applique le statut/les activités UNIQUEMENT à la
-        # session du selfbot (Desktop), sans écraser le réglage de statut GLOBAL du
-        # compte. Avec le défaut (True), change_presence appelle settings.edit(status=…)
-        # et propage le statut du RPC à tous les clients : se mettre en invisible sur
-        # un autre client (Web) était alors immédiatement annulé par le bot, qui te
-        # remettait en ligne. Découplé, le statut du compte (ex. invisible réglé côté
-        # Web) est préservé — tu apparais offline aux autres — pendant que la session
-        # Desktop conserve la valeur configurée dans le panel RPC.
+        # edit_settings=False : n'applique le statut qu'à la session du selfbot, sans
+        # écraser le statut GLOBAL du compte. Sinon un invisible réglé sur un autre
+        # client est aussitôt annulé par le bot.
         await client.change_presence(status=status, activities=activities, edit_settings=False)
     except Exception as e:  # noqa: BLE001
         logerr(f"[RPC] Erreur change_presence : {e}")
         return
 
-    # Le custom status, lui, est resynchronisé dans les réglages du compte : tes
-    # PROPRES clients officiels (app Web/Desktop) n'affichent pas la présence des
-    # autres sessions du compte, mais bien le custom status enregistré dans les
-    # réglages. Sans ça, tu ne voyais plus la rotation depuis ton propre compte.
-    # On ne touche QUE custom_activity, jamais status : ton invisible/offline reste
-    # donc préservé (contrairement au comportement d'origine edit_settings=True).
+    # Le custom status, lui, est resynchronisé dans les réglages : c'est de là que tes
+    # propres clients l'affichent. On ne touche QUE custom_activity, jamais status,
+    # pour préserver l'invisible/offline.
     try:
         custom = next(
             (a for a in activities if getattr(a, "type", None) == discord.ActivityType.custom),

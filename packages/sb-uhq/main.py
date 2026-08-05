@@ -32,10 +32,8 @@ from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
 PREFIX_COMMANDS = {"tag": tag, "mock": mock, "spoiler": spoiler}
 
-# Cache de messages élargi (défaut : 1000, tous salons confondus) pour que le
-# snipe retrouve le contenu des messages supprimés/édités le plus souvent possible.
-# La version JS gardait ~200 messages PAR salon ; ici le cache est global, donc on
-# vise large (~20-60 Mo de RAM).
+# Cache élargi (défaut : 1000, global à tous les salons) pour que le snipe retrouve le
+# plus souvent possible les messages supprimés/édités. Coût : ~20-60 Mo de RAM.
 client = discord.Client(max_messages=20000)
 
 _ready_once = False
@@ -92,10 +90,8 @@ async def on_message(message):
             logerr(f"[CMD] Erreur '{command_name}': {err}")
 
 
-# Événements raw : contrairement à on_message_delete/on_message_edit, ils se
-# déclenchent aussi pour les messages absents du cache interne (l'équivalent des
-# partials de la version JS), sans quoi la plupart des suppressions en serveur
-# ne seraient jamais loggées.
+# Événements raw : ils couvrent aussi les messages absents du cache interne, sans quoi
+# la plupart des suppressions en serveur ne seraient jamais loggées.
 @client.event
 async def on_raw_message_delete(payload):
     try:
@@ -134,10 +130,8 @@ def main():
     token = os.environ.get("TOKEN")
     if not token:
         raise SystemExit("TOKEN manquant dans le fichier .env du selfbot.")
-    # SIGINT/SIGTERM (pm2 stop/restart/max_memory_restart) → sortie brutale
-    # sans close 1000, comme l'ancienne version JS : Discord garde la session
-    # et le compte reste affiché en ligne pendant le redémarrage
-    # (voir app/func/shutdown.py).
+    # SIGINT/SIGTERM (pm2) → sortie brutale sans close 1000, pour que le compte reste
+    # affiché en ligne pendant le redémarrage (voir app/func/shutdown.py).
     shutdown.install()
     client.run(token)
 

@@ -1,18 +1,9 @@
 """Arrêt « brutal » du process pour préserver la session Discord (parité JS).
 
-pm2 arrête ses process avec SIGINT (y compris pour max_memory_restart).
-Avec discord.py-self, SIGINT → KeyboardInterrupt → Client.close(), qui ferme
-la gateway avec le code 1000 (fermeture propre) → Discord invalide la session
-et le compte passe hors-ligne dans la foulée.
-
-L'ancien selfbot JS ne faisait pas ça : le process Node mourait d'un coup,
-la connexion TCP tombait sans close frame, et Discord gardait la session
-gateway — donc la présence — vivante pendant la fenêtre de resume (plus large
-que les ~15 s d'un restart pm2). Le compte n'apparaissait jamais hors-ligne
-pendant le redémarrage.
-
-Ce module reproduit ce comportement : sur SIGINT/SIGTERM on sort via
-os._exit() sans attendre, sans laisser discord.py-self envoyer le close 1000.
+Une fermeture propre (SIGINT → Client.close() → close 1000) invalide la session côté
+Discord et fait passer le compte hors-ligne à chaque restart pm2. On sort donc via
+os._exit() sur SIGINT/SIGTERM : sans close frame, Discord garde la présence vivante
+pendant la fenêtre de resume.
 """
 
 from __future__ import annotations

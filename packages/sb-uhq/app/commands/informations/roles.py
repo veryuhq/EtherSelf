@@ -1,14 +1,8 @@
 """roles — consultation des rôles d'un serveur (lecture seule).
 
-Deux recherches, à partir d'identifiants Discord :
-  • les rôles d'un membre  → ID du serveur + ID du membre ;
-  • les membres d'un rôle  → ID du serveur + ID du rôle.
-
-Rien n'est modifié côté Discord : le module ne fait que lire. Les listes de
-membres partent toujours du cache du selfbot, complété par les requêtes gateway
-de discord.py-self. Le scan complet de la liste des membres reste une action
-explicite, plafonnée et volontairement espacée (``SCAN_DELAY``) pour ne pas
-exposer le compte.
+Deux recherches, à partir d'IDs Discord : les rôles d'un membre, les membres d'un rôle.
+Les listes partent du cache, complété par la gateway ; le scan complet reste une action
+explicite, plafonnée et espacée (``SCAN_DELAY``) pour ne pas exposer le compte.
 """
 
 from __future__ import annotations

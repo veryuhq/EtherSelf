@@ -6,10 +6,8 @@ import {
 } from "../utils/components";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  PANEL RÔLES — consultation seule
-//  Deux recherches : les rôles d'un membre, les membres d'un rôle.
-//  Les noms de serveurs, de rôles et les pseudos viennent de tiers : ils passent
-//  systématiquement par plainText() avant d'entrer dans un Text Display.
+//  PANEL RÔLES — consultation seule : les rôles d'un membre, les membres d'un rôle.
+//  Tout nom d'origine tierce passe par plainText() avant un Text Display.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ACCENT = 0x9B59B6;
@@ -123,11 +121,8 @@ function permissionsLine(keys: string[] = []): string | null {
   return keys.map((k) => PERMISSION_LABELS[k] ?? k).join("  ·  ");
 }
 
-/**
- * Pastille de couleur approchée d'un rôle : Discord n'expose que la valeur RGB,
- * et un Text Display ne sait pas colorer du texte. On projette donc la teinte sur
- * le carré unicode le plus proche pour garder un repère visuel dans les listes.
- */
+/** Pastille de couleur approchée d'un rôle : un Text Display ne sait pas colorer du
+ *  texte, on projette donc la teinte RGB sur le carré unicode le plus proche. */
 function colorDot(color?: number | null): string {
   if (!color) return "⚪";
   const r = (color >> 16) & 0xff;
@@ -195,10 +190,8 @@ function guildLine(guild?: RoleGuild | null): string {
   return `**${plainText(guild.name ?? guild.id)}**`;
 }
 
-/**
- * Libellé d'option de select : contrairement à un Text Display, un select ne
- * rend pas le markdown — inutile d'échapper, il ne reste qu'à borner la longueur.
- */
+/** Libellé d'option de select : un select ne rend pas le markdown, il suffit de
+ *  borner la longueur. */
 function optionLabel(value: string | undefined, fallback: string): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return (text || fallback).slice(0, 100);
@@ -514,10 +507,8 @@ export function buildRoleMembers(data: RoleMembersData = {}): V2MessagePayload {
   );
 }
 
-/**
- * Panel d'attente du scan complet : l'opération interroge Discord membre par
- * membre et peut durer plusieurs minutes sur un gros serveur.
- */
+/** Panel d'attente du scan complet, qui peut durer plusieurs minutes sur un gros
+ *  serveur. */
 export function buildScanning(data: { guild?: RoleGuild | null; role?: RoleInfo | null } = {}): V2MessagePayload {
   const { guild = null, role = null } = data;
   const memberCount = typeof guild?.memberCount === "number"

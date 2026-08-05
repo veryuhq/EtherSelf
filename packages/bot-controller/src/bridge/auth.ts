@@ -65,8 +65,7 @@ export function verifySignedRequest({
 
 // ── Anti-rejeu ───────────────────────────────────────────────────────────────
 // Symétrique du selfbot : on mémorise les signatures vues pendant la fenêtre de
-// dérive et on rejette les répétitions (un rejeu byte-à-byte réutilise la même
-// signature ; deux requêtes distinctes ont des timestamps donc signatures distincts).
+// dérive et on rejette les répétitions.
 const _seenSignatures = new Map<string, number>();
 
 export function registerSignature(signature: string | string[] | undefined): boolean {

@@ -62,11 +62,8 @@ function validatePm2Name(name: string): string {
   return value;
 }
 
-/**
- * Route les clics de boutons du panel. Accepte aussi les interactions de
- * select proxyfiées par selects.ts (menu:* → redispatch avec le customId
- * du bouton d'origine).
- */
+/** Route les clics de boutons du panel, y compris les selects proxyfiés par
+ *  selects.ts (menu:*). */
 export async function handle(interaction: MessageComponentInteraction): Promise<unknown> {
   const id = interaction.customId;
 

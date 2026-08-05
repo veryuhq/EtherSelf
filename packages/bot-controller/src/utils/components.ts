@@ -7,10 +7,8 @@ import type {
 } from "discord.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  COMPONENTS V2 — Builders centralisés
-//  Tous les panels importent depuis ici pour rester cohérents.
-//  Les composants sont construits en JSON brut (pas de builders discord.js),
-//  d'où les types structurels locaux ci-dessous.
+//  COMPONENTS V2 — builders centralisés, importés par tous les panels.
+//  JSON brut (pas de builders discord.js), d'où les types locaux ci-dessous.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface TextDisplayComponent {
@@ -86,11 +84,8 @@ export interface ContainerComponent {
 
 export type TopLevelComponent = ContainerComponent | ContainerChild;
 
-/**
- * Payload de message Components V2, assignable à toutes les cibles d'envoi
- * (reply, update, editReply, followUp, send). L'intersection permet de passer
- * le même objet partout sans cast aux call sites.
- */
+/** Payload Components V2 assignable à toutes les cibles d'envoi (reply, update,
+ *  editReply, followUp, send) sans cast aux call sites. */
 export type V2MessagePayload = InteractionReplyOptions &
   InteractionUpdateOptions &
   MessageCreateOptions;
@@ -200,15 +195,9 @@ export interface ModalField {
   checked?: boolean;
 }
 
-/** Modal — chaque champ (texte, `file: true`, `options`, `radio`, `checkboxes`
- *  ou `checkbox: true`) est enveloppé dans un Label (type 18), le format
- *  standard des modals : label (≤ 45 car.) + description optionnelle
- *  (≤ 100 car.) + un composant enfant (TextInput type 4, FileUpload type 19,
- *  StringSelect type 3, RadioGroup type 21, CheckboxGroup type 22 ou
- *  Checkbox type 23).
- *  Soumission : `fields.getTextInputValue(id)`, `.getUploadedFiles(id)`,
- *  `.getStringSelectValues(id)` (sans sélection → `[]`),
- *  `.getRadioGroup(id)`, `.getCheckboxGroup(id)`, `.getCheckbox(id)`. */
+/** Modal — chaque champ (texte, `file`, `options`, `radio`, `checkboxes`, `checkbox`)
+ *  est enveloppé dans un Label (type 18) : label ≤ 45 car., description ≤ 100 car.,
+ *  un composant enfant. Soumission via `fields.getTextInputValue(id)` et compagnie. */
 export function modal(
   customId: string,
   title: string,
@@ -274,11 +263,8 @@ export function modal(
   return { custom_id: customId, title, components } as unknown as APIModalInteractionResponseCallbackData;
 }
 
-/**
- * Formate un texte de log multi-lignes pour affichage dans un Container :
- * chaque ligne devient une citation en code inline (`> \`ligne\``), le rendu
- * "logs" du repo (plus de bloc de code ```).
- */
+/** Formate un log multi-lignes pour un Container : chaque ligne devient une citation
+ *  en code inline (`> \`ligne\``). */
 export function logLines(text: string | null | undefined): string {
   return String(text ?? "")
     .split("\n")
@@ -304,19 +290,13 @@ export function navRow(
 }
 
 /**
- * Aucune mention n'est jamais résolue dans les messages du panel.
- *
- * Les Text Display notifient réellement, et les panels affichent du contenu tiers
- * (messages snipés, pseudos, noms de salons/serveurs, logs du selfbot). Sans ça,
- * un `@everyone` posté puis supprimé par n'importe qui dans un serveur whitelisté
- * déclencherait un vrai ping au moment où le panel l'affiche.
+ * Aucune mention n'est jamais résolue dans les messages du panel : les Text Display
+ * notifient réellement, et les panels affichent du contenu tiers (un `@everyone` snipé
+ * pingerait pour de bon au moment de son affichage).
  */
 export const NO_MENTIONS = { parse: [] as never[] };
 
-/**
- * Réponse ephemeral Components V2 standard.
- * Encapsule les composants dans le flag is_components_v2.
- */
+/** Réponse ephemeral Components V2 standard. */
 export function ephemeralV2(...components: TopLevelComponent[]): V2MessagePayload {
   return {
     flags: (1 << 15) | (1 << 6), // IS_COMPONENTS_V2 | EPHEMERAL
@@ -325,9 +305,7 @@ export function ephemeralV2(...components: TopLevelComponent[]): V2MessagePayloa
   } as unknown as V2MessagePayload;
 }
 
-/**
- * Réponse Components V2 (non-ephemeral, pour les updates).
- */
+/** Réponse Components V2 (non-ephemeral, pour les updates). */
 export function replyV2(...components: TopLevelComponent[]): V2MessagePayload {
   return {
     flags: 1 << 15, // IS_COMPONENTS_V2
@@ -337,11 +315,9 @@ export function replyV2(...components: TopLevelComponent[]): V2MessagePayload {
 }
 
 /**
- * Neutralise le markdown d'un texte d'origine tierce avant de l'insérer dans un
- * Text Display : sans ça, un message snipé contenant des backticks ou un `#`
- * casse la mise en page du panel (sortie de bloc de code, faux titre, fausse
- * citation). Les retours à la ligne sont aplatis pour que le contenu reste dans
- * la citation `> ` qui l'entoure.
+ * Neutralise le markdown d'un texte tiers avant de l'insérer dans un Text Display :
+ * sans ça, un backtick ou un `#` casse la mise en page. Les retours à la ligne sont
+ * aplatis pour rester dans la citation `> ` qui entoure le contenu.
  *
  * @param maxLength longueur max AVANT échappement (0 = pas de troncature)
  */

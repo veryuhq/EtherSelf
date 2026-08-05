@@ -1,23 +1,10 @@
 """Force l'identité de plateforme du selfbot (Desktop par défaut, pas Web).
 
-discord.py-self construit ses `super_properties` via `discord.utils.Headers.default`,
-qui récupère TOUJOURS le profil de type ``web`` (``browser: "Chrome"``). Ces propriétés
-partent à la fois dans l'en-tête REST ``X-Super-Properties`` et dans le payload ``IDENTIFY``
-de la gateway. Discord déduit le badge affiché aux autres (🖥️ Desktop / 🌐 Web / 📱 Mobile)
-du champ ``properties.browser`` :
-
-    "Discord Client"  -> Desktop
-    "Discord Android" -> Mobile (Android)
-    "Discord iOS"     -> Mobile (iOS)
-    autre (Chrome...) -> Web
-
-Par défaut le selfbot apparaissait donc en **Web**. Ce module remplace `Headers.default`
-pour privilégier un profil **Desktop** (surchargé via la variable d'environnement
-``SB_CLIENT_PLATFORM`` : ``desktop`` | ``web`` | ``android`` | ``ios``).
-
-Le profil est d'abord récupéré en ligne via l'API cordapi (comme le fait la lib pour ``web``),
-ce qui garantit un ``client_build_number`` à jour ; en cas d'échec réseau on retombe sur un
-profil Desktop codé en dur, aligné sur ``discord_headers.DESKTOP_SUPER_PROPERTIES``.
+`Headers.default` de discord.py-self récupère toujours le profil ``web``, d'où un badge
+🌐 Web. On le remplace pour imposer un profil Desktop (``properties.browser`` = "Discord
+Client"), surchargeable via ``SB_CLIENT_PLATFORM`` (desktop | web | android | ios).
+Profil récupéré en ligne via cordapi (build number à jour), avec repli codé en dur sur
+``discord_headers.DESKTOP_SUPER_PROPERTIES``.
 """
 
 from __future__ import annotations

@@ -115,11 +115,8 @@ function redactLogText(text: unknown): string {
   return String(text ?? "")
     .replace(/(discord(?:app)?\.com\/(?:gifts|gift)\/)[A-Za-z0-9]{12,}/gi, "$1[redacted]")
     .replace(/(discord\.gift\/)[A-Za-z0-9]{12,}/gi, "$1[redacted]")
-    // Le 1er segment d'un token est base64url(ID utilisateur en ASCII), SANS
-    // padding : un ID à 17 chiffres ne fait que 23 caractères et passait donc
-    // sous l'ancien seuil de 24 — le token partait en clair dans le MP.
-    // 20 laisse de la marge sans risquer de rédiger du texte de log ordinaire
-    // (il faudrait trois suites alphanumériques longues séparées par des points).
+    // Seuil à 20 : le 1er segment d'un token est base64url(ID) sans padding, soit
+    // 23 caractères pour un ID à 17 chiffres.
     .replace(/[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,}/g, "[redacted-token]")
     .replace(/(Authorization\s*[:=]\s*)\S+/gi, "$1[redacted]");
 }

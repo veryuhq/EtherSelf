@@ -2,10 +2,8 @@ import { signedHeaders } from "./auth";
 
 const BRIDGE_URL = process.env.BRIDGE_URL ?? "http://127.0.0.1:3000";
 
-/**
- * Réponse standard du bridge selfbot. `data` reste `any` : sa forme dépend de
- * l'action côté Python et les panels appliquent leurs propres défauts.
- */
+/** Réponse standard du bridge. `data` reste `any` : sa forme dépend de l'action
+ *  côté Python et les panels appliquent leurs propres défauts. */
 export interface BridgeResponse {
   success: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,12 +11,7 @@ export interface BridgeResponse {
   error?: string;
 }
 
-/**
- * Envoie une action au selfbot via HTTP.
- *
- * @param action  ex: "afk.toggle", "prefix.set"
- * @param payload données additionnelles
- */
+/** Envoie une action au selfbot via HTTP (ex. "afk.toggle", "prefix.set"). */
 export async function sendAction(action: string, payload: Record<string, unknown> = {}): Promise<BridgeResponse> {
   try {
     const body = JSON.stringify({ action, payload });

@@ -54,12 +54,10 @@ def resolve_url(val):
 
 
 # ── Sécurité du rendu (URLs + contextes JS inline) ───────────────────────────
-# escape_html NE SUFFIT PAS pour une valeur placée dans une chaîne JS d'un
-# attribut onerror/onclick : le parseur HTML décode l'attribut AVANT que le
-# moteur JS ne l'évalue, donc une entité comme &#39; y redevient une apostrophe
-# et peut sortir de la chaîne. On valide donc strictement les URLs (schéma +
-# absence de caractères de rupture) et on retire les caractères dangereux des
-# textes injectés dans ces contextes inline.
+# escape_html ne suffit pas dans une chaîne JS d'un attribut onerror/onclick : le
+# parseur HTML décode l'attribut AVANT l'évaluation JS, donc une entité comme &#39;
+# y redevient une apostrophe et sort de la chaîne. D'où la validation stricte des
+# URLs et le filtrage des caractères dangereux ci-dessous.
 
 _SAFE_URL_RE = re.compile(r'^(?:https?://|data:image/)[^\s"\'<>\\`]+$', re.IGNORECASE)
 _JS_UNSAFE = re.compile(r"['\"\\<>`\r\n\x00]")
@@ -83,20 +81,9 @@ def safe_url(val) -> str:
 def js_text(s) -> str:
     """Texte sûr à l'intérieur d'une chaîne JS d'un attribut inline.
 
-    Deux protections complémentaires, toutes deux indispensables :
-
-    1. ``&`` est ré-encodé en ``&amp;`` EN PREMIER. Le parseur HTML décode les
-       entités de l'attribut AVANT que le moteur JS ne l'évalue : sans cette
-       étape, un nom de pièce jointe (ou de sticker, d'emoji…) contenant
-       ``&#39;`` redevenait une apostrophe au décodage et refermait la chaîne
-       JS — n'importe quel utilisateur Discord pouvait ainsi exécuter du code
-       dans le snapshot HTML ouvert par le propriétaire. Ré-encodé, ``&#39;``
-       se décode en le TEXTE ``&#39;`` et reste inerte.
-    2. On retire les caractères qui casseraient la chaîne JS (' " \\) ou
-       injecteraient du markup (< > `), ainsi que les retours ligne et le NUL.
-
-    L'ordre importe : ``&amp;`` n'introduit ni guillemet ni chevron, l'échapper
-    d'abord ne réintroduit donc rien que le second passage devrait nettoyer.
+    Ré-encode ``&`` en premier (sinon un ``&#39;`` reçu de Discord se redécode en
+    apostrophe et referme la chaîne JS), puis retire les caractères qui casseraient
+    la chaîne (' " \\), injecteraient du markup (< > `) ou la ligne (\\r \\n \\0).
     """
     return _JS_UNSAFE.sub("", str(s or "").replace("&", "&amp;"))
 

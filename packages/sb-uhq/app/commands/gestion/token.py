@@ -61,12 +61,8 @@ def _write_token_to_env(token: str) -> dict:
 def _assert_owner_confirmed(payload) -> None:
     """Second facteur de `token.set` : l'OWNER_ID doit être confirmé explicitement.
 
-    La comparaison directe `payload.get(...) != os.environ.get(...)` était
-    contournable : quand OWNER_ID n'est pas défini dans le .env du selfbot (le
-    cas par défaut, `npm run check:env` ne l'exigeait que côté controller), les
-    deux côtés valaient `None` et omettre simplement `ownerIdConfirm` du payload
-    validait la garde. On exige donc des deux côtés une valeur non vide, et on
-    compare en temps constant.
+    Une valeur non vide est exigée des deux côtés — sinon deux `None` (OWNER_ID absent
+    du .env du selfbot) suffisaient à valider la garde — et comparée en temps constant.
     """
     owner_id = str(os.environ.get("OWNER_ID") or "").strip()
     if not owner_id:

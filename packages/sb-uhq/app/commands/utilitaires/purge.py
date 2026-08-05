@@ -17,10 +17,8 @@ from ...func.discord_util import fetch_channel, user_tag
 PARALLEL_DELETE = 5
 BATCH_DELAY = 0.05
 
-# Découverte des DMs — un DM « fermé » (retiré de la liste de messages) reste
-# intact côté serveur mais n'apparaît dans aucune liste : il faut le retrouver
-# pour y accéder. GET /channels/{id} et POST /users/@me/channels sont
-# rate-limités, d'où les délais entre deux résolutions / ouvertures.
+# Découverte des DMs — un DM « fermé » reste intact côté serveur mais n'apparaît dans
+# aucune liste. Les endpoints qui le retrouvent sont rate-limités, d'où ces délais.
 DM_FETCH_DELAY = 0.25
 DM_OPEN_DELAY = 0.35
 DM_CLOSE_DELAY = 0.25
@@ -127,15 +125,9 @@ async def _notify(job_id, data):
 async def _has_own_messages(client, channel_id) -> bool:
     """Le compte a-t-il des messages dans ce salon ? (pré-filtre de purge)
 
-    Passe par la couche HTTP de discord.py-self plutôt que par une requête
-    brute : elle signe déjà les requêtes comme un client de bureau, gère les
-    rate-limits, et surtout réessaie les réponses `202 Accepted` — Discord les
-    renvoie quand l'index de recherche du salon n'est pas encore construit,
-    avec un corps sans résultat. Lu tel quel, ce 202 signifiait « aucun
-    message » et faisait sauter le salon pour de bon.
-
-    En cas de doute (erreur, index toujours indisponible), retourne True : au
-    pire le salon est parcouru pour rien, alors qu'un faux négatif laisserait
+    Passe par la couche HTTP de discord.py-self : elle gère les rate-limits et réessaie
+    les `202 Accepted` (index de recherche en construction), qu'une requête brute lirait
+    comme « aucun message ». En cas de doute, retourne True — un faux négatif laisserait
     des messages derrière.
     """
     try:
@@ -238,16 +230,10 @@ async def _open_private_channels(client) -> dict[int, object]:
 async def _searched_private_channels(client, job_id, on_progress) -> set[int]:
     """Conversations privées où le compte a écrit, via la recherche globale.
 
-    `GET /users/@me/messages/search` est la recherche « tous salons » du client
-    Discord. C'est le seul moyen de retrouver un DM fermé avec quelqu'un qui
-    n'est ni une relation ni une affinité : la conversation n'apparaît alors
-    dans aucune liste, mais ses messages restent indexés.
-
-    Les messages de serveur portent un `guild_id`, pas ceux des DMs : c'est ce
-    qui les distingue. On remonte du plus ancien au plus récent (les
-    conversations oubliées sont vieilles, les récentes sont déjà dans la liste
-    de messages) et on s'arrête dès que plus rien de neuf ne sort, pour ne pas
-    parcourir tout l'historique du compte.
+    `GET /users/@me/messages/search` est le seul moyen de retrouver un DM fermé avec
+    quelqu'un qui n'est ni relation ni affinité : absent de toute liste, mais indexé.
+    On distingue les DMs à l'absence de `guild_id`, on pagine du plus ancien au plus
+    récent, et on s'arrête dès que plus rien de neuf ne sort.
     """
     found: set[int] = set()
     payload = {
@@ -320,11 +306,9 @@ async def _resolve_private_channels(client, channel_ids, known: dict) -> dict[in
 async def _closed_dm_candidates(client, known: dict) -> list[int]:
     """Interlocuteurs dont le DM est fermé (absent de la liste de messages).
 
-    Filet de sécurité derrière la recherche globale, qui peut ne pas tout voir :
-    son index se construit en arrière-plan (`doing_deep_historical_index`) et sa
-    pagination est bornée. On reconstitue donc aussi les interlocuteurs via les
-    relations (amis, bloqués, demandes en attente) et les affinités (comptes les
-    plus fréquentés), puis on rouvre le DM — ce qui restitue l'historique.
+    Filet de sécurité derrière la recherche globale, dont l'index est incomplet et la
+    pagination bornée : on repasse par les relations (amis, bloqués, demandes) et les
+    affinités, puis on rouvre le DM pour en restituer l'historique.
     """
     # Uniquement les DMs 1-à-1 : les membres d'un groupe DM ne disent rien de
     # l'état du DM privé qu'on a avec eux.

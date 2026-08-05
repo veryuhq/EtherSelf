@@ -26,9 +26,7 @@ type PanelData = any;
  * Récupère l'état d'un module auprès du selfbot puis construit son panel.
  * Point d'entrée commun aux boutons de navigation, aux selects et aux modals.
  *
- * @param userId utilisateur à l'origine de l'interaction — nécessaire aux seuls
- *               panels dont l'état vit côté controller (serveur ciblé du panel
- *               Rôles), optionnel partout ailleurs.
+ * @param userId nécessaire aux seuls panels dont l'état vit côté controller (Rôles).
  */
 export async function fetchAndBuild(panelKey: string, userId?: string): Promise<V2MessagePayload | null> {
   const fetchers: Record<string, () => Promise<PanelData> | null> = {

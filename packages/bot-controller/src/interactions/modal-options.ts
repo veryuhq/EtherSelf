@@ -1,10 +1,8 @@
 import type { SelectOption } from "../utils/components";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Options partagées des RadioGroups/CheckboxGroups de modals, importées par
-//  buttons.ts. Les `value` suivent le contrat du bridge : listes validées côté
-//  Python (app/commands/utilitaires/rpc.py) et clés attendues par
-//  action_router.py.
+//  Options partagées des RadioGroups/CheckboxGroups de modals. Les `value`
+//  suivent le contrat du bridge (listes validées côté Python).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Type de messages snipés à consulter (supprimés ou édités). */
