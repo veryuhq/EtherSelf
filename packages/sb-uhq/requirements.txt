@@ -11,6 +11,18 @@
 # entre-temps sans relecture. Monter la version doit rester un geste explicite,
 # après avoir regardé le diff en amont.
 discord.py-self[voice]==2.1.0
-aiohttp>=3.9
-python-dotenv>=1.0
-psutil>=5.9
+
+# 🔒 Planchers relevés pour raisons de sécurité : la borne basse d'origine
+# (`>=3.9`) laissait `pip install -r` accepter une version déjà installée
+# criblée d'avis publiés depuis. aiohttp sert ici de serveur HTTP (le bridge)
+# ET de client : les correctifs de request smuggling (GHSA-9548-qrrj-x5pj,
+# GHSA-8495-4g3g-x7pr), de fuite d'en-têtes sur redirection cross-origin
+# (GHSA-966j-vmvw-g2g9) et de DoS sur corps de requête nous concernent des
+# deux côtés. 3.14.3 est la première version sans avis connu.
+aiohttp>=3.14.3
+
+# GHSA-mf9w-mj56-hr94 : suivi de lien symbolique dans `set_key`, corrigé en 1.2.2.
+python-dotenv>=1.2.2
+
+# Pas d'avis connu ; plancher aligné sur la version réellement testée.
+psutil>=7.0
