@@ -13,7 +13,7 @@ const ENV_PATHS: Record<Scope, string> = {
 const REQUIRED: Record<Scope, string[]> = {
   // OWNER_ID est exigé des DEUX côtés : c'est le second facteur de `token.set`
   // côté selfbot (app/commands/gestion/token.py). Sans lui, l'action refuse
-  // désormais de s'exécuter.
+  // de s'exécuter.
   selfbot: ["TOKEN", "BRIDGE_SECRET", "BRIDGE_PORT", "OWNER_ID"],
   controller: [
     "BOT_TOKEN",

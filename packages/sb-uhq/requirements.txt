@@ -1,32 +1,18 @@
 # Selfbot EtherSelf — discord.py-self
 # ⚠️ discord.py-self s'importe sous le nom `discord` (incompatible avec discord.py officiel :
 #    ne pas installer les deux dans le même environnement).
-# L'extra [voice] a été retiré : le selfbot n'ouvre aucune connexion vocale
-# (backups.py ne fait que lire des objets VoiceChannel, sans y entrer). Il
-# n'était pas gratuit — il tirait PyNaCl, une extension native à compiler à
-# l'install, bloquée en 1.5.x par la borne `PyNaCl<1.6` de discord.py-self
-# alors que l'avis GHSA-mrfv-m5wm-5w6w n'est corrigé qu'en 1.6.2. Le rajouter
-# reste une seule ligne le jour où une couche audio revient.
 #
 # 🔒 Version ÉPINGLÉE volontairement. Cette bibliothèque non officielle a le
 # contrôle total du compte (token, gateway, requêtes REST) : c'est la plus
-# grosse surface d'attaque de chaîne d'approvisionnement du projet. Avec une
-# borne `>=`, un simple `pip install -r` pouvait tirer une version publiée
-# entre-temps sans relecture. Monter la version doit rester un geste explicite,
-# après avoir regardé le diff en amont.
+# grosse surface d'attaque de chaîne d'approvisionnement du projet. Monter la
+# version reste un geste explicite, après avoir regardé le diff en amont.
 discord.py-self==2.1.0
 
-# 🔒 Planchers relevés pour raisons de sécurité : la borne basse d'origine
-# (`>=3.9`) laissait `pip install -r` accepter une version déjà installée
-# criblée d'avis publiés depuis. aiohttp sert ici de serveur HTTP (le bridge)
-# ET de client : les correctifs de request smuggling (GHSA-9548-qrrj-x5pj,
-# GHSA-8495-4g3g-x7pr), de fuite d'en-têtes sur redirection cross-origin
-# (GHSA-966j-vmvw-g2g9) et de DoS sur corps de requête nous concernent des
-# deux côtés. 3.14.3 est la première version sans avis connu.
+# Plancher haut volontaire : aiohttp est à la fois le serveur du bridge et le
+# client HTTP, et les versions antérieures cumulent request smuggling, fuite
+# d'en-têtes sur redirection cross-origin et DoS sur corps de requête.
 aiohttp>=3.14.3
 
-# GHSA-mf9w-mj56-hr94 : suivi de lien symbolique dans `set_key`, corrigé en 1.2.2.
+# Plancher pour GHSA-mf9w-mj56-hr94 (suivi de lien symbolique dans `set_key`).
 python-dotenv>=1.2.2
-
-# Pas d'avis connu ; plancher aligné sur la version réellement testée.
 psutil>=7.0

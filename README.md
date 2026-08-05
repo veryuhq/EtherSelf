@@ -25,22 +25,13 @@
 
 ---
 
-> ### 🔀 Migration — le selfbot est passé à `discord.py-self`
-> `discord.js-selfbot-v13` n'est plus maintenu depuis octobre 2025. Le selfbot tourne désormais en **Python avec [`discord.py-self`](https://github.com/dolfies/discord.py-self)** ([docs](https://discordpy-self.readthedocs.io/en/latest/)).
->
-> - 🟢 Le **bot-controller reste en TypeScript** (discord.js v14), compilé par `npm run build`.
-> - 🟢 **Bridge HTTP local signé (HMAC-SHA256)** inchangé au byte près : le controller n'a pas bougé.
-> - 🔴 Les endpoints non officiels (quêtes, Discord Says, Spotify RPC) peuvent casser sans préavis.
-
----
-
 ## 📖 Présentation
 
 EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensemble :
 
 | Package | Langage | Rôle |
 |---|---|---|
-| 🤖 **`EtherSelf-SB`** | 🐍 Python | Le selfbot (discord.py-self), expose un bridge HTTP local |
+| 🤖 **`EtherSelf-SB`** | 🐍 Python | Le selfbot ([discord.py-self](https://discordpy-self.readthedocs.io/en/latest/)), expose un bridge HTTP local |
 | 🎛️ **`EtherSelf-Bot`** | 🟦 TypeScript | Bot Discord classique (discord.js 14), interface via un panel Components V2 |
 
 Le principe : le bot controller reçoit tes clics et envoie des commandes au selfbot via HTTP sur `localhost`. Les deux sont des **process indépendants**, sans mémoire ni runtime partagés — ils ne dialoguent que par des requêtes signées (`BRIDGE_SECRET`, HMAC-SHA256) sur `127.0.0.1`. Le langage de chaque côté n'a donc aucune importance, et `pm2` supervise les deux avec leur propre interpréteur (voir plus bas).
