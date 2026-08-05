@@ -20,9 +20,10 @@ npm run setup:selfbot     # crée packages/sb-uhq/.venv + pip install
 npm run build:controller  # compile le bot panel (tsc → dist/)
 npm run start:selfbot     # lance le selfbot (Python)
 npm run start:controller  # compile puis lance le bot panel (Node)
-npm run deploy            # enregistre la slash command /panel
+npm run deploy            # enregistre les slash commands (/panel, /purgelogs)
 npm run clean:data        # supprime packages/sb-uhq/data/ (état runtime)
 npm run check:env         # valide la cohérence des .env des deux packages
+npm run lines:count       # compte les lignes de code des deux packages
 ```
 
 Node exécute les scripts utilitaires de `scripts/` en TypeScript via le type
@@ -47,23 +48,28 @@ signale-le dans ta réponse au lieu de prétendre avoir testé.
 
 ```
 packages/sb-uhq/                  # SELFBOT (Python)
-├── main.py                       # point d'entrée, client discord.py-self
+├── main.py                       # point d'entrée + TOUT le câblage : dict PREFIX_COMMANDS,
+│                                 # hooks on_ready des modules, handlers d'événements Discord
 └── app/
-    ├── bridge/                   # server.py (reçoit les actions), auth.py (HMAC), controller_client.py
+    ├── bridge/                   # server.py (reçoit les actions), auth.py (HMAC),
+    │                             # controller_client.py (appels sortants vers le controller)
     ├── router/action_router.py   # dict ACTIONS : "module.action" → commands/<cat>/<module>.execute()
     ├── commands/<catégorie>/     # un module par fonctionnalité : execute(client, payload) [+ callback() si commande préfixe]
-    └── func/                     # helpers partagés (fetch de salons, headers Discord, logbus…)
+    └── func/                     # helpers partagés (data_path, fetch de salons, headers Discord, logbus…)
 
 packages/bot-controller/          # BOT PANEL (TypeScript, compilé vers dist/)
 ├── tsconfig.json                 # strict, module nodenext (émis en CommonJS), src/ → dist/
 └── src/
-    ├── index.ts                  # point d'entrée + serveur logs/progress
+    ├── index.ts                  # point d'entrée + serveur HTTP des callbacks du selfbot
     ├── deploy.ts                 # enregistrement des slash commands
+    ├── commands/                 # panel.ts (/panel), purgelogs.ts (/purgelogs)
     ├── panels/<module>.ts        # build(data) → UI Components V2 d'un panel
     ├── interactions/             # buttons.ts / selects.ts / modals.ts : customId → sendAction() → re-render du panel
-    │                             # + fetch-and-build.ts (état selfbot → panel)
+    │                             # + fetch-and-build.ts (état selfbot → panel : dicts FETCHERS et BUILDERS)
+    │                             # + common.ts (NAV_MAP de navigation, makeJobId(), recherches du panel Rôles)
+    │                             # + modal-options.ts (options des RadioGroup/CheckboxGroup, `value` alignées sur le bridge)
     ├── bridge/                   # client.ts (sendAction), auth.ts (HMAC)
-    ├── store/                    # jobs.ts (jobs purge/clone/snapshot), clone-config.ts
+    ├── store/                    # jobs.ts (jobs purge/clone/snapshot), clone-config.ts, roles-config.ts
     └── utils/components.ts       # helpers Components V2 typés (container, btn, actionRow, replyV2…)
 
 packages/sb-uhq/data/             # état runtime JSON — gitignoré, ne jamais committer
@@ -75,8 +81,63 @@ Une fonctionnalité traverse presque toujours les deux packages, dans cet ordre 
 
 1. **Python** : créer `app/commands/<catégorie>/<module>.py` avec `async def execute(client, payload)` qui retourne un dict (et `async def callback(client, message, args)` si commande préfixe).
 2. **Python** : enregistrer les actions dans `ACTIONS` de `app/router/action_router.py` (clé `"module.action"`).
-3. **Node** : créer `src/panels/<module>.ts` avec `build(data)` en s'inspirant d'un panel existant (`afk.ts` est un bon modèle).
-4. **Node** : brancher les `customId` (`module:action`) dans `src/interactions/buttons.ts` / `selects.ts` / `modals.ts`, ajouter l'entrée au menu de `panels/home.ts` si besoin.
+3. **Python** : câbler le module dans `main.py` si besoin — rien n'y est automatique, chaque point d'entrée hors bridge s'y déclare à la main :
+   - commande préfixe → import + entrée dans le dict `PREFIX_COMMANDS` (sans ça le `callback()` ne sera jamais appelé) ;
+   - travail au démarrage → `def on_ready(client)` dans le module, appelé depuis le `on_ready` de `main.py` (modèles : `rpc`, `quests`, `snapshot`) ;
+   - réaction à un événement Discord → handler exporté par le module, appelé depuis un `@client.event` de `main.py` (modèles : `msglog`, `antigroup`, `afk`).
+4. **Node** : créer `src/panels/<module>.ts` avec `build(data)` en s'inspirant d'un panel existant (`afk.ts` est un bon modèle).
+5. **Node** : brancher les `customId` (`module:action`) dans `src/interactions/buttons.ts` / `selects.ts` / `modals.ts`.
+6. **Node** : rendre le panel atteignable — il faut les **trois** tables, sinon le bouton ne mène nulle part :
+   - `NAV_MAP` dans `interactions/common.ts` : `"panel:<module>"` → clé de panel ;
+   - `FETCHERS` **et** `BUILDERS` dans `interactions/fetch-and-build.ts` : clé de panel → appel(s) `sendAction()` puis `build(data)` ;
+   - entrée dans le menu de `panels/home.ts`.
+
+### Bridge sortant (selfbot → controller) et jobs longs
+
+Le bridge a **deux sens**, tous deux signés avec le même HMAC. Le sens retour part de
+`app/bridge/controller_client.py` vers le serveur HTTP de `src/index.ts` (port `LOG_PORT`,
+rate-limité à 100 requêtes/minute par IP et par route) :
+
+| Endpoint | Helper Python | Côté controller |
+|---|---|---|
+| `POST /log` | `post_log(text)` | logs relayés en MP au propriétaire (texte expurgé puis tronqué à 3500 car.) |
+| `POST /progress` | `post_progress(job_id, data)` | re-render du panel purge via `purgePanel.buildProgress()` |
+| `POST /clone-progress` | `post_clone_progress(job_id, data)` | re-render du panel backups (en cours / résultat) |
+| `POST /snapshot-result` | `post_snapshot_result(job_id, result)` | affiche le résultat du snapshot |
+| `POST /file` | `post_file(filename, filepath, meta, channel_id)` | envoie le fichier en pièce jointe |
+
+**Toute action longue passe par un `jobId`** — c'est le seul moyen de rendre la main à
+Discord sans laisser le panel figé :
+
+1. Côté Node, l'interaction génère l'identifiant avec `makeJobId()` (`interactions/common.ts`),
+   l'enregistre (`registerProgressJob` / `registerCloneJob` / `registerSnapshotJob` de
+   `store/jobs.ts`) et le passe dans le payload de `sendAction()`.
+2. Côté Python, le module reçoit `jobId` dans son payload et pousse l'avancement avec le
+   helper correspondant (modèle : `purge.py` et son `_notify()`).
+3. Le controller retrouve l'interaction d'origine dans `store/jobs.ts` et édite le panel en
+   place. Les mises à jour sont **throttlées** (2 s pour `/progress`, 1,5 s pour
+   `/clone-progress`) ; `done: true` force le dernier rendu et nettoie le job.
+
+Un job annulable garde aussi son état côté Python (`register_job` / `is_cancelled` /
+`clean_job` dans `purge.py`) et une action `*.cancel` dans `ACTIONS`.
+
+### État runtime : conventions `data/`
+
+Tout passe par `app/func/data_path.py`, jamais par des chemins relatifs (le working
+directory change sous pm2) :
+
+- `data_path("config", "afk.json")` → chemin absolu ; l'arborescence est `data/config/`
+  (état des fonctionnalités), `data/logs/` (historiques), `data/msg_log_data/` (messages
+  snipés), `data/snapshots/` (exports HTML).
+- `read_json(path, default)` / `write_json(path, data)` — `write_json` crée les dossiers
+  parents et pose `0600` : `data/` contient des données privées (messages supprimés,
+  liste d'amis, tokens de session). Ne pas contourner ce mode.
+- **`safe_id_segment(value, "label")` est obligatoire** dès qu'un ID venu du payload
+  devient un segment de chemin : sans lui un `../..` sort de `data/` (`pathlib` repart de
+  zéro sur un segment absolu et conserve les `..`). Utiliser `is_snowflake()` pour un
+  simple test booléen. Modèles : `snipe.py`, `msglog.py`.
+- Côté controller, `POST /file` confine sa lecture au `data/` du selfbot
+  (`assertInSbData`) : ne pas élargir ce périmètre.
 
 ## Référence discord.js — Display Components (Components V2) & Modals
 
@@ -153,6 +214,9 @@ des modals.
   - Breaking change : suffixe `!` après le type/scope (ex. `refactor(bridge)!: …`) et/ou footer `BREAKING CHANGE:` expliquant la rupture.
   - Ex. `feat(afk): réponse automatique personnalisable en mode AFK`, `fix(purge): respecter le délai anti rate-limit…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
+- **Versionnage CalVer `AAAA.M.N`** (ex. `2026.8.1`), dupliqué dans `package.json` racine **et**
+  `packages/bot-controller/package.json` : les deux se bumpent ensemble, dans un commit
+  `chore(release): …` séparé du travail qu'il publie.
 - **Historique linéaire** : pas de commits de merge (`Merge branch …`). Intégrer une branche avec un rebase puis un merge fast-forward, jamais un merge non-ff. Configurer le dépôt en conséquence :
   ```sh
   git config merge.ff only     # refuse de créer un commit de merge
@@ -165,7 +229,7 @@ des modals.
 ### 🚫 Ne jamais faire
 - Ajouter du spam, raid, mass-DM, flood ou toute fonctionnalité de nuisance — refus ferme, voir la section « Ce qui n'existera jamais » du README.
 - Committer `.env`, un token Discord, `BRIDGE_SECRET`, ou le contenu de `data/`.
-- Casser le contrat du bridge (noms d'actions, clés de payload, formes de réponse) d'un seul côté : toute modification doit être synchronisée entre `action_router.py` et les `interactions/` du controller.
+- Casser le contrat du bridge (noms d'actions, clés de payload, formes de réponse) d'un seul côté : toute modification doit être synchronisée entre `action_router.py` et les `interactions/` du controller. Le sens retour compte aussi — endpoints de callback et clés de leurs payloads, `controller_client.py` ↔ `index.ts`.
 - Exposer le bridge ailleurs que sur `127.0.0.1`, ou affaiblir la signature HMAC.
 - Supprimer les délais anti rate-limit existants (ex. 100 ms entre suppressions dans purge).
 
@@ -177,4 +241,6 @@ des modals.
 ### ✅ Toujours faire
 - Vérifier les fichiers modifiés (`npm --workspace=packages/bot-controller run typecheck`, `py_compile`) avant de committer.
 - Préserver la parité bridge : chaque action côté panel doit exister dans `ACTIONS` côté Python.
+- Valider avec `safe_id_segment()` tout ID venu d'un payload qui devient un segment de chemin sous `data/`.
+- Répercuter toute modification de ce guide dans **`CLAUDE.md` et `AGENTS.md`** : les deux fichiers sont identiques au byte, et maintenus à la main.
 - Rester dans l'esprit du projet : outil personnel, un seul utilisateur (`OWNER_ID`), ralenti à dessein pour protéger le compte.
