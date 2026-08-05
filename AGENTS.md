@@ -102,7 +102,7 @@ Types de composants (numéro = champ `type` du JSON, helper local s'il existe) :
 |---|---|---|---|
 | ActionRow | 1 | `actionRow()` | conteneur de boutons/selects |
 | Button | 2 | `btn()` | |
-| StringSelect | 3 | `selectMenu()` | toujours enveloppé dans un ActionRow |
+| StringSelect | 3 | `selectMenu()`, ou via `modal()` (champ `options`) | dans un message : enveloppé dans un ActionRow ; dans un modal : enveloppé dans un Label, options figées à l'ouverture |
 | TextInput | 4 | via `modal()` | modals uniquement ; style 1 = Short, 2 = Paragraph |
 | Text Display | 10 | `textDisplay()` | markdown, remplace `content` |
 | Section | 9 | — | 1–3 Text Display + 1 accessoire (bouton **ou** thumbnail) ; sans accessoire, utiliser Text Display |
@@ -113,6 +113,9 @@ Types de composants (numéro = champ `type` du JSON, helper local s'il existe) :
 | Container | 17 | `container()` | boîte arrondie + `accent_color` optionnel, enfants : Text Display / ActionRow / Section / Separator / Media Gallery / File ; spoiler = floute tout |
 | Label | 18 | via `modal()` | modals uniquement, enveloppe un composant interactif |
 | FileUpload | 19 | via `modal()` | modals uniquement |
+| RadioGroup | 21 | via `modal()` | modals uniquement ; choix unique, 2–10 options |
+| CheckboxGroup | 22 | via `modal()` | modals uniquement ; cases à cocher, 2–10 options, `min_values`/`max_values` |
+| Checkbox | 23 | via `modal()` | modals uniquement ; oui/non, `default` = cochée par défaut |
 
 Le champ `id` (entier 32 bits) est distinct de `custom_id` : il identifie un composant
 dans le message (utile pour retrouver/remplacer un composant). Discord l'auto-remplit
@@ -121,16 +124,18 @@ dans le message (utile pour retrouver/remplacer un composant). Discord l'auto-re
 ### Modals
 
 - Un modal = `custom_id` (≤ 100 caractères) + `title` + **max 5 composants top-level**, chacun étant un **Label (18)** ou un **Text Display (10)**.
-- Un Label a un `label` (≤ 45 car.), une `description` optionnelle (≤ 100 car.) et **un** composant enfant : TextInput (4), select menu (3, 5–8) ou FileUpload (19).
+- Un Label a un `label` (≤ 45 car.), une `description` optionnelle (≤ 100 car.) et **un** composant enfant : TextInput (4), select menu (3, 5–8), FileUpload (19), RadioGroup (21), CheckboxGroup (22) ou Checkbox (23).
 - TextInput : `style` 1 (Short) / 2 (Paragraph), `min_length`/`max_length`, `value` (préremplissage), `required` (défaut `true`).
 - Select menu en modal : propriété `required` en plus (défaut `true`).
 - FileUpload : `min_values` (0–10) / `max_values` (≤ 10), `required` ; impossible de valider taille/extension côté Discord, le fichier se télécharge depuis le CDN (ne jamais exécuter ce qu'un utilisateur upload).
 - **`showModal()` doit être la toute première réponse à l'interaction** — un modal ne se défère pas.
-- Soumission : `interaction.isModalSubmit()`, puis `interaction.fields.getTextInputValue(id)`, `.getStringSelectValues(id)`, `.getUploadedFiles(id)`. Champ texte vide → `""`, select sans sélection → `[]`.
+- Soumission : `interaction.isModalSubmit()`, puis `interaction.fields.getTextInputValue(id)`, `.getStringSelectValues(id)`, `.getUploadedFiles(id)`, `.getRadioGroup(id)`, `.getCheckboxGroup(id)`, `.getCheckbox(id)`. Champ texte vide → `""`, select sans sélection → `[]`.
 - Un `ModalSubmitInteraction` répond comme une commande (`reply`, `deferReply`, `editReply`, `followUp`…) ; si le modal venait d'un bouton/select, `update()` / `deferUpdate()` permettent de modifier le message d'origine (pattern utilisé par les re-renders de panels).
 
-Le helper `modal()` local applique déjà la règle : chaque champ (texte ou `file: true`)
-est enveloppé dans un Label (18), le format standard des modals.
+Le helper `modal()` local applique déjà la règle : chaque champ (texte, `file: true`,
+`options` = StringSelect, `radio` = RadioGroup, `checkboxes` = CheckboxGroup,
+`checkbox: true` = Checkbox) est enveloppé dans un Label (18), le format standard
+des modals.
 
 ## Style de code
 
