@@ -1,8 +1,12 @@
 # Selfbot EtherSelf — discord.py-self
 # ⚠️ discord.py-self s'importe sous le nom `discord` (incompatible avec discord.py officiel :
 #    ne pas installer les deux dans le même environnement).
-# L'extra [voice] (PyNaCl) est conservé même si le selfbot n'utilise plus de
-# couche audio : il ne coûte rien et laisse la porte ouverte à un usage vocal.
+# L'extra [voice] a été retiré : le selfbot n'ouvre aucune connexion vocale
+# (backups.py ne fait que lire des objets VoiceChannel, sans y entrer). Il
+# n'était pas gratuit — il tirait PyNaCl, une extension native à compiler à
+# l'install, bloquée en 1.5.x par la borne `PyNaCl<1.6` de discord.py-self
+# alors que l'avis GHSA-mrfv-m5wm-5w6w n'est corrigé qu'en 1.6.2. Le rajouter
+# reste une seule ligne le jour où une couche audio revient.
 #
 # 🔒 Version ÉPINGLÉE volontairement. Cette bibliothèque non officielle a le
 # contrôle total du compte (token, gateway, requêtes REST) : c'est la plus
@@ -10,7 +14,7 @@
 # borne `>=`, un simple `pip install -r` pouvait tirer une version publiée
 # entre-temps sans relecture. Monter la version doit rester un geste explicite,
 # après avoir regardé le diff en amont.
-discord.py-self[voice]==2.1.0
+discord.py-self==2.1.0
 
 # 🔒 Planchers relevés pour raisons de sécurité : la borne basse d'origine
 # (`>=3.9`) laissait `pip install -r` accepter une version déjà installée

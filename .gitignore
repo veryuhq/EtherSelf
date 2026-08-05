@@ -1,6 +1,5 @@
 # Node modules
 node_modules/
-package-lock.json
 
 # Sortie de compilation TypeScript (bot-controller)
 dist/
