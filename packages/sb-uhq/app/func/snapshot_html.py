@@ -178,27 +178,51 @@ _RE_UL = re.compile(r"^[-*•] (.+)$")
 _RE_OL = re.compile(r"^(\d+)\. (.+)$")
 _RE_HR = re.compile(r"^---+$")
 
+# Marqueur des fragments HTML mis de côté pendant le rendu (« stash »). Il repose sur
+# NUL, retiré du contenu à l'entrée de render_content : un message ne peut donc pas
+# fabriquer une référence vers un fragment.
+_RE_PLACEHOLDER = re.compile(r"\x00PH(\d+)\x00")
+# Un fragment mis de côté peut en contenir un autre (gras autour de code, lien dans
+# une citation…) et re.sub ne rescanne pas ce qu'il vient d'insérer : il faut donc
+# repasser jusqu'à résolution complète. Le graphe des références est déjà acyclique —
+# un fragment ne cite que des index strictement inférieurs au sien — cette borne
+# n'est là que par sécurité.
+_MAX_UNSTASH_PASSES = 32
 
-def render_content(content, mention_maps=None) -> str:
+
+def render_content(content, mention_maps=None, _placeholders=None) -> str:
     if not content:
         return ""
     mention_maps = mention_maps or {}
     users_map = mention_maps.get("users") if isinstance(mention_maps.get("users"), dict) else {}
     roles_map = mention_maps.get("roles") if isinstance(mention_maps.get("roles"), dict) else {}
 
-    placeholders: list[str] = []
+    # Les citations rappellent render_content sur leur propre contenu : la liste de
+    # fragments doit être PARTAGÉE avec l'appelant. Avec une liste neuve, les
+    # placeholders déjà posés par lui (gras, code, liens… substitués avant le découpage
+    # en lignes) ne se résolvaient plus et la ligne citée perdait tout son formaté.
+    nested = _placeholders is not None
+    placeholders: list[str] = _placeholders if nested else []
 
     def stash(html_str: str) -> str:
         idx = len(placeholders)
         placeholders.append(html_str)
         return f"\x00PH{idx}\x00"
 
-    def unstash(text: str) -> str:
-        return re.sub(r"\x00PH(\d+)\x00",
-                      lambda m: placeholders[int(m.group(1))] if int(m.group(1)) < len(placeholders) else "",
-                      text)
+    def _resolve(match) -> str:
+        idx = int(match.group(1))
+        return placeholders[idx] if idx < len(placeholders) else ""
 
-    s = content
+    def unstash(text: str) -> str:
+        for _ in range(_MAX_UNSTASH_PASSES):
+            if "\x00PH" not in text:
+                break
+            text = _RE_PLACEHOLDER.sub(_resolve, text)
+        return text
+
+    # Appel racine uniquement : un appel imbriqué reçoit du texte qui porte déjà les
+    # placeholders de l'appelant, il ne faut surtout pas les effacer.
+    s = content if nested else str(content).replace("\x00", "")
 
     def _codeblock(m):
         lang = m.group(1) or ""
@@ -218,7 +242,12 @@ def render_content(content, mention_maps=None) -> str:
 
     s = _RE_EMOJI.sub(_emoji, s)
 
-    s = (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
+    # Un appel imbriqué (citation) reçoit un extrait du texte DÉJÀ échappé par
+    # l'appelant : ré-échapper transformerait `&amp;` en `&amp;amp;` et afficherait
+    # l'entité brute au lieu du caractère. Rien à ré-échapper non plus côté sûreté,
+    # l'extrait ne contient déjà plus ni `<`, ni `>`, ni `"`.
+    if not nested:
+        s = (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
 
     s = _RE_MD_LINK.sub(
         lambda m: stash(f'<a href="{escape_html(m.group(2))}" target="_blank" '
@@ -283,7 +312,8 @@ def render_content(content, mention_maps=None) -> str:
         nonlocal bq_buf
         if not bq_buf:
             return
-        inner = render_content("\n".join(_RE_BQ_STRIP.sub("", ln) for ln in bq_buf), mention_maps)
+        inner = render_content("\n".join(_RE_BQ_STRIP.sub("", ln) for ln in bq_buf),
+                               mention_maps, placeholders)
         out.append(f"<blockquote>{inner}</blockquote>")
         bq_buf = []
 
