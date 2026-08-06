@@ -118,7 +118,12 @@ function redactLogText(text: unknown): string {
     // Seuil à 20 : le 1er segment d'un token est base64url(ID) sans padding, soit
     // 23 caractères pour un ID à 17 chiffres.
     .replace(/[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{20,}/g, "[redacted-token]")
-    .replace(/(Authorization\s*[:=]\s*)\S+/gi, "$1[redacted]");
+    // Jeton MFA hérité : `mfa.<~84 caractères>`, un seul point, donc invisible pour
+    // le motif à trois segments ci-dessus.
+    .replace(/\bmfa\.[A-Za-z0-9_-]{20,}/gi, "[redacted-token]")
+    // Le schéma (`Bot`/`Bearer`) doit être consommé avec la valeur : sans lui, `\S+`
+    // s'arrêtait sur le seul mot « Bot » et laissait le jeton en clair juste après.
+    .replace(/(Authorization\s*[:=]\s*)(?:Bot|Bearer)?\s*\S+/gi, "$1[redacted]");
 }
 
 // Niveaux de log détectés dans le texte relayé par le selfbot, pour colorer
