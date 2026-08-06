@@ -21,8 +21,12 @@ BRIDGE_PORT = int(os.environ.get("BRIDGE_PORT", "3000"))
 
 _START_TIME = time.time()
 
-# Actions destructives : rate-limit plus strict (5/min).
-_DESTRUCTIVE = re.compile(r"^(purge\.|backups\.clone\.run|token\.set)")
+# Actions destructives : rate-limit plus strict (5/min). Énumérées une par une —
+# un simple préfixe `purge\.` attrapait aussi la lecture des exclusions et surtout
+# `purge.cancel`, qu'il ne faut jamais brider : c'est le bouton d'arrêt d'une purge
+# en cours.
+_DESTRUCTIVE = re.compile(
+    r"^(?:purge\.(?:channel|guild|guilds|dms)|backups\.clone\.run|token\.set)$")
 
 
 class _RateLimiter:
