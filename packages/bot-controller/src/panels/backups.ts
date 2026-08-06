@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, logLines, navRow, plainText, replyV2, type SelectOption, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, logLines, navRow, boundedList, plainText, replyV2, type SelectOption, type V2MessagePayload } from "../utils/components";
 import type { CloneConfig } from "../store/clone-config";
 
 export interface BackupsHubData {
@@ -130,17 +130,19 @@ export function buildFriends(data: FriendsData = {}): V2MessagePayload {
 
   const list = _loading
     ? "*⏳ Récupération de la liste d'amis en cours…*"
-    : slice.length
-    ? slice.map((f, i) => {
-        const num = page * PAGE_SIZE + i + 1;
-        const since = f.since ? ` — *depuis ${new Date(f.since).toLocaleDateString("fr-FR")}*` : "";
-        // Pseudo / globalName d'un tiers : markdown neutralisé (cf. plainText).
-        const display = f.globalName && f.globalName !== f.username
-          ? `**${plainText(f.globalName)}** (${plainText(f.tag)})`
-          : `**${plainText(f.tag)}**`;
-        return `\`${num}.\` ${display}${since}`;
-      }).join("\n")
-    : "*Aucun ami trouvé. Clique sur \"Actualiser backup\" pour récupérer ta liste d'amis.*";
+    : boundedList(
+        slice.map((f, i) => {
+          const num = page * PAGE_SIZE + i + 1;
+          const since = f.since ? ` — *depuis ${new Date(f.since).toLocaleDateString("fr-FR")}*` : "";
+          // Pseudo / globalName d'un tiers : markdown neutralisé (cf. plainText) et
+          // borné — l'échappement peut doubler la longueur du pseudo.
+          const display = f.globalName && f.globalName !== f.username
+            ? `**${plainText(f.globalName, 50)}** (${plainText(f.tag, 50)})`
+            : `**${plainText(f.tag, 50)}**`;
+          return `\`${num}.\` ${display}${since}`;
+        }),
+        { maxLines: PAGE_SIZE, maxChars: 2200, empty: "*Aucun ami trouvé. Clique sur \"Actualiser backup\" pour récupérer ta liste d'amis.*" },
+      );
 
   const savedLine = _loading
     ? "*Actualisation en cours…*"
@@ -185,17 +187,18 @@ export function buildGuilds(data: GuildsData = {}): V2MessagePayload {
 
   const list = _loading
     ? "*⏳ Génération des invitations permanentes en cours…*"
-    : slice.length
-    ? slice.map((g, i) => {
-        const num = page * PAGE_SIZE + i + 1;
-        const owner = g.isOwner ? " 👑" : "";
-        const inviteLine = g.invite
-          ? `\n> 🔗 ${plainText(g.invite)}`
-          : `\n> 🔗 *aucune invitation*`;
-        // Nom de serveur = contenu tiers (défini par son propriétaire).
-        return `\`${num}.\` **${plainText(g.name)}**${owner} — \`${plainText(g.id)}\`${inviteLine}`;
-      }).join("\n\n")
-    : "*Aucun serveur trouvé. Clique sur \"Actualiser backup\" pour en créer un.*";
+    : boundedList(
+        slice.map((g, i) => {
+          const num = page * PAGE_SIZE + i + 1;
+          const owner = g.isOwner ? " 👑" : "";
+          const inviteLine = g.invite
+            ? `\n> 🔗 ${plainText(g.invite, 120)}`
+            : `\n> 🔗 *aucune invitation*`;
+          // Nom de serveur = contenu tiers (défini par son propriétaire).
+          return `\`${num}.\` **${plainText(g.name, 80)}**${owner} — \`${plainText(g.id)}\`${inviteLine}`;
+        }),
+        { maxLines: PAGE_SIZE, maxChars: 2200, separator: "\n\n", empty: "*Aucun serveur trouvé. Clique sur \"Actualiser backup\" pour en créer un.*" },
+      );
 
   const savedLine = _loading
     ? "*Actualisation en cours…*"
@@ -301,8 +304,8 @@ export function buildCloneRunning(data: CloneRunningData = {}): V2MessagePayload
         `# 🔁 Clone en cours…\n-# Ce panneau se met à jour tout seul.\n\n` +
         // Noms de serveurs, et `label` = nom du rôle / salon / emoji en cours
         // de clonage : tous définis par des tiers, donc neutralisés.
-        `### Serveurs\n> \`📤\` **Source :** ${plainText(sourceGuild)}\n> \`📥\` **Cible :**  ${plainText(targetGuild)}\n\n` +
-        `### Progression\n${stepsLine}\n\n**Étape :** ${STEP_LABELS[step] ?? plainText(step)}\n${pctLine}\n\`💬\` *${plainText(label)}*` +
+        `### Serveurs\n> \`📤\` **Source :** ${plainText(sourceGuild, 80)}\n> \`📥\` **Cible :**  ${plainText(targetGuild, 80)}\n\n` +
+        `### Progression\n${stepsLine}\n\n**Étape :** ${STEP_LABELS[step] ?? plainText(step, 40)}\n${pctLine}\n\`💬\` *${plainText(label, 100)}*` +
         logsSection
       ),
       separator(),
@@ -332,13 +335,13 @@ export function buildCloneResult(data: CloneResultData = {}): V2MessagePayload {
       `> \`⏱️\` Durée totale     : **${duration}s**`;
   } else {
     accentColor = 0xE74C3C;
-    statusLine  = `\`❌\` **Erreur lors du clonage**\n> ${error ? plainText(error) : "Erreur inconnue."}`;
+    statusLine  = `\`❌\` **Erreur lors du clonage**\n> ${error ? plainText(error, 300) : "Erreur inconnue."}`;
   }
   const logsSection = logs ? `\n### Derniers logs\n${logLines(logs)}` : "";
 
   return replyV2(
     container([
-      textDisplay(`# 🔁 Clone — Résultat\n\n### Serveurs\n> \`📤\` **Source :** ${plainText(sourceGuildName)}\n> \`📥\` **Cible :**  ${plainText(targetGuildName)}\n\n${statusLine}${logsSection}`),
+      textDisplay(`# 🔁 Clone — Résultat\n\n### Serveurs\n> \`📤\` **Source :** ${plainText(sourceGuildName, 80)}\n> \`📥\` **Cible :**  ${plainText(targetGuildName, 80)}\n\n${statusLine}${logsSection}`),
       separator(),
       actionRow([
         btn("🔁  Nouveau clone", "backups:clone",  ButtonStyle.Primary),
@@ -352,16 +355,19 @@ export function buildCloneResult(data: CloneResultData = {}): V2MessagePayload {
 
 export function buildCloneHistory(data: { history?: CloneHistoryEntry[] } = {}): V2MessagePayload {
   const { history = [] } = data;
-  const list = history.length
-    ? [...history].reverse().map((entry) => {
-        let emoji: string;
-        let detail: string;
-        if (entry.cancelled) { emoji = "🛑"; detail = `*Annulé manuellement*`; }
-        else if (entry.success) { emoji = "✅"; detail = `🎭 ${entry.rolesCloned ?? 0}  ·  💬 ${entry.channelsCloned ?? 0}  ·  😀 ${entry.emojisCloned ?? 0}  ·  ⏱️ ${entry.duration ?? 0}s`; }
-        else { emoji = "❌"; detail = `⚠️ ${entry.error ? plainText(entry.error) : "Erreur"}`; }
-        return `${emoji} **${plainText(entry.sourceGuildName ?? entry.sourceGuildId)}** → **${plainText(entry.targetGuildName ?? entry.targetGuildId)}**\n> 🕐 ${new Date(entry.timestamp ?? 0).toLocaleString("fr-FR")}\n> ${detail}`;
-      }).join("\n\n")
-    : "*Aucun clonage effectué.*";
+  // Le selfbot conserve 20 entrées : avec des noms de serveurs longs et des messages
+  // d'erreur bruts, la liste dépassait le plafond de caractères du message.
+  const list = boundedList(
+    [...history].reverse().map((entry) => {
+      let emoji: string;
+      let detail: string;
+      if (entry.cancelled) { emoji = "🛑"; detail = `*Annulé manuellement*`; }
+      else if (entry.success) { emoji = "✅"; detail = `🎭 ${entry.rolesCloned ?? 0}  ·  💬 ${entry.channelsCloned ?? 0}  ·  😀 ${entry.emojisCloned ?? 0}  ·  ⏱️ ${entry.duration ?? 0}s`; }
+      else { emoji = "❌"; detail = `⚠️ ${entry.error ? plainText(entry.error, 150) : "Erreur"}`; }
+      return `${emoji} **${plainText(entry.sourceGuildName ?? entry.sourceGuildId, 80)}** → **${plainText(entry.targetGuildName ?? entry.targetGuildId, 80)}**\n> 🕐 ${new Date(entry.timestamp ?? 0).toLocaleString("fr-FR")}\n> ${detail}`;
+    }),
+    { maxLines: 10, separator: "\n\n", empty: "*Aucun clonage effectué.*" },
+  );
 
   return replyV2(
     container([
@@ -376,12 +382,13 @@ export function buildCloneHistory(data: { history?: CloneHistoryEntry[] } = {}):
 
 export function buildCloneGuildList(data: { guilds?: BackupGuild[] } = {}): V2MessagePayload {
   const { guilds = [] } = data;
-  const list = guilds.length
-    ? guilds.map((g, i) => {
-        const owner = g.isOwner ? " 👑" : "";
-        return `\`${i + 1}.\` **${plainText(g.name)}**${owner} — \`${plainText(g.id)}\``;
-      }).join("\n")
-    : "*Aucun serveur trouvé.*";
+  const list = boundedList(
+    guilds.map((g, i) => {
+      const owner = g.isOwner ? " 👑" : "";
+      return `\`${i + 1}.\` **${plainText(g.name, 80)}**${owner} — \`${plainText(g.id)}\``;
+    }),
+    { maxLines: 30, empty: "*Aucun serveur trouvé.*" },
+  );
 
   return replyV2(
     container([

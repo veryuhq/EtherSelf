@@ -3,7 +3,7 @@
 // Merci à aiko-chan....et à Claude !
 
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, boundedList, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export interface Quest {
   name: string;
@@ -34,6 +34,13 @@ export interface QuestsHistoryData {
   history?: QuestHistoryEntry[];
 }
 
+/** Nom de tâche affiché dans un code inline. Il vient d'une liste fermée côté Python
+ *  (`TASK_NAMES`) : l'échapper comme du markdown afficherait des antislashs parasites
+ *  (`PLAY\_ON\_DESKTOP`). Seul le backtick peut refermer le code inline, on le neutralise. */
+function codeSafe(value: string | null | undefined): string {
+  return String(value ?? "?").replace(/`/g, "'").slice(0, 40) || "?";
+}
+
 // ── Panel principal ───────────────────────────────────────────────────────────
 
 export function build(data: QuestsData = {}): V2MessagePayload {
@@ -54,18 +61,24 @@ export function build(data: QuestsData = {}): V2MessagePayload {
       ? "*Aucune quête disponible : Discord n'en distribue que des inéligibles pour ce compte.*"
       : "*Aucune quête active en ce moment.*";
   } else {
-    questList = quests.map((q) => {
-      const statusEmoji = q.completed ? "`✅`" : q.enrolled ? "`⏳`" : "`📋`";
-      const expiry      = new Date(q.expiresAt ?? 0).toLocaleDateString("fr-FR");
+    // Nom de quête et nom de jeu viennent du système de quêtes de Discord (contenu
+    // d'annonceur, hors de notre contrôle) : markdown neutralisé avant le Text Display.
+    questList = boundedList(
+      quests.map((q) => {
+        const statusEmoji = q.completed ? "`✅`" : q.enrolled ? "`⏳`" : "`📋`";
+        const expiry      = new Date(q.expiresAt ?? 0).toLocaleDateString("fr-FR");
 
-      let progressStr = "";
-      const progress = q.taskName ? q.progress?.[q.taskName] : undefined;
-      if (!q.completed && progress) {
-        progressStr = ` — \`${Math.floor(progress.value)}s\``;
-      }
+        let progressStr = "";
+        const progress = q.taskName ? q.progress?.[q.taskName] : undefined;
+        if (!q.completed && progress) {
+          progressStr = ` — \`${Math.floor(progress.value)}s\``;
+        }
 
-      return `${statusEmoji} **${q.name}** (${q.game})${progressStr}\n> ↳ Tâche: \`${q.taskName ?? "?"}\` — expire le ${expiry}`;
-    }).join("\n\n");
+        return `${statusEmoji} **${plainText(q.name, 80)}** (${plainText(q.game, 60)})${progressStr}\n` +
+               `> ↳ Tâche: \`${codeSafe(q.taskName)}\` — expire le ${expiry}`;
+      }),
+      { maxLines: 12, separator: "\n\n" },
+    );
   }
 
   const excludedLine = excluded
@@ -129,14 +142,17 @@ export function buildRunning(): V2MessagePayload {
 export function buildHistory(data: QuestsHistoryData = {}): V2MessagePayload {
   const { history = [] } = data;
 
-  const list = history.length
-    ? history.slice(-15).reverse().map((entry) => {
-        const emoji = entry.success ? "✅" : "❌";
-        const time  = new Date(entry.timestamp ?? 0).toLocaleString("fr-FR");
-        const error = entry.success ? "" : `\n> ⚠️ *${entry.error}*`;
-        return `${emoji} **${entry.questName}** — \`${entry.taskName ?? "?"}\`\n> ${time}${error}`;
-      }).join("\n\n")
-    : "*Aucun historique de quêtes.*";
+  // `questName` vient de Discord et `error` d'une exception Python remontée par le
+  // bridge : les deux sont neutralisés et bornés avant le Text Display.
+  const list = boundedList(
+    history.slice(-15).reverse().map((entry) => {
+      const emoji = entry.success ? "✅" : "❌";
+      const time  = new Date(entry.timestamp ?? 0).toLocaleString("fr-FR");
+      const error = entry.success ? "" : `\n> ⚠️ *${plainText(entry.error, 150)}*`;
+      return `${emoji} **${plainText(entry.questName, 80)}** — \`${codeSafe(entry.taskName)}\`\n> ${time}${error}`;
+    }),
+    { maxLines: 12, separator: "\n\n", empty: "*Aucun historique de quêtes.*" },
+  );
 
   return replyV2(
     container([

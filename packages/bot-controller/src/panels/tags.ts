@@ -1,4 +1,4 @@
-import { container, textDisplay, separator, selectMenu, navRow, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, selectMenu, navRow, boundedList, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export interface TagsData {
   tags?: Record<string, string>;
@@ -8,9 +8,10 @@ export interface TagsData {
 export function build(data: TagsData = {}): V2MessagePayload {
   const { tags = {}, prefix = "." } = data;
   const keys = Object.keys(tags);
-  const list = keys.length
-    ? keys.map((k, i) => `\`${i + 1}.\` **${k}** — *Clique sur "Voir un tag" pour voir son contenu*`).join("\n")
-    : "*Aucun tag défini.*";
+  const list = boundedList(
+    keys.map((k, i) => `\`${i + 1}.\` **${plainText(k, 80)}** — *Clique sur "Voir un tag" pour voir son contenu*`),
+    { empty: "*Aucun tag défini.*" },
+  );
 
   return replyV2(
     container([

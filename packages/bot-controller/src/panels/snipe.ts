@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, plainText, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, boundedList, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export type SnipeType = "deleted" | "edited";
 export type SnipeSearchMode = "channel" | "guild" | "user";
@@ -48,13 +48,14 @@ export interface SnipeResultsData {
 export function build(data: SnipeData = {}): V2MessagePayload {
   const { whitelist = [], guilds = [], snapshotSchedules = [], snapshotSchedulesRunning = false } = data;
 
-  const list = whitelist.length
-    ? whitelist.map((id, i) => {
-        const guild = guilds.find((g) => g.id === id);
-        const name  = guild?.name ?? null;
-        return `\`${i + 1}.\` ${name ? `**${plainText(name)}** (\`${plainText(id)}\`)` : `\`${plainText(id)}\``}`;
-      }).join("\n")
-    : "*Aucun serveur dans la whitelist.*";
+  const list = boundedList(
+    whitelist.map((id, i) => {
+      const guild = guilds.find((g) => g.id === id);
+      const name  = guild?.name ?? null;
+      return `\`${i + 1}.\` ${name ? `**${plainText(name, 80)}** (\`${plainText(id)}\`)` : `\`${plainText(id)}\``}`;
+    }),
+    { maxLines: 20, maxChars: 1200, empty: "*Aucun serveur dans la whitelist.*" },
+  );
 
   const scheduleList = snapshotSchedules.length
     ? snapshotSchedules.slice(0, 8).map((job, i) => {
@@ -148,14 +149,14 @@ export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
       (b.deletedAt ?? b.editedAt ?? 0) - (a.deletedAt ?? a.editedAt ?? 0)
     );
     const slice = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-    body = slice.map((m, i) => {
+    body = boundedList(slice.map((m, i) => {
       const ts  = new Date(m.createdTimestamp ?? m.deletedAt ?? m.editedAt ?? 0).toLocaleString("fr-FR");
       const num = page * PAGE_SIZE + i + 1;
 
       // Nom d'auteur : fallback en cascade. Pseudos et contenus viennent de tiers,
       // donc systématiquement neutralisés (cf. plainText).
       const author = m.authorTag && m.authorTag !== "unknown"
-        ? plainText(m.authorTag)
+        ? plainText(m.authorTag, 50)
         : m.authorId
           ? `\`${plainText(m.authorId)}\``
           : "*auteur inconnu*";
@@ -164,7 +165,7 @@ export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
       let channelInfo = "";
       if (searchMode === "guild" || searchMode === "user") {
         if (m.channelName) {
-          channelInfo = ` — #${plainText(m.channelName)}`;
+          channelInfo = ` — #${plainText(m.channelName, 60)}`;
         } else if (m.channelId) {
           channelInfo = ` — <#${m.channelId}>`;
         }
@@ -178,7 +179,7 @@ export function buildResults(data: SnipeResultsData = {}): V2MessagePayload {
 
       const content = m.content ? plainText(m.content, 120) : "*(vide)*";
       return `**${num}. ${author}**${channelInfo} — ${ts}\n> ${content}`;
-    }).join("\n\n");
+    }), { maxLines: PAGE_SIZE, maxChars: 2400, separator: "\n\n" });
     body = `*${messages.length} message(s) — page ${page + 1}/${totalPages}*\n\n${body}`;
   }
 

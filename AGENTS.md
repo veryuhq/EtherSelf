@@ -154,6 +154,9 @@ Caveats à respecter :
 - Avec ce flag, **interdiction** d'envoyer `content`, `poll`, `embeds` ou `stickers`.
 - On ne peut pas revenir en arrière (opt-out) en éditant un message déjà en Components V2.
 - **40 composants max** par message (les composants imbriqués comptent), **4000 caractères max** cumulés sur tous les Text Display.
+  Au-delà, Discord rejette le message **entier** : le panel ne s'affiche plus du tout, il ne se tronque pas. Toute liste de longueur
+  non bornée (tags, favoris, exclusions, historiques, résultats de recherche…) passe donc par `boundedList()` de `utils/components.ts`,
+  et tout nom tiers par `plainText(valeur, maxLongueur)` — l'échappement du markdown peut doubler la longueur d'un nom.
 - Un composant doit référencer chaque fichier attaché (`attachment://nom.ext` dans Thumbnail, Media Gallery ou File).
 - Les mentions dans un Text Display déclenchent une vraie notification ; contrôler avec `allowedMentions`.
 

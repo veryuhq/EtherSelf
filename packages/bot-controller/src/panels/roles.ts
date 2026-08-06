@@ -1,7 +1,7 @@
 import { ButtonStyle } from "discord.js";
 import {
   container, textDisplay, separator, actionRow, btn, selectMenu, section, thumbnail,
-  navRow, plainText, replyV2, type ActionRowComponent, type ContainerChild,
+  navRow, boundedList, plainText, replyV2, type ActionRowComponent, type ContainerChild,
   type SelectOption, type V2MessagePayload,
 } from "../utils/components";
 
@@ -160,16 +160,23 @@ function roleFlags(role: RoleInfo): string {
   return flags.length ? ` ${flags.join("")}` : "";
 }
 
+// Bornes de longueur des noms tiers. Discord plafonne déjà rôles/serveurs à 100
+// caractères et pseudos à 32, mais plainText ÉCHAPPE le markdown : un nom de 100
+// astérisques en fait 200. Sans ces bornes, une page de 15 rôles ainsi nommés
+// dépassait les 4000 caractères du message et Discord rejetait tout le panel.
+const NAME_MAX = 60;
+const TAG_MAX = 40;
+
 function roleLine(role: RoleInfo, num: number): string {
   const count = role.memberCount ?? role.cachedMembers;
   const countLabel = typeof count === "number" ? ` — \`👥 ${count.toLocaleString("fr-FR")}\`` : "";
-  return `\`${String(num).padStart(2, "0")}.\` ${colorDot(role.color)} **${plainText(role.name ?? role.id)}**` +
+  return `\`${String(num).padStart(2, "0")}.\` ${colorDot(role.color)} **${plainText(role.name ?? role.id, NAME_MAX)}**` +
          ` — \`${plainText(role.id)}\`${countLabel}${roleFlags(role)}`;
 }
 
 function memberLine(member: RoleMember, num: number): string {
-  const name = plainText(member.displayName ?? member.tag ?? member.id);
-  const tag  = member.tag && member.tag !== member.displayName ? ` *(${plainText(member.tag)})*` : "";
+  const name = plainText(member.displayName ?? member.tag ?? member.id, NAME_MAX);
+  const tag  = member.tag && member.tag !== member.displayName ? ` *(${plainText(member.tag, TAG_MAX)})*` : "";
   const bot  = member.bot ? " `🤖`" : "";
   return `\`${String(num).padStart(2, "0")}.\` **${name}**${tag}${bot} — \`${plainText(member.id)}\``;
 }
@@ -187,7 +194,7 @@ function timestamp(ms?: number | null): string | null {
 
 function guildLine(guild?: RoleGuild | null): string {
   if (!guild) return "*serveur inconnu*";
-  return `**${plainText(guild.name ?? guild.id)}**`;
+  return `**${plainText(guild.name ?? guild.id, NAME_MAX)}**`;
 }
 
 /** Libellé d'option de select : un select ne rend pas le markdown, il suffit de
@@ -228,7 +235,7 @@ export function build(data: RolesHubData = {}): V2MessagePayload {
       `> \`👥\` ${members}  ·  \`🎭\` ${guild.roleCount ?? "?"} rôles  ·  \`🧠\` ${guild.cachedMembers ?? 0} en cache`;
   } else if (staleGuildId) {
     target =
-      `> \`⚠️\` **${plainText(staleGuildName ?? staleGuildId)}** — \`${plainText(staleGuildId)}\`\n` +
+      `> \`⚠️\` **${plainText(staleGuildName ?? staleGuildId, NAME_MAX)}** — \`${plainText(staleGuildId)}\`\n` +
       `> *Serveur inaccessible : le selfbot n'en est plus membre, ou l'ID est erroné.*`;
   } else {
     target =
@@ -274,13 +281,14 @@ export function buildGuildPicker(data: GuildPickerData = {}): V2MessagePayload {
   const { totalPages, start } = pageInfo(guilds.length, page, PAGE_SIZE);
   const slice = guilds.slice(start, start + PAGE_SIZE);
 
-  const list = slice.length
-    ? slice.map((g, i) => {
-        const marker = g.id === selectedGuildId ? " `🎯`" : "";
-        const owner  = g.isOwner ? " 👑" : "";
-        return `\`${String(start + i + 1).padStart(2, "0")}.\` **${plainText(g.name ?? g.id)}**${owner} — \`${plainText(g.id)}\`${marker}`;
-      }).join("\n")
-    : "*Aucun serveur — le selfbot n'est membre d'aucun serveur.*";
+  const list = boundedList(
+    slice.map((g, i) => {
+      const marker = g.id === selectedGuildId ? " `🎯`" : "";
+      const owner  = g.isOwner ? " 👑" : "";
+      return `\`${String(start + i + 1).padStart(2, "0")}.\` **${plainText(g.name ?? g.id, NAME_MAX)}**${owner} — \`${plainText(g.id)}\`${marker}`;
+    }),
+    { maxLines: PAGE_SIZE, maxChars: 2200, empty: "*Aucun serveur — le selfbot n'est membre d'aucun serveur.*" },
+  );
 
   const options: SelectOption[] = slice.map((g) => ({
     label:       optionLabel(g.name, g.id),
@@ -326,9 +334,10 @@ export function buildRolesList(data: RolesListData = {}): V2MessagePayload {
   const { totalPages, start } = pageInfo(roles.length, page, PAGE_SIZE);
   const slice = roles.slice(start, start + PAGE_SIZE);
 
-  const list = slice.length
-    ? slice.map((role, i) => roleLine(role, start + i + 1)).join("\n")
-    : "*Aucun rôle sur ce serveur.*";
+  const list = boundedList(
+    slice.map((role, i) => roleLine(role, start + i + 1)),
+    { maxLines: PAGE_SIZE, maxChars: 2200, empty: "*Aucun rôle sur ce serveur.*" },
+  );
 
   const children: ContainerChild[] = [
     textDisplay(
@@ -372,7 +381,7 @@ export function buildMemberRoles(data: MemberRolesData = {}): V2MessagePayload {
   const slice = roles.slice(start, start + PAGE_SIZE);
 
   const infos: string[] = [];
-  if (member?.nick)     infos.push(`> \`📛\` Pseudo serveur : **${plainText(member.nick)}**`);
+  if (member?.nick)     infos.push(`> \`📛\` Pseudo serveur : **${plainText(member.nick, NAME_MAX)}**`);
   if (member?.isOwner)  infos.push("> `👑` **Propriétaire du serveur**");
   if (member?.bot)      infos.push("> `🤖` Compte bot");
   const joined = timestamp(member?.joinedAt);
@@ -380,20 +389,21 @@ export function buildMemberRoles(data: MemberRolesData = {}): V2MessagePayload {
   const boost = timestamp(member?.premiumSince);
   if (boost)            infos.push(`> \`🚀\` Booste le serveur depuis ${boost}`);
   if (member?.topRole) {
-    infos.push(`> \`🏅\` Rôle le plus haut : ${colorDot(member.topRole.color)} **${plainText(member.topRole.name ?? member.topRole.id)}**`);
+    infos.push(`> \`🏅\` Rôle le plus haut : ${colorDot(member.topRole.color)} **${plainText(member.topRole.name ?? member.topRole.id, NAME_MAX)}**`);
   }
   if (member?.colorHex) infos.push(`> \`🎨\` Couleur affichée : \`${plainText(member.colorHex)}\``);
   const perms = permissionsLine(member?.keyPermissions);
   if (perms)            infos.push(`> \`⚡\` Permissions clés : ${perms}`);
 
   const header =
-    `# 👤 ${plainText(member?.displayName ?? member?.tag ?? member?.id ?? "Membre")}\n` +
-    `-# ${plainText(member?.tag ?? "")} · \`${plainText(member?.id ?? "?")}\` · sur ${guild ? plainText(guild.name ?? guild.id) : "?"}\n\n` +
+    `# 👤 ${plainText(member?.displayName ?? member?.tag ?? member?.id ?? "Membre", NAME_MAX)}\n` +
+    `-# ${plainText(member?.tag ?? "", TAG_MAX)} · \`${plainText(member?.id ?? "?")}\` · sur ${guild ? plainText(guild.name ?? guild.id, NAME_MAX) : "?"}\n\n` +
     (infos.length ? `${infos.join("\n")}\n` : "");
 
   const rolesBody = roles.length
     ? `### 🎭 Rôles (${roles.length})\n` +
-      slice.map((role, i) => roleLine(role, start + i + 1)).join("\n") +
+      boundedList(slice.map((role, i) => roleLine(role, start + i + 1)),
+                  { maxLines: PAGE_SIZE, maxChars: 1800 }) +
       (totalPages > 1 ? `\n\n-# Page ${page + 1}/${totalPages}` : "")
     : "### 🎭 Rôles (0)\n*Ce membre n'a aucun rôle sur ce serveur.*";
 
@@ -479,17 +489,18 @@ export function buildRoleMembers(data: RoleMembersData = {}): V2MessagePayload {
   else                   statusLine = "`⚠️` Liste issue du seul cache local, donc incomplète. Lance un **scan complet** pour la liste exacte.";
   if (truncated) statusLine += `\n\`✂️\` Affichage limité aux ${members.length} premiers membres.`;
 
-  const list = slice.length
-    ? slice.map((member, i) => memberLine(member, start + i + 1)).join("\n")
-    : "*Aucun membre trouvé avec ce rôle.*";
+  const list = boundedList(
+    slice.map((member, i) => memberLine(member, start + i + 1)),
+    { maxLines: PAGE_SIZE, maxChars: 2000, empty: "*Aucun membre trouvé avec ce rôle.*" },
+  );
 
   const scope = `${guild?.id ?? ""}:${role?.id ?? ""}:${deep ? "1" : "0"}`;
 
   return replyV2(
     container([
       textDisplay(
-        `# 🎭 ${plainText(role?.name ?? role?.id ?? "Rôle")}\n` +
-        `-# \`${plainText(role?.id ?? "?")}\` · sur ${guild ? plainText(guild.name ?? guild.id) : "?"}\n\n` +
+        `# 🎭 ${plainText(role?.name ?? role?.id ?? "Rôle", NAME_MAX)}\n` +
+        `-# \`${plainText(role?.id ?? "?")}\` · sur ${guild ? plainText(guild.name ?? guild.id, NAME_MAX) : "?"}\n\n` +
         `${infos.join("\n")}\n\n` +
         `### 👥 Membres — ${totalLabel}\n${statusLine}\n\n${list}` +
         (totalPages > 1 ? `\n\n-# Page ${page + 1}/${totalPages} — ${members.length} affiché(s)` : "")
@@ -519,7 +530,7 @@ export function buildScanning(data: { guild?: RoleGuild | null; role?: RoleInfo 
     container([
       textDisplay(
         "# 🔬 Scan complet en cours…\n" +
-        `\`⏳\` **Rôle :** ${plainText(role?.name ?? role?.id ?? "?")} — sur ${guildLine(guild)}\n` +
+        `\`⏳\` **Rôle :** ${plainText(role?.name ?? role?.id ?? "?", NAME_MAX)} — sur ${guildLine(guild)}\n` +
         `\`👥\` ${memberCount}\n\n` +
         "*La liste des membres est récupérée par lots espacés d'une seconde pour ne pas exposer le compte :*\n" +
         "*compte quelques secondes sur un petit serveur, plusieurs minutes sur un gros.*\n" +

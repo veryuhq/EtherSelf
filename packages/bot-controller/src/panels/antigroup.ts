@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, navRow, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, navRow, boundedList, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export interface AntigroupData {
   enabled?: boolean;
@@ -62,12 +62,16 @@ export function buildLeaveAllResult(data: LeaveAllResultData = {}): V2MessagePay
   } else if (failed === 0) {
     statusLine = `\`✅\` **${left}** groupe(s) quitté(s) avec succès.`;
   } else {
+    // `error` remonte tel quel de l'API Discord via le selfbot : markdown neutralisé
+    // (cf. plainText) et liste bornée avant d'entrer dans un Text Display.
     statusLine =
       `\`⚠️\` **${left}** groupe(s) quitté(s) — **${failed}** échec(s).\n\n` +
-      details
-        .filter((d) => !d.success)
-        .map((d) => `> ❌ \`${d.id}\` — ${d.error ?? "Erreur inconnue"}`)
-        .join("\n");
+      boundedList(
+        details
+          .filter((d) => !d.success)
+          .map((d) => `> ❌ \`${plainText(d.id)}\` — ${plainText(d.error ?? "Erreur inconnue", 120)}`),
+        { maxLines: 15, maxChars: 1200 },
+      );
   }
 
   return replyV2(

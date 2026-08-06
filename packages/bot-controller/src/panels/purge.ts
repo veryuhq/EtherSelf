@@ -1,5 +1,5 @@
 import { ButtonStyle } from "discord.js";
-import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, plainText, replyV2, type ButtonComponent, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, actionRow, btn, selectMenu, navRow, boundedList, plainText, replyV2, type ButtonComponent, type V2MessagePayload } from "../utils/components";
 
 export type PurgeScope = "channel" | "guild" | "dms" | "guilds";
 
@@ -105,10 +105,12 @@ export function buildExclusions(data: PurgeData = {}): V2MessagePayload {
     if (!items.length) continue;
     const meta = KIND_META[kind];
     // `label` est un nom de serveur / salon / groupe DM : contenu tiers, donc
-    // neutralisé (cf. plainText) avant d'entrer dans un Text Display.
-    const lines = items
-      .map((e) => `> \`${plainText(e.id)}\`${e.label ? ` — ${plainText(e.label)}` : ""}`)
-      .join("\n");
+    // neutralisé (cf. plainText) avant d'entrer dans un Text Display. Budget réparti
+    // entre les trois sections pour rester sous le plafond du message.
+    const lines = boundedList(
+      items.map((e) => `> \`${plainText(e.id)}\`${e.label ? ` — ${plainText(e.label, 80)}` : ""}`),
+      { maxLines: 15, maxChars: 900 },
+    );
     sections.push(`${meta.icon} **${meta.title}** (${items.length})\n${lines}`);
   }
 
@@ -217,7 +219,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     channel: "Purge du salon",
     dms:     "Purge des DMs",
     guilds:  "Purge des serveurs",
-    guild:   guildName ? `Purge de ${plainText(guildName)}` : "Purge du serveur",
+    guild:   guildName ? `Purge de ${plainText(guildName, 80)}` : "Purge du serveur",
   };
 
   const icon  = SCOPE_ICONS[scope]  ?? "🗑️";
@@ -236,7 +238,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     // activeLabel / item.label = noms de salons, serveurs et interlocuteurs de
     // DM : du contenu tiers, neutralisé avant affichage.
     if (activeLabel) {
-      lines.push(`⏳ **${plainText(activeLabel)}**`);
+      lines.push(`⏳ **${plainText(activeLabel, 80)}**`);
     }
 
     const DISPLAY_LIMIT = 12;
@@ -244,7 +246,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     const hidden    = queue.length - displayed.length;
 
     for (const item of displayed) {
-      lines.push(`⬜ ${plainText(item.label)}`);
+      lines.push(`⬜ ${plainText(item.label, 80)}`);
     }
 
     if (hidden > 0) {
@@ -252,7 +254,7 @@ export function buildProgress(data: PurgeProgressData = {}): V2MessagePayload {
     }
   }
 
-  const listText = lines.length ? lines.join("\n") : "";
+  const listText = boundedList(lines, { maxLines: 14, maxChars: 1600, empty: "" });
 
   // Étapes préliminaires (DMs) : rien à afficher en dehors de l'en-tête, la
   // liste des conversations n'est pas encore connue.

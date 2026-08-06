@@ -1,4 +1,4 @@
-import { container, textDisplay, separator, selectMenu, navRow, plainText, replyV2, type V2MessagePayload } from "../utils/components";
+import { container, textDisplay, separator, selectMenu, navRow, boundedList, plainText, replyV2, type V2MessagePayload } from "../utils/components";
 
 export interface MessageBookmark {
   content?: string;
@@ -13,15 +13,18 @@ export interface MsgBookmarksData {
 
 export function build(data: MsgBookmarksData = {}): V2MessagePayload {
   const { bookmarks = [] } = data;
-  const list = bookmarks.length
-    ? bookmarks.map((b, i) => {
-        // content / authorTag viennent du message d'origine (donc d'un tiers).
-        const content = plainText(b.content, 120) + ((b.content ?? "").length > 120 ? "…" : "");
-        const note    = b.note ? `  •  📎 *${plainText(b.note)}*` : "";
-        const link    = b.url  ? `\n${plainText(b.url)}` : "";
-        return `**${i + 1}. ${plainText(b.authorTag) || "?"}**${note}\n> ${content || "*(vide)*"}${link}`;
-      }).join("\n\n")
-    : "*Aucun message sauvegardé.*";
+  // Le selfbot en conserve jusqu'à 200 : sans bornage, la liste dépassait à elle
+  // seule les 4000 caractères cumulés des Text Display et Discord rejetait le panel.
+  const list = boundedList(
+    bookmarks.map((b, i) => {
+      // content / authorTag viennent du message d'origine (donc d'un tiers).
+      const content = plainText(b.content, 120) + ((b.content ?? "").length > 120 ? "…" : "");
+      const note    = b.note ? `  •  📎 *${plainText(b.note, 100)}*` : "";
+      const link    = b.url  ? `\n${plainText(b.url)}` : "";
+      return `**${i + 1}. ${plainText(b.authorTag, 60) || "?"}**${note}\n> ${content || "*(vide)*"}${link}`;
+    }),
+    { maxLines: 10, separator: "\n\n", empty: "*Aucun message sauvegardé.*" },
+  );
 
   return replyV2(
     container([

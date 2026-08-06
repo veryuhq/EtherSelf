@@ -264,12 +264,21 @@ export function modal(
 }
 
 /** Formate un log multi-lignes pour un Container : chaque ligne devient une citation
- *  en code inline (`> \`ligne\``). */
-export function logLines(text: string | null | undefined): string {
-  return String(text ?? "")
+ *  en code inline (`> \`ligne\``).
+ *
+ *  Lignes et longueurs bornées : ces logs contiennent des messages d'erreur bruts de
+ *  l'API Discord, qui peuvent être très longs. Sans bornage, le bloc à lui seul
+ *  dépassait les 4000 caractères du message et faisait rejeter tout le panel. */
+export function logLines(text: string | null | undefined, maxLines = 10, maxLineLength = 200): string {
+  const lines = String(text ?? "")
     .split("\n")
-    .map((line) => (line.trim() ? `> \`${line.replace(/`/g, "'")}\`` : "> "))
-    .join("\n");
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "> ";
+      const cut = trimmed.length > maxLineLength ? `${trimmed.slice(0, maxLineLength - 1)}…` : trimmed;
+      return `> \`${cut.replace(/`/g, "'")}\``;
+    });
+  return boundedList(lines, { maxLines, maxChars: 1400, empty: "" });
 }
 
 /**
@@ -325,4 +334,45 @@ export function plainText(value: unknown, maxLength = 0): string {
   const raw = String(value ?? "").replace(/\r?\n/g, " ");
   const sliced = maxLength > 0 ? raw.slice(0, maxLength) : raw;
   return sliced.replace(/[\\`*_~|]/g, (char) => `\\${char}`);
+}
+
+export interface BoundedListOptions {
+  /** Nombre maximum d'entrées affichées. */
+  maxLines?: number;
+  /** Budget de caractères alloué à cette liste. */
+  maxChars?: number;
+  /** Texte rendu quand la liste est vide. */
+  empty?: string;
+  /** Séparateur entre deux entrées (`"\n\n"` pour des blocs multi-lignes). */
+  separator?: string;
+}
+
+/**
+ * Borne une liste avant de l'insérer dans un Text Display.
+ *
+ * Un message Components V2 plafonne à 4000 caractères cumulés sur ses Text Display,
+ * et Discord rejette le message ENTIER au-delà : une liste non bornée (tags, favoris,
+ * exclusions, historique…) ne tronque donc pas l'affichage, elle fait disparaître le
+ * panel. On coupe au nombre d'entrées ET au budget de caractères, et on dit toujours
+ * combien d'entrées sont masquées plutôt que de les escamoter en silence.
+ */
+export function boundedList(entries: string[], options: BoundedListOptions = {}): string {
+  const { maxLines = 25, maxChars = 1800, empty = "*Aucune entrée.*", separator: sep = "\n" } = options;
+  if (!entries.length) return empty;
+
+  const kept: string[] = [];
+  let budget = maxChars;
+  for (const entry of entries) {
+    const cost = entry.length + sep.length;
+    if (kept.length >= maxLines || cost > budget) break;
+    kept.push(entry);
+    budget -= cost;
+  }
+
+  // Première entrée déjà hors budget : mieux vaut l'annoncer que rendre un bloc vide.
+  if (!kept.length) return `-# *${entries.length} entrée(s), trop volumineuses pour être affichées ici.*`;
+
+  const hidden = entries.length - kept.length;
+  if (hidden > 0) kept.push(`-# *… et ${hidden} autre(s) non affichée(s).*`);
+  return kept.join(sep);
 }
