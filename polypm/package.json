@@ -1,0 +1,23 @@
+{
+  "name": "polypm",
+  "version": "1.0.0",
+  "description": "Gestionnaire de processus multi-langages (JavaScript, TypeScript, Python, Rust) inspiré de pm2 — zéro dépendance.",
+  "bin": {
+    "ppm": "bin/ppm.js",
+    "polypm": "bin/ppm.js"
+  },
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "node test/run.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "dependencies": {}
+}
