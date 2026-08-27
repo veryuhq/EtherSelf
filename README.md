@@ -62,7 +62,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | Module | Description |
 |---|---|
 | 🔇 **Anti-Group DM** | Quitte tout groupe DM entrant dès sa création — option pour quitter tous les groupes existants |
-| 🏆 **Discord Quests** | Complétion automatique des quêtes Discord (vidéo, plateforme, activité…) |
+| 🏆 **Discord Quests** | Complétion automatique des quêtes Discord (vidéo, plateforme, activité…) — se met en pause d'elle-même si le compte est suspendu de quêtes |
 
 ### 🎨 Personnalisation
 
@@ -236,6 +236,7 @@ Au démarrage, le bot controller t'envoie un DM confirmant que tout est en ligne
 - 🗃️ **Cache Discord** — certaines fonctionnalités (quitter tous les groupes, purge DMs) peuplent le cache par un `fetch()` préalable, dont la couverture dépend de l'API au moment de l'appel.
 - 💬 **Purge des DMs & conversations fermées** — un DM fermé reste intact côté serveur mais n'apparaît dans aucune liste de l'API. La purge le retrouve via la recherche globale (`/users/@me/messages/search`) et le lit sans le rouvrir ; les DMs de tes relations et affinités sont rouverts le temps du vidage, puis refermés. Angle mort : l'index de recherche de Discord est incomplet et sa pagination bornée, donc une vieille conversation fermée avec un inconnu peut échapper au balayage — rouvre-la à la main avant la purge.
 - 🏆 **Quests** — endpoints non officiels, susceptibles de casser à chaque mise à jour de Discord. `/quests/@me` ne liste que les quêtes déjà rattachées au compte : le panel en réclame donc lui-même la distribution avant de lister, comme le client officiel. Une quête inéligible est comptée à part (`🚫`) plutôt que passée sous silence.
+- ⛔ **Suspensions de quêtes** — Discord sanctionne désormais l'automatisation des quêtes : **14 jours** sans pouvoir en compléter, plus un manquement au standing du compte. La suspension arrive dans `quest_enrollment_blocked_until` sur `/quests/@me` ; tant que la date est dans le futur le module ne s'inscrit à rien, n'envoie aucune progression et ne réclame plus de distribution, la boucle automatique se contentant de reconstater le blocage. Le panel l'affiche en rouge avec la date de fin. Autrement dit : le module ne creuse pas le trou tout seul, mais **utiliser cette fonctionnalité reste un risque assumé pour le compte**.
 - ⏱️ **Purge** — 100 ms entre deux suppressions, pour limiter le risque de rate-limit ou de flag de compte.
 - 🎭 **Rôles** — Discord ne renvoie que les 100 premiers membres d'un rôle ; au-delà, le panel propose un **scan complet** par lots espacés d'une seconde (max 20 000 membres et 4 min, résultat gardé 10 min). Le compte exact dépend de tes permissions.
 - 🐍 **discord.py-self** — les fonctionnalités pointues (Spotify RPC riche, quêtes) dépendent du support de la lib ; valide-les sur ton compte avant de compter dessus.

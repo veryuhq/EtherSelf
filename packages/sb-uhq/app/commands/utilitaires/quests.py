@@ -21,6 +21,15 @@ _DEFAULTS = {"enabled": False, "intervalMin": 360}
 
 _task: asyncio.Task | None = None
 
+# Fin de la dernière suspension observée sur /quests/@me (ms epoch, 0 = compte libre).
+# Mémorisée pour éviter de solliciter Discord alors qu'on sait la réponse déjà perdue.
+_suspended_until_ms = 0
+
+
+class QuestsSuspended(RuntimeError):
+    """Le compte est suspendu du système de quêtes : inutile d'insister."""
+
+
 TASK_NAMES = [
     "WATCH_VIDEO", "PLAY_ON_DESKTOP", "PLAY_ON_XBOX", "PLAY_ON_PLAYSTATION",
     "STREAM_ON_DESKTOP", "PLAY_ACTIVITY", "WATCH_VIDEO_ON_MOBILE", "ACHIEVEMENT_IN_ACTIVITY",
@@ -61,6 +70,53 @@ def _expires_ms(quest) -> float:
         return datetime.fromisoformat(
             quest["config"]["expires_at"].replace("Z", "+00:00")).timestamp() * 1000
     except Exception:
+        return 0
+
+
+def _blocked_until(raw) -> int:
+    """Fin de la suspension des quêtes en ms epoch, `0` si le compte n'est pas suspendu.
+
+    Depuis le déploiement des suspensions de quêtes, Discord renvoie
+    ``quest_enrollment_blocked_until`` sur ``/quests/@me`` : une date future signifie
+    que le compte est privé de quêtes (14 jours en pratique, avec un manquement au
+    standing du compte). Insister pendant ce blocage n'aboutit à rien et se voit.
+    """
+    value = (raw or {}).get("quest_enrollment_blocked_until")
+    if not value:
+        return 0
+    if isinstance(value, (int, float)):
+        # Discord date tantôt en secondes, tantôt en millisecondes selon l'endpoint.
+        return int(value if value > 1e11 else value * 1000)
+    try:
+        return int(datetime.fromisoformat(
+            str(value).replace("Z", "+00:00")).timestamp() * 1000)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _note_suspension(raw) -> int:
+    """Lit la suspension d'une réponse ``/quests/@me``, la mémorise et la retourne."""
+    global _suspended_until_ms
+    _suspended_until_ms = _blocked_until(raw)
+    return _suspended_until_ms
+
+
+def _is_suspended() -> bool:
+    return _suspended_until_ms > _now_ms()
+
+
+def _suspension_text(blocked_ms: int) -> str:
+    when = datetime.fromtimestamp(blocked_ms / 1000).strftime("%d/%m/%Y à %H:%M")
+    return (f"Compte suspendu du système de quêtes jusqu'au {when} — aucune "
+            "inscription ni progression n'est envoyée d'ici là.")
+
+
+async def _check_suspension(token) -> int:
+    """Relit ``/quests/@me`` pour voir si une suspension vient de tomber (0 sinon)."""
+    try:
+        res = await http.fetch_quests(token)
+        return _note_suspension(res["data"]) if res["ok"] else 0
+    except Exception:  # noqa: BLE001
         return 0
 
 
@@ -231,6 +287,9 @@ async def _run_quest(token, quest, on_progress):
         on_progress(f'[QUESTS] 📋 Inscription à "{quest_name}"…')
         enroll = await http.enroll_quest(token, quest, is_android)
         if not enroll["ok"]:
+            blocked = await _check_suspension(token)
+            if blocked:
+                raise QuestsSuspended(_suspension_text(blocked))
             raise RuntimeError(f"Inscription échouée ({enroll['status']})")
         quest["user_status"] = enroll["data"]
 
@@ -266,6 +325,8 @@ async def _request_delivery(token, force: bool = False) -> None:
     bloquant : on continue avec la liste telle quelle.
     """
     global _last_delivery_ms
+    if _is_suspended():
+        return
     if not force and _now_ms() - _last_delivery_ms < _DELIVERY_COOLDOWN_MS:
         return
     _last_delivery_ms = _now_ms()
@@ -291,6 +352,39 @@ def _unique(quests):
     return out
 
 
+async def _run_batch(token, todo) -> list:
+    """Traite les quêtes une par une et retourne l'historique des tentatives.
+
+    Une suspension tombée en cours de route arrête tout : les quêtes suivantes
+    échoueraient de la même façon, et chaque tentative de plus n'est qu'une trace
+    supplémentaire côté Discord.
+    """
+    results = []
+    for quest in todo:
+        quest_name = quest["config"]["messages"]["quest_name"]
+        task_name = _get_task_name(quest)
+        suspended = False
+        try:
+            await _run_quest(token, quest, log)
+            log(f'[QUESTS] ✅ "{quest_name}" complétée !')
+            entry = {"questId": quest["id"], "questName": quest_name, "taskName": task_name,
+                     "success": True, "timestamp": _now_ms()}
+        except QuestsSuspended as err:
+            logerr(f"[QUESTS] ⛔ {err}")
+            suspended = True
+            entry = {"questId": quest["id"], "questName": quest_name, "taskName": task_name,
+                     "success": False, "error": str(err), "timestamp": _now_ms()}
+        except Exception as err:  # noqa: BLE001
+            logerr(f'[QUESTS] ❌ "{quest_name}" échouée : {err}')
+            entry = {"questId": quest["id"], "questName": quest_name, "taskName": task_name,
+                     "success": False, "error": str(err), "timestamp": _now_ms()}
+        _push_history(entry)
+        results.append(entry)
+        if suspended:
+            break
+    return results
+
+
 async def run_all(client) -> None:
     token = get_token(client)
     log("[QUESTS] 🔄 Lancement de la complétion automatique des quêtes…")
@@ -304,6 +398,11 @@ async def run_all(client) -> None:
         logerr(f"[QUESTS] ❌ Impossible de récupérer les quêtes : {err}")
         return
 
+    blocked = _note_suspension(raw)
+    if blocked > _now_ms():
+        logerr(f"[QUESTS] ⛔ {_suspension_text(blocked)}")
+        return
+
     quests = raw.get("quests") or []
     todo = _unique(_filter_valid(quests) + _filter_enrollable(quests))
     if not todo:
@@ -311,18 +410,7 @@ async def run_all(client) -> None:
         return
 
     log(f"[QUESTS] {len(todo)} quête(s) à traiter.")
-    for quest in todo:
-        quest_name = quest["config"]["messages"]["quest_name"]
-        task_name = _get_task_name(quest)
-        try:
-            await _run_quest(token, quest, log)
-            log(f'[QUESTS] ✅ "{quest_name}" complétée !')
-            _push_history({"questId": quest["id"], "questName": quest_name,
-                           "taskName": task_name, "success": True, "timestamp": _now_ms()})
-        except Exception as err:  # noqa: BLE001
-            logerr(f'[QUESTS] ❌ "{quest_name}" échouée : {err}')
-            _push_history({"questId": quest["id"], "questName": quest_name, "taskName": task_name,
-                           "success": False, "error": str(err), "timestamp": _now_ms()})
+    await _run_batch(token, todo)
 
 
 async def _loop(client, interval_min):
@@ -420,7 +508,7 @@ async def execute(client, payload):
                 "claimed": bool((q.get("user_status") or {}).get("claimed_at")),
                 "progress": (q.get("user_status") or {}).get("progress") or {},
             } for q in all_active],
-            "blockedUntil": raw.get("quest_enrollment_blocked_until"),
+            "blockedUntil": _note_suspension(raw) or None,
             # `excluded` compte les quêtes que Discord distribue mais auxquelles le
             # compte n'est pas éligible : sans ce chiffre, une liste vide ne dit pas
             # si rien n'a été distribué ou si tout a été écarté.
@@ -436,28 +524,20 @@ async def execute(client, payload):
         if not res["ok"]:
             raise ValueError(f"Impossible de récupérer les quêtes ({res['status']})")
         raw = res["data"] or {}
+        blocked = _note_suspension(raw)
+        if blocked > _now_ms():
+            logerr(f"[QUESTS] ⛔ {_suspension_text(blocked)}")
+            return {"done": 0, "failed": 0, "results": [], "blockedUntil": blocked,
+                    "message": _suspension_text(blocked)}
         quests = raw.get("quests") or []
         todo = _unique(_filter_valid(quests) + _filter_enrollable(quests))
         if not todo:
             return {"done": 0, "results": [], "message": "Aucune quête à compléter."}
         log(f"[QUESTS] {len(todo)} quête(s) à traiter.")
-        results = []
-        for quest in todo:
-            quest_name = quest["config"]["messages"]["quest_name"]
-            task_name = _get_task_name(quest)
-            try:
-                await _run_quest(token, quest, log)
-                log(f'[QUESTS] ✅ "{quest_name}" complétée !')
-                entry = {"questId": quest["id"], "questName": quest_name, "taskName": task_name,
-                         "success": True, "timestamp": _now_ms()}
-            except Exception as err:  # noqa: BLE001
-                logerr(f'[QUESTS] ❌ "{quest_name}" échouée : {err}')
-                entry = {"questId": quest["id"], "questName": quest_name, "taskName": task_name,
-                         "success": False, "error": str(err), "timestamp": _now_ms()}
-            _push_history(entry)
-            results.append(entry)
+        results = await _run_batch(token, todo)
         return {"done": sum(1 for r in results if r["success"]),
-                "failed": sum(1 for r in results if not r["success"]), "results": results}
+                "failed": sum(1 for r in results if not r["success"]), "results": results,
+                "blockedUntil": _suspended_until_ms or None}
 
     if action == "getHistory":
         return {"history": load_history()}

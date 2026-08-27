@@ -85,8 +85,15 @@ export function build(data: QuestsData = {}): V2MessagePayload {
     ? `\n\`🚫\` **${excluded}** quête(s) distribuée(s) mais inéligible(s) pour ce compte`
     : "";
 
-  const blockedLine = blockedUntil
-    ? `\n⚠️ **Inscription bloquée jusqu'au** <t:${Math.floor(new Date(blockedUntil).getTime() / 1000)}:f>`
+  // Discord suspend du système de quêtes les comptes qui les automatisent : tant que la
+  // date est dans le futur, le selfbot n'envoie plus rien (voir quests.py). La suspension
+  // passe donc avant tout le reste dans le panel, accent rouge compris.
+  const blockedMs = blockedUntil ? new Date(blockedUntil).getTime() : 0;
+  const isBlocked = Number.isFinite(blockedMs) && blockedMs > Date.now();
+
+  const blockedBanner = isBlocked
+    ? `\n\n\`⛔\` **Compte suspendu des quêtes jusqu'au** <t:${Math.floor(blockedMs / 1000)}:f>\n` +
+      `> *Aucune inscription ni progression n'est envoyée d'ici là.*`
     : "";
 
   const autoLine =
@@ -97,7 +104,8 @@ export function build(data: QuestsData = {}): V2MessagePayload {
       textDisplay(
         `# 🏆 Discord Quests\n` +
         `${autoLine}\n` +
-        `\`📊\` **${total}** quête(s) active(s) — \`✅\` ${completed} complétée(s) — \`⏳\` ${todo} à faire — \`📋\` ${enroll} à inscrire${excludedLine}${blockedLine}\n\n` +
+        `-# ⚠️ Discord sanctionne l'automatisation des quêtes : 14 jours sans quêtes et un manquement au standing du compte.${blockedBanner}\n\n` +
+        `\`📊\` **${total}** quête(s) active(s) — \`✅\` ${completed} complétée(s) — \`⏳\` ${todo} à faire — \`📋\` ${enroll} à inscrire${excludedLine}\n\n` +
         `**Quêtes :**\n${questList}`
       ),
       separator(),
@@ -117,7 +125,7 @@ export function build(data: QuestsData = {}): V2MessagePayload {
       ]),
       separator(),
       navRow(null, null, true),
-    ], 0x5865F2)
+    ], isBlocked ? 0xED4245 : 0x5865F2)
   );
 }
 
