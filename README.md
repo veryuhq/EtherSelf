@@ -51,7 +51,7 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 |---|---|
 | 🔍 **Snipe / MessageLogger** | Log des messages supprimés et édités, recherche par salon / serveur / utilisateur |
 | 📸 **Snapshots** | Export HTML complet d'un salon (messages, embeds, réactions, stickers, pièces jointes) |
-+| 💾 **Backups** | Sauvegarde de la liste d'amis et de la liste de serveurs (avec invitations permanentes) |
+| 💾 **Backups** | Sauvegarde de la liste d'amis et de la liste de serveurs (avec invitations permanentes) |
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
 | 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
