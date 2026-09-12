@@ -10,7 +10,6 @@ import * as roles from "../panels/roles";
 /** customId de navigation → nom de panel pour fetchAndBuild(). */
 export const NAV_MAP: Record<string, string> = {
   "panel:config":       "config",
-  "panel:afk":          "afk",
   "panel:snipe":        "snipe",
   "panel:tags":         "tags",
   "panel:bookmarks":    "bookmarks",
@@ -27,7 +26,7 @@ export const NAV_MAP: Record<string, string> = {
   "panel:roles":        "roles",
 };
 
-/** Identifiant unique de job (purge, clone, snapshot…). */
+/** Identifiant unique de job (purge, snapshot…). */
 export function makeJobId(prefix = "job"): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }

@@ -26,7 +26,7 @@ platform_identity.install()
 from app.bridge.server import run_bridge_server  # noqa: E402
 from app.commands.fun import mock, spoiler  # noqa: E402
 from app.commands.gestion import antigroup, msglog, prefix  # noqa: E402
-from app.commands.utilitaires import afk, quests, rpc, snapshot, tag  # noqa: E402
+from app.commands.utilitaires import quests, rpc, snapshot, tag  # noqa: E402
 from app.func import shutdown  # noqa: E402
 from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
@@ -63,12 +63,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    # Messages des autres → réponse AFK éventuelle
     if message.author.id != client.user.id:
-        try:
-            await afk.handle_incoming_message(message, client)
-        except Exception as err:  # noqa: BLE001
-            logerr(f"[AFK] Erreur handleIncomingMessage : {err}")
         return
 
     # Mes propres messages → commandes préfixe

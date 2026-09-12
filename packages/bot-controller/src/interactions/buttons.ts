@@ -5,14 +5,12 @@ import type { MessageComponentInteraction } from "discord.js";
 import { sendAction } from "../bridge/client";
 import { modal, NO_MENTIONS } from "../utils/components";
 import { NAV_MAP, makeJobId, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
-import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions, cloneOptionsCheckboxes } from "./modal-options";
+import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
-import { getCloneConfig } from "../store/clone-config";
 import { getRolesConfig } from "../store/roles-config";
-import { registerProgressJob, registerCloneJob } from "../store/jobs";
+import { registerProgressJob } from "../store/jobs";
 
 // Panels
-import * as afk       from "../panels/afk";
 import * as snipe     from "../panels/snipe";
 import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
@@ -116,25 +114,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     const res = await sendAction("prefix.get");
     return interaction.showModal(modal("modal:prefix", "Changer le préfixe", [
       { id: "prefix", label: "Nouveau préfixe (1–3 caractères)", placeholder: ".", value: res?.data?.prefix ?? ".", maxLength: 3 },
-    ]));
-  }
-
-  // ── AFK ───────────────────────────────────────────────────────────────────
-  if (id === "afk:toggle") { const res = await sendAction("afk.toggle"); return interaction.update(afk.build(res?.data ?? {})); }
-  if (id === "afk:setMessage") {
-    const res = await sendAction("afk.getState");
-    return interaction.showModal(modal("modal:afk_msg", "Message AFK", [
-      { id: "msg", label: "Message (vide = défaut)", placeholder: "Je suis AFK…", value: res?.data?.message ?? "", required: false, long: true },
-    ]));
-  }
-  if (id === "afk:addExclusion") {
-    return interaction.showModal(modal("modal:afk_excl_add", "Ajouter une exclusion AFK", [
-      { id: "userId", label: "ID Discord (user, serveur ou groupe)", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "afk:removeExclusion") {
-    return interaction.showModal(modal("modal:afk_excl_remove", "Retirer une exclusion AFK", [
-      { id: "userId", label: "ID à retirer", placeholder: "123456789012345678" },
     ]));
   }
 
@@ -574,10 +553,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(backups.buildGuilds({ ...res.data, page: 0 }));
   }
-  if (id === "backups:clone") {
-    const cfg = getCloneConfig(interaction.user.id);
-    return interaction.update(backups.buildClone(cfg));
-  }
 
   // ── BACKUPS : amis ────────────────────────────────────────────────────────
   if (id === "backups:friends_refresh") {
@@ -622,44 +597,7 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(backups.buildGuilds({ ...res.data, page }));
   }
-
-  // ── CLONE ─────────────────────────────────────────────────────────────────
-  if (id === "clone:setSource") {
-    return interaction.showModal(modal("modal:clone_source", "Serveur source", [
-      { id: "guildId", label: "ID du serveur SOURCE (à copier)", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "clone:setTarget") {
-    return interaction.showModal(modal("modal:clone_target", "Serveur cible", [
-      { id: "guildId", label: "ID du serveur CIBLE (qui sera modifié)", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "clone:options") {
-    const cfg = getCloneConfig(interaction.user.id);
-    return interaction.showModal(modal("modal:clone_options", "Options de clonage", [
-      { id: "options", label: "Éléments à cloner", description: "Décoche ce que tu ne veux pas copier", checkboxes: cloneOptionsCheckboxes(cfg), minValues: 0, required: false },
-    ]));
-  }
-
-  if (id === "clone:run") {
-    const cfg = getCloneConfig(interaction.user.id);
-    const jobId = makeJobId("clone");
-    await interaction.update(backups.buildCloneRunning({ sourceGuild: cfg.sourceGuildName ?? cfg.sourceGuildId ?? "?", targetGuild: cfg.targetGuildName ?? cfg.targetGuildId ?? "?", jobId }));
-    registerCloneJob(jobId, interaction);
-    sendAction("backups.clone.run", { sourceGuildId: cfg.sourceGuildId, targetGuildId: cfg.targetGuildId, cloneRoles: cfg.cloneRoles ?? true, cloneChannels: cfg.cloneChannels ?? true, cloneEmojis: cfg.cloneEmojis ?? true, cloneSettings: cfg.cloneSettings ?? true, jobId }).catch(() => {});
-    return;
-  }
-  if (id.startsWith("clone:cancel:")) {
-    const jobId = id.slice("clone:cancel:".length);
-    const res = await sendAction("backups.clone.cancel", { jobId });
-    if (!res?.success) return _error(interaction, res?.error ?? "Impossible d'annuler le job.");
-    return interaction.update(backups.buildCloneRunning({ step: "start", label: "Annulation en cours…", logs: "🛑 Demande d'annulation envoyée…", jobId }));
-  }
-  if (id === "clone:cancel") { return interaction.update(backups.buildCloneResult({ success: false, cancelled: true })); }
-  if (id === "clone:history") { const res = await sendAction("backups.clone.getHistory"); return interaction.update(backups.buildCloneHistory(res?.data ?? {})); }
-  if (id === "clone:clearHistory") { const res = await sendAction("backups.clone.clearHistory"); return interaction.update(backups.buildCloneHistory(res?.data ?? {})); }
-  if (id === "clone:listGuilds") { const res = await sendAction("backups.listGuilds"); return interaction.update(backups.buildCloneGuildList(res?.data ?? {})); }
-
+  
   // ── RÔLES ─────────────────────────────────────────────────────────────────
   if (id === "roles:pickGuild" || id.startsWith("roles:guildPage:")) {
     const page = id.startsWith("roles:guildPage:") ? parseInt(id.split(":")[2], 10) || 0 : 0;

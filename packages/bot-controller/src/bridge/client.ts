@@ -11,7 +11,7 @@ export interface BridgeResponse {
   error?: string;
 }
 
-/** Envoie une action au selfbot via HTTP (ex. "afk.toggle", "prefix.set"). */
+/** Envoie une action au selfbot via HTTP (ex. "prefix.set"). */
 export async function sendAction(action: string, payload: Record<string, unknown> = {}): Promise<BridgeResponse> {
   try {
     const body = JSON.stringify({ action, payload });

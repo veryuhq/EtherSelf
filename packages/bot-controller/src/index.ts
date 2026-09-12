@@ -28,10 +28,9 @@ import * as purgelogs from "./commands/purgelogs";
 import { healthCheck } from "./bridge/client";
 import { getSecretBuffer, verifySignedRequest, registerSignature } from "./bridge/auth";
 import { container, textDisplay, separator, fileComponent, logLines, plainText, replyV2, NO_MENTIONS, type V2MessagePayload } from "./utils/components";
-import { updateProgressJob, cleanProgressJob, getCloneJob, cleanCloneJob, getSnapshotJob, cleanSnapshotJob } from "./store/jobs";
+import { updateProgressJob, cleanProgressJob, getSnapshotJob, cleanSnapshotJob } from "./store/jobs";
 
 import * as snipe from "./panels/snipe";
-import * as backups from "./panels/backups";
 import * as purgePanel from "./panels/purge";
 
 const OWNER_ID      = process.env.OWNER_ID;
@@ -257,32 +256,6 @@ const logServer = http.createServer(async (req, res) => {
       if (!jobId) { res.writeHead(400).end(); return; }
       await updateProgressJob(jobId, purgePanel.buildProgress({ ...progressData, done: done === true }), done === true);
       if (done) cleanProgressJob(jobId);
-      res.writeHead(200).end();
-    } catch { res.writeHead(400).end(); }
-    return;
-  }
-
-  // ── POST /clone-progress ──────────────────────────────────────────────────
-  if (req.method === "POST" && req.url === "/clone-progress") {
-    try {
-      const { jobId, done, error, summary, ...progressData } = JSON.parse(rawBody || "{}");
-      if (!jobId) { res.writeHead(400).end(); return; }
-
-      const job = getCloneJob(jobId);
-      if (!job) { res.writeHead(200).end(); return; }
-
-      let panelPayload: V2MessagePayload;
-      if (done && summary)  panelPayload = backups.buildCloneResult(summary);
-      else if (done && error) panelPayload = backups.buildCloneResult({ success: false, error });
-      else panelPayload = backups.buildCloneRunning(progressData);
-
-      const now = Date.now();
-      if (!done && now - job.lastUpdate < 1500) { res.writeHead(200).end(); return; }
-      job.lastUpdate = now;
-
-      try { await job.interaction.editReply(panelPayload); } catch {}
-      if (done) cleanCloneJob(jobId);
-
       res.writeHead(200).end();
     } catch { res.writeHead(400).end(); }
     return;

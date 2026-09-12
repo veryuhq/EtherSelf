@@ -69,7 +69,7 @@ packages/bot-controller/          # BOT PANEL (TypeScript, compilé vers dist/)
     │                             # + common.ts (NAV_MAP de navigation, makeJobId(), recherches du panel Rôles)
     │                             # + modal-options.ts (options des RadioGroup/CheckboxGroup, `value` alignées sur le bridge)
     ├── bridge/                   # client.ts (sendAction), auth.ts (HMAC)
-    ├── store/                    # jobs.ts (jobs purge/clone/snapshot), clone-config.ts, roles-config.ts
+    ├── store/                    # jobs.ts (jobs purge/snapshot), roles-config.ts
     └── utils/components.ts       # helpers Components V2 typés (container, btn, actionRow, replyV2…)
 
 packages/sb-uhq/data/             # état runtime JSON — gitignoré, ne jamais committer
@@ -84,8 +84,8 @@ Une fonctionnalité traverse presque toujours les deux packages, dans cet ordre 
 3. **Python** : câbler le module dans `main.py` si besoin — rien n'y est automatique, chaque point d'entrée hors bridge s'y déclare à la main :
    - commande préfixe → import + entrée dans le dict `PREFIX_COMMANDS` (sans ça le `callback()` ne sera jamais appelé) ;
    - travail au démarrage → `def on_ready(client)` dans le module, appelé depuis le `on_ready` de `main.py` (modèles : `rpc`, `quests`, `snapshot`) ;
-   - réaction à un événement Discord → handler exporté par le module, appelé depuis un `@client.event` de `main.py` (modèles : `msglog`, `antigroup`, `afk`).
-4. **Node** : créer `src/panels/<module>.ts` avec `build(data)` en s'inspirant d'un panel existant (`afk.ts` est un bon modèle).
+   - réaction à un événement Discord → handler exporté par le module, appelé depuis un `@client.event` de `main.py` (modèles : `msglog`, `antigroup`).
+4. **Node** : créer `src/panels/<module>.ts` avec `build(data)` en s'inspirant d'un panel existant
 5. **Node** : brancher les `customId` (`module:action`) dans `src/interactions/buttons.ts` / `selects.ts` / `modals.ts`.
 6. **Node** : rendre le panel atteignable — il faut les **trois** tables, sinon le bouton ne mène nulle part :
    - `NAV_MAP` dans `interactions/common.ts` : `"panel:<module>"` → clé de panel ;
@@ -102,7 +102,6 @@ rate-limité à 100 requêtes/minute par IP et par route) :
 |---|---|---|
 | `POST /log` | `post_log(text)` | logs relayés en MP au propriétaire (texte expurgé puis tronqué à 3500 car.) |
 | `POST /progress` | `post_progress(job_id, data)` | re-render du panel purge via `purgePanel.buildProgress()` |
-| `POST /clone-progress` | `post_clone_progress(job_id, data)` | re-render du panel backups (en cours / résultat) |
 | `POST /snapshot-result` | `post_snapshot_result(job_id, result)` | affiche le résultat du snapshot |
 | `POST /file` | `post_file(filename, filepath, meta, channel_id)` | envoie le fichier en pièce jointe |
 
@@ -110,13 +109,12 @@ rate-limité à 100 requêtes/minute par IP et par route) :
 Discord sans laisser le panel figé :
 
 1. Côté Node, l'interaction génère l'identifiant avec `makeJobId()` (`interactions/common.ts`),
-   l'enregistre (`registerProgressJob` / `registerCloneJob` / `registerSnapshotJob` de
+   l'enregistre (`registerProgressJob` / `registerSnapshotJob` de
    `store/jobs.ts`) et le passe dans le payload de `sendAction()`.
 2. Côté Python, le module reçoit `jobId` dans son payload et pousse l'avancement avec le
    helper correspondant (modèle : `purge.py` et son `_notify()`).
 3. Le controller retrouve l'interaction d'origine dans `store/jobs.ts` et édite le panel en
-   place. Les mises à jour sont **throttlées** (2 s pour `/progress`, 1,5 s pour
-   `/clone-progress`) ; `done: true` force le dernier rendu et nettoie le job.
+   place. Les mises à jour sont **throttlées** (2 s pour `/progress`) ; `done: true` force le dernier rendu et nettoie le job.
 
 Un job annulable garde aussi son état côté Python (`register_job` / `is_cancelled` /
 `clean_job` dans `purge.py`) et une action `*.cancel` dans `ACTIONS`.
@@ -126,7 +124,7 @@ Un job annulable garde aussi son état côté Python (`register_job` / `is_cance
 Tout passe par `app/func/data_path.py`, jamais par des chemins relatifs (le working
 directory change sous pm2) :
 
-- `data_path("config", "afk.json")` → chemin absolu ; l'arborescence est `data/config/`
+- `data_path("config", "prefix.json")` → chemin absolu ; l'arborescence est `data/config/`
   (état des fonctionnalités), `data/logs/` (historiques), `data/msg_log_data/` (messages
   snipés), `data/snapshots/` (exports HTML).
 - `read_json(path, default)` / `write_json(path, data)` — `write_json` crée les dossiers
@@ -204,7 +202,7 @@ des modals.
 ## Style de code
 
 - **Tout en français** : commentaires, docstrings, messages du panel, erreurs, README.
-- Suivre les modèles existants : `commands/fun/mock.py` (module selfbot), `panels/afk.ts` (panel), `action_router.py` (enregistrement d'actions).
+- Suivre les modèles existants : `commands/fun/mock.py` (module selfbot), `panels/roles.ts` (panel), `action_router.py` (enregistrement d'actions).
 - Python : modules avec `from __future__ import annotations`, imports relatifs (`...func.discord_util`), erreurs métier via `raise ValueError("message en français")`.
 - TypeScript : mode `strict`, syntaxe ESM (`import`/`export`) compilée en CommonJS par `tsc`, interfaces de données optionnelles par panel, UI construite avec les seuls helpers de `utils/components.ts` (jamais d'embeds classiques, Components V2 seulement). Les réponses du bridge restent en `any` côté `data` : le côté Python définit leur forme.
 - Les réponses du bridge gardent des clés camelCase identiques des deux côtés.
@@ -213,9 +211,9 @@ des modals.
 
 - **Conventional Commits obligatoires** ([spécification 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/)) : chaque commit suit le format `type(scope): description`, et rien d'autre ne passe.
   - Types autorisés : `feat`, `fix`, `refactor`, `docs`, `chore`, `perf`, `style`, `test`, `build`, `ci`, `revert`.
-  - Mets un `scope` dès que tu peux (module ou package concerné : `afk`, `snipe`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
+  - Mets un `scope` dès que tu peux (module ou package concerné : `snipe`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
   - Breaking change : suffixe `!` après le type/scope (ex. `refactor(bridge)!: …`) et/ou footer `BREAKING CHANGE:` expliquant la rupture.
-  - Ex. `feat(afk): réponse automatique personnalisable en mode AFK`, `fix(purge): respecter le délai anti rate-limit…`.
+  - Ex. `fix(purge): respecter le délai anti rate-limit…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
 - **Versionnage CalVer `AAAA.M.N`** (ex. `2026.8.1`), dupliqué dans `package.json` racine **et**
   `packages/bot-controller/package.json` : les deux se bumpent ensemble, dans un commit

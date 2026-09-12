@@ -11,17 +11,11 @@ from __future__ import annotations
 from ..commands.fun import mock, spoiler
 from ..commands.gestion import antigroup, msglog, prefix, token
 from ..commands.informations import hostinfo, ping, roles, uptime
-from ..commands.utilitaires import (afk, backups, bookmark, msgbookmarks,
+from ..commands.utilitaires import (backups, bookmark, msgbookmarks,
                                     purge, quests, rpc, snapshot, snipe, tag)
 
 # action → async (client, payload) -> data
 ACTIONS = {
-    # ── AFK ──
-    "afk.toggle": lambda c, p: afk.execute(c, {"action": "toggle"}),
-    "afk.setMessage": lambda c, p: afk.execute(c, {"action": "setMessage", "message": p.get("message")}),
-    "afk.addExclusion": lambda c, p: afk.execute(c, {"action": "addExclusion", "userId": p.get("userId")}),
-    "afk.removeExclusion": lambda c, p: afk.execute(c, {"action": "removeExclusion", "userId": p.get("userId")}),
-    "afk.getState": lambda c, p: afk.execute(c, {"action": "getState"}),
 
     # ── PREFIX / TOKEN ──
     "prefix.set": lambda c, p: prefix.execute(c, {"action": "set", "prefix": p.get("prefix")}),
@@ -113,10 +107,6 @@ ACTIONS = {
 
     # ── BACKUPS ──
     "backups.listGuilds": lambda c, p: backups.execute(c, {"action": "listGuilds"}),
-    "backups.clone.run": lambda c, p: backups.execute(c, {"action": "clone.run", "sourceGuildId": p.get("sourceGuildId"), "targetGuildId": p.get("targetGuildId"), "cloneRoles": p.get("cloneRoles"), "cloneChannels": p.get("cloneChannels"), "cloneEmojis": p.get("cloneEmojis"), "cloneSettings": p.get("cloneSettings"), "jobId": p.get("jobId")}),
-    "backups.clone.cancel": lambda c, p: backups.execute(c, {"action": "clone.cancel", "jobId": p.get("jobId")}),
-    "backups.clone.getHistory": lambda c, p: backups.execute(c, {"action": "clone.getHistory"}),
-    "backups.clone.clearHistory": lambda c, p: backups.execute(c, {"action": "clone.clearHistory"}),
     "backups.friends.backup": lambda c, p: backups.execute(c, {"action": "friends.backup"}),
     "backups.friends.get": lambda c, p: backups.execute(c, {"action": "friends.get"}),
     "backups.friends.clearBackup": lambda c, p: backups.execute(c, {"action": "friends.clearBackup"}),

@@ -6,7 +6,6 @@ import type { V2MessagePayload } from "../utils/components";
 import * as home      from "../panels/home";
 import * as config    from "../panels/config";
 import * as prefix    from "../panels/prefix";
-import * as afk       from "../panels/afk";
 import * as snipe     from "../panels/snipe";
 import * as tags      from "../panels/tags";
 import * as bookmarks from "../panels/bookmarks";
@@ -33,7 +32,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     home:         () => sendAction("prefix.get"),
     config:       () => null,
     prefix:       () => sendAction("prefix.get"),
-    afk:          () => sendAction("afk.getState"),
     snipe:        async () => {
       const [whitelistRes, schedulesRes] = await Promise.all([
         sendAction("snipe.getWhitelist"),
@@ -87,7 +85,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     home:         (d) => home.build(d),
     config:       ()  => config.build(),
     prefix:       (d) => prefix.build(d),
-    afk:          (d) => afk.build(d),
     snipe:        (d) => snipe.build(d),
     tags:         (d) => tags.build(d),
     bookmarks:    (d) => bookmarks.build(d),

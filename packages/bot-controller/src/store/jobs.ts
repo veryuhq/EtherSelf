@@ -36,22 +36,6 @@ export function cleanProgressJob(jobId: string): void {
   progressJobs.delete(jobId);
 }
 
-// ── Jobs de clonage ──────────────────────────────────────────────────────────
-
-const cloneJobs = new Map<string, ThrottledJob>();
-
-export function registerCloneJob(jobId: string, interaction: JobInteraction): void {
-  cloneJobs.set(jobId, { interaction, lastUpdate: 0 });
-}
-
-export function getCloneJob(jobId: string): ThrottledJob | undefined {
-  return cloneJobs.get(jobId);
-}
-
-export function cleanCloneJob(jobId: string): void {
-  cloneJobs.delete(jobId);
-}
-
 // ── Jobs de snapshot ─────────────────────────────────────────────────────────
 
 const snapshotJobs = new Map<string, { interaction: JobInteraction }>();

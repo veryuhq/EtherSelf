@@ -4,13 +4,11 @@ import { sendAction } from "../bridge/client";
 import { NO_MENTIONS } from "../utils/components";
 import { NAV_MAP, makeJobId, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
 import { fetchAndBuild } from "./fetch-and-build";
-import { getCloneConfig } from "../store/clone-config";
 import { getRolesConfig } from "../store/roles-config";
 import { registerSnapshotJob } from "../store/jobs";
 
 // Panels
 import * as prefix      from "../panels/prefix";
-import * as afk         from "../panels/afk";
 import * as snipe       from "../panels/snipe";
 import * as tags        from "../panels/tags";
 import * as bookmarks   from "../panels/bookmarks";
@@ -18,7 +16,6 @@ import * as msgbm       from "../panels/msgbookmarks";
 import * as purge       from "../panels/purge";
 import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
-import * as backups     from "../panels/backups";
 import * as configPanel from "../panels/config";
 import * as rolesPanel  from "../panels/roles";
 
@@ -68,26 +65,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const res = await sendAction("prefix.set", { prefix: newPrefix });
     if (!res?.success) return _error(interaction, res?.error ?? "Erreur lors du changement de préfixe.");
     return interaction.update(prefix.build(res?.data ?? {}));
-  }
-
-  // ── AFK ───────────────────────────────────────────────────────────────────
-  if (id === "modal:afk_msg") {
-    const msg = interaction.fields.getTextInputValue("msg");
-    const res = await sendAction("afk.setMessage", { message: msg || null });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(afk.build(res?.data ?? {}));
-  }
-  if (id === "modal:afk_excl_add") {
-    const userId = interaction.fields.getTextInputValue("userId").trim();
-    const res = await sendAction("afk.addExclusion", { userId });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(afk.build(res?.data ?? {}));
-  }
-  if (id === "modal:afk_excl_remove") {
-    const userId = interaction.fields.getTextInputValue("userId").trim();
-    const res = await sendAction("afk.removeExclusion", { userId });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(afk.build(res?.data ?? {}));
   }
 
   // ── SNIPE ─────────────────────────────────────────────────────────────────
@@ -435,31 +412,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     if (!res?.success) return _error(interaction, res?.error);
     const lr = await sendAction("quests.list");
     return interaction.update(quests.build(lr?.data ?? {}));
-  }
-
-  // ── CLONE ─────────────────────────────────────────────────────────────────
-  if (id === "modal:clone_source") {
-    const guildId = interaction.fields.getTextInputValue("guildId").trim();
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.sourceGuildId   = guildId;
-    cfg.sourceGuildName = await resolveGuildName(guildId);
-    return interaction.update(backups.buildClone(cfg));
-  }
-  if (id === "modal:clone_target") {
-    const guildId = interaction.fields.getTextInputValue("guildId").trim();
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.targetGuildId   = guildId;
-    cfg.targetGuildName = await resolveGuildName(guildId);
-    return interaction.update(backups.buildClone(cfg));
-  }
-  if (id === "modal:clone_options") {
-    const values = interaction.fields.getCheckboxGroup("options");
-    const cfg = getCloneConfig(interaction.user.id);
-    cfg.cloneRoles    = values.includes("roles");
-    cfg.cloneChannels = values.includes("channels");
-    cfg.cloneEmojis   = values.includes("emojis");
-    cfg.cloneSettings = values.includes("settings");
-    return interaction.update(backups.buildClone(cfg));
   }
 
   // ── RÔLES ─────────────────────────────────────────────────────────────────

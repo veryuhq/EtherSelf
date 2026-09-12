@@ -26,7 +26,7 @@ _START_TIME = time.time()
 # `purge.cancel`, qu'il ne faut jamais brider : c'est le bouton d'arrêt d'une purge
 # en cours.
 _DESTRUCTIVE = re.compile(
-    r"^(?:purge\.(?:channel|guild|guilds|dms)|backups\.clone\.run|token\.set)$")
+    r"^(?:purge\.(?:channel|guild|guilds|dms)|token\.set)$")
 
 
 class _RateLimiter:

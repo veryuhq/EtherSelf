@@ -18,7 +18,6 @@ export function build(data: HomeData = {}): V2MessagePayload {
       textDisplay("**Choisis un module :**"),
       selectMenu("panel:nav", "📂 Sélectionne un module...", [
         { label: "⚙️  Configuration",                      value: "config",       description: "Préfixe et informations système" },
-        { label: "😴  AFK",                                  value: "afk",          description: "Configurer le mode AFK" },
         { label: "🔍  Snipe / MessageLogger / Snapshots",    value: "snipe",        description: "Whitelist, consultation des messages et snapshots de salon" },
         { label: "🏷️  Tags",                                value: "tags",         description: "Gérer tes messages prédéfinis" },
         { label: "📌  Bookmarks salons",                     value: "bookmarks",    description: "Salons favoris" },
@@ -28,7 +27,7 @@ export function build(data: HomeData = {}): V2MessagePayload {
         { label: "🎭  Rôles",                                value: "roles",        description: "Rôles d'un membre, membres d'un rôle" },
         { label: "🗑️  Purge",                               value: "purge",        description: "Supprimer tes messages dans un salon" },
         { label: "🏆  Discord Quests",                       value: "quests",       description: "Complétion automatique des quêtes Discord" },
-        { label: "💾  Backups & Clone",                      value: "backups",      description: "Backup amis/serveurs, cloner un serveur" },
+        { label: "💾  Backups",                      value: "backups",      description: "Backup amis et serveurs (aec invitations)" },
       ]),
     ], 0x5865F2)
   );

@@ -69,17 +69,6 @@ export function moveDirectionOptions(def = "up"): SelectOption[] {
   ];
 }
 
-/** Éléments à cloner (CheckboxGroup du modal d'options de clone),
- *  pré-cochés depuis la config en mémoire. */
-export function cloneOptionsCheckboxes(cfg: { cloneRoles?: boolean; cloneChannels?: boolean; cloneEmojis?: boolean; cloneSettings?: boolean }): SelectOption[] {
-  return [
-    { label: "🎭 Rôles",       value: "roles",    description: "Cloner les rôles du serveur",            default: cfg.cloneRoles    ?? true },
-    { label: "💬 Salons",      value: "channels", description: "Cloner les catégories et salons",        default: cfg.cloneChannels ?? true },
-    { label: "😀 Emojis",      value: "emojis",   description: "Cloner les emojis personnalisés",        default: cfg.cloneEmojis   ?? true },
-    { label: "⚙️ Paramètres",  value: "settings", description: "Cloner nom, icône et paramètres divers", default: cfg.cloneSettings ?? true },
-  ];
-}
-
 /** Type de cible d'une exclusion de purge. */
 export function purgeExclKindOptions(def = "guild"): SelectOption[] {
   return [
