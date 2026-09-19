@@ -21,7 +21,7 @@
 ---
 
 > ### 🤖 Vibecodé avec des modèles d'IA
-> **Tout le code** vient de modèles d'IA (Claude Fable 5, Sonnet 4.6 et 5, Opus 4.8, Codex/GPT-5.4 et 5.5). Pour un projet similaire, **écris-le toi-même** : tu sauras ce qui tourne sur ton compte et comment le déboguer.
+> **Tout le code** vient de modèles d'IA (Claude Fable 5, Sonnet 4.6 et 5, Opus 4.8 et 5, Codex/GPT-5.4, 5.5 et 5.6-Terra). Pour un projet similaire, **écris-le toi-même** : tu sauras ce qui tourne sur ton compte et comment le déboguer.
 
 ---
 
