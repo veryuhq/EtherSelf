@@ -9,10 +9,10 @@ synchronisée côté controller.
 from __future__ import annotations
 
 from ..commands.fun import mock, spoiler
-from ..commands.gestion import antigroup, msglog, prefix, token
+from ..commands.gestion import antigroup, prefix, token
 from ..commands.informations import hostinfo, ping, roles, uptime
 from ..commands.utilitaires import (backups, bookmark, msgbookmarks,
-                                    purge, quests, rpc, snapshot, snipe, tag)
+                                    purge, quests, rpc, tag)
 
 # action → async (client, payload) -> data
 ACTIONS = {
@@ -22,14 +22,6 @@ ACTIONS = {
     "prefix.get": lambda c, p: prefix.execute(c, {"action": "get"}),
     "token.set": lambda c, p: token.execute(c, {"action": "set", "token": p.get("token"),
                                                 "ownerIdConfirm": p.get("ownerIdConfirm")}),
-
-    # ── SNIPE ──
-    "snipe.addGuild": lambda c, p: snipe.execute(c, {"action": "addGuild", "guildId": p.get("guildId")}),
-    "snipe.removeGuild": lambda c, p: snipe.execute(c, {"action": "removeGuild", "guildId": p.get("guildId")}),
-    "snipe.getWhitelist": lambda c, p: snipe.execute(c, {"action": "getWhitelist"}),
-    "snipe.getMessages": lambda c, p: snipe.execute(c, {"action": "getMessages", "channelId": p.get("channelId"), "type": p.get("type")}),
-    "snipe.getMessagesByGuild": lambda c, p: snipe.execute(c, {"action": "getMessagesByGuild", "guildId": p.get("guildId"), "type": p.get("type")}),
-    "snipe.getMessagesByUser": lambda c, p: snipe.execute(c, {"action": "getMessagesByUser", "userId": p.get("userId"), "type": p.get("type")}),
 
     # ── TAGS ──
     "tag.add": lambda c, p: tag.execute(c, {"action": "add", "name": p.get("name"), "content": p.get("content")}),
@@ -54,11 +46,6 @@ ACTIONS = {
     "antigroup.toggle": lambda c, p: antigroup.execute(c, {"action": "toggle"}),
     "antigroup.getState": lambda c, p: antigroup.execute(c, {"action": "getState"}),
     "antigroup.leaveAll": lambda c, p: antigroup.execute(c, {"action": "leaveAll"}),
-
-    # ── MSGLOG ──
-    "msglog.add": lambda c, p: msglog.execute(c, {"action": "add", "guildId": p.get("guildId")}),
-    "msglog.remove": lambda c, p: msglog.execute(c, {"action": "remove", "guildId": p.get("guildId")}),
-    "msglog.list": lambda c, p: msglog.execute(c, {"action": "list"}),
 
     # ── RPC + Custom Status ──
     "rpc.getState": lambda c, p: rpc.execute(c, {"action": "getState"}),
@@ -87,14 +74,6 @@ ACTIONS = {
     "rpc.csRemove": lambda c, p: rpc.execute(c, {"action": "csRemove", "index": p.get("index")}),
     "rpc.csClear": lambda c, p: rpc.execute(c, {"action": "csClear"}),
     "rpc.setCsInterval": lambda c, p: rpc.execute(c, {"action": "setCsInterval", "intervalSec": p.get("intervalSec")}),
-
-    # ── SNAPSHOT ──
-    "snapshot.run": lambda c, p: snapshot.execute(c, {"action": "snapshot", "channelId": p.get("channelId"), "limit": p.get("limit", 0), "sendToChannelId": p.get("sendToChannelId"), "jobId": p.get("jobId")}),
-    "snapshot.periodic.list": lambda c, p: snapshot.execute(c, {"action": "periodic.list"}),
-    "snapshot.periodic.add": lambda c, p: snapshot.execute(c, {"action": "periodic.add", "channelId": p.get("channelId"), "interval": p.get("interval"), "limit": p.get("limit", 0), "sendToChannelId": p.get("sendToChannelId")}),
-    "snapshot.periodic.remove": lambda c, p: snapshot.execute(c, {"action": "periodic.remove", "channelId": p.get("channelId")}),
-    "snapshot.periodic.start": lambda c, p: snapshot.execute(c, {"action": "periodic.start"}),
-    "snapshot.periodic.stop": lambda c, p: snapshot.execute(c, {"action": "periodic.stop"}),
 
     # ── QUESTS ──
     "quests.getConfig": lambda c, p: quests.execute(c, {"action": "getConfig"}),

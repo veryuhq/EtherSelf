@@ -8,11 +8,8 @@ const PKG_ROOT = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(PKG_ROOT, ".env"), override: true });
 
 import http from "http";
-import os from "os";
-import fs from "fs";
 import {
   ActivityType,
-  AttachmentBuilder,
   Client,
   Collection,
   GatewayIntentBits,
@@ -27,10 +24,9 @@ import * as purgelogs from "./commands/purgelogs";
 
 import { healthCheck } from "./bridge/client";
 import { getSecretBuffer, verifySignedRequest, registerSignature } from "./bridge/auth";
-import { container, textDisplay, separator, fileComponent, logLines, plainText, replyV2, NO_MENTIONS, type V2MessagePayload } from "./utils/components";
-import { updateProgressJob, cleanProgressJob, getSnapshotJob, cleanSnapshotJob } from "./store/jobs";
+import { container, textDisplay, separator, logLines, replyV2, NO_MENTIONS, type V2MessagePayload } from "./utils/components";
+import { updateProgressJob, cleanProgressJob } from "./store/jobs";
 
-import * as snipe from "./panels/snipe";
 import * as purgePanel from "./panels/purge";
 
 const OWNER_ID      = process.env.OWNER_ID;
@@ -75,39 +71,6 @@ function readBody(req: http.IncomingMessage, maxBytes = 50 * 1024 * 1024): Promi
     req.on("end",  ()    => resolve(Buffer.concat(chunks).toString("utf-8")));
     req.on("error", reject);
   });
-}
-
-// Répertoire data/ du selfbot : seule racine dont /file accepte de lire un
-// `filepath` local. Empêche qu'une requête signée puisse exfiltrer un fichier
-// arbitraire de l'hôte (defense-in-depth au-delà du HMAC).
-const SB_DATA_DIR = process.env.SB_DATA_DIR
-  ? path.resolve(process.env.SB_DATA_DIR)
-  : path.resolve(PKG_ROOT, "..", "sb-uhq", "data");
-
-/** Chemin réel (liens symboliques résolus), ou null si le chemin n'existe pas. */
-function realPathOrNull(target: string): string | null {
-  try { return fs.realpathSync(target); } catch { return null; }
-}
-
-function assertInSbData(localFilepath: unknown): string {
-  // On compare les chemins RÉELS : `path.resolve` seul ne résout pas les liens
-  // symboliques, donc un lien déposé dans data/ et pointant ailleurs (vers .env
-  // par exemple) passait le test de préfixe et le fichier visé partait sur Discord.
-  const resolved = realPathOrNull(path.resolve(String(localFilepath ?? "")));
-  const root = realPathOrNull(SB_DATA_DIR);
-  if (!resolved || !root || (resolved !== root && !resolved.startsWith(`${root}${path.sep}`))) {
-    throw new Error("Chemin de fichier hors du répertoire autorisé.");
-  }
-  return resolved;
-}
-
-function safeTmpFile(filename: unknown): { tmpRoot: string; tmpPath: string; safeName: string } {
-  const base = path.basename(String(filename ?? "")).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
-  if (!base || base === "." || base === "..") throw new Error("Nom de fichier invalide.");
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "etherself-"));
-  const tmpPath = path.resolve(tmpRoot, base);
-  if (!tmpPath.startsWith(`${path.resolve(tmpRoot)}${path.sep}`)) throw new Error("Chemin de fichier invalide.");
-  return { tmpRoot, tmpPath, safeName: base };
 }
 
 function redactLogText(text: unknown): string {
@@ -174,40 +137,6 @@ function checkHttpRateLimit(key: string, max: number, windowMs: number): boolean
   return bucket.count <= max;
 }
 
-interface SnapshotFileMeta {
-  channelName?: string;
-  guildName?: string | null;
-  messageCount?: number;
-  filename?: string;
-  fileSizeKb?: number;
-}
-
-function buildSnapshotEmbed(meta: SnapshotFileMeta, attachment: AttachmentBuilder, attachmentName: string): V2MessagePayload {
-  const { channelName, guildName, messageCount, filename, fileSizeKb } = meta;
-  const now = new Date().toLocaleString("fr-FR");
-
-  // channelName / guildName viennent du salon archivé : contenu tiers, donc
-  // neutralisé avant d'entrer dans un Text Display (cf. plainText).
-  const lines = [
-    `## 📸 Snapshot — \`#${plainText(channelName)}\``,
-    guildName ? `> 🏠 **Serveur :** ${plainText(guildName)}` : null,
-    `> \`💬\` **Messages archivés :** \`${messageCount}\``,
-    `> \`📄\` **Fichier :** \`${plainText(filename)}\``,
-    `> \`📦\` **Taille :** \`${fileSizeKb} Ko\``,
-    `> \`🕐\` **Généré le :** ${now}`,
-    ``,
-    `*Ouvre le fichier HTML joint dans ton navigateur pour consulter l'archive.*`,
-  ].filter((l) => l !== null).join("\n");
-
-  return {
-    ...replyV2(
-      container([textDisplay(lines)], 0x2ECC71),
-      fileComponent(attachmentName),
-    ),
-    files: [attachment],
-  };
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  SERVEUR HTTP
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,95 +187,6 @@ const logServer = http.createServer(async (req, res) => {
       if (done) cleanProgressJob(jobId);
       res.writeHead(200).end();
     } catch { res.writeHead(400).end(); }
-    return;
-  }
-
-  // ── POST /snapshot-result ─────────────────────────────────────────────────
-  if (req.method === "POST" && req.url === "/snapshot-result") {
-    try {
-      const body = JSON.parse(rawBody || "{}");
-      const { jobId, error, channelName, messageCount, sent } = body;
-
-      if (jobId) {
-        const job = getSnapshotJob(jobId);
-        if (job) {
-          const panelPayload = snipe.buildSnapshotResult({
-            channelName:  channelName ?? "?",
-            messageCount: messageCount ?? 0,
-            sent:         sent ?? false,
-            error:        error ?? null,
-          });
-          try { await job.interaction.editReply(panelPayload); } catch {}
-          cleanSnapshotJob(jobId);
-        }
-      }
-      res.writeHead(200).end();
-    } catch { res.writeHead(400).end(); }
-    return;
-  }
-
-  // ── POST /file ────────────────────────────────────────────────────────────
-  if (req.method === "POST" && req.url === "/file") {
-    let tmpPath: string | null = null;
-    try {
-      const body = JSON.parse(rawBody || "{}");
-      const { filename, base64, filepath: localFilepath, meta, channelId } = body;
-
-      if (!filename || (!base64 && !localFilepath)) { res.writeHead(400).end(); return; }
-      if (!client.isReady()) { res.writeHead(503).end(); return; }
-
-      const tmpInfo = safeTmpFile(filename);
-      tmpPath = tmpInfo.tmpPath;
-
-      if (localFilepath) {
-        // Chemin local : les deux process tournent sur le même VPS,
-        // on lit directement le fichier sans passer par base64 en mémoire.
-        // Confiné au répertoire data/ du selfbot (anti-exfiltration).
-        const srcPath = assertInSbData(localFilepath);
-        fs.copyFileSync(srcPath, tmpPath);
-        fs.chmodSync(tmpPath, 0o600);
-      } else {
-        fs.writeFileSync(tmpPath, Buffer.from(base64, "base64"), { mode: 0o600 });
-      }
-
-      const filenameSafe = tmpInfo.safeName;
-      const attachment = new AttachmentBuilder(tmpPath, { name: filenameSafe });
-
-      let msgPayload: V2MessagePayload;
-
-      // Snapshot HTML
-      if (meta && typeof meta === "object") {
-        msgPayload = buildSnapshotEmbed(meta, attachment, filenameSafe);
-      }
-      // Fichier générique
-      else {
-        msgPayload = { ...replyV2(fileComponent(filenameSafe)), files: [attachment] };
-      }
-
-      if (channelId) {
-        const targetChannel = await client.channels.fetch(channelId).catch(() => null);
-        if (!targetChannel || !targetChannel.isSendable()) { res.writeHead(404).end(); return; }
-        await targetChannel.send(msgPayload);
-      } else {
-        if (!OWNER_ID) { res.writeHead(500).end(); return; }
-        const owner = await client.users.fetch(OWNER_ID).catch(() => null);
-        if (!owner)   { res.writeHead(500).end(); return; }
-        await owner.send(msgPayload);
-      }
-
-      res.writeHead(200).end();
-    } catch (err) {
-      console.error("[CONTROLLER] /file erreur :", (err as Error).message);
-      res.writeHead(500).end();
-    } finally {
-      // Nettoyage du fichier tmp créé par le bot-controller.
-      // Si on a utilisé localFilepath (chemin local depuis le selfbot),
-      // le selfbot garde son propre fichier dans data/snapshots/ — on ne le supprime pas.
-      if (tmpPath) {
-        try { fs.unlinkSync(tmpPath); } catch {}
-        try { fs.rmSync(path.dirname(tmpPath), { recursive: true, force: true }); } catch {}
-      }
-    }
     return;
   }
 

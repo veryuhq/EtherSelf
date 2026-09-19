@@ -5,23 +5,6 @@ import type { SelectOption } from "../utils/components";
 //  suivent le contrat du bridge (listes validées côté Python).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Type de messages snipés à consulter (supprimés ou édités). */
-export function snipeTypeOptions(def: string): SelectOption[] {
-  return [
-    { label: "🗑️ Supprimés", value: "deleted", description: "Messages supprimés",  default: def === "deleted" },
-    { label: "✏️ Édités",    value: "edited",  description: "Messages édités",     default: def === "edited" },
-  ];
-}
-
-/** Mode de recherche snipe (par salon, serveur ou utilisateur). */
-export function snipeModeOptions(def: string): SelectOption[] {
-  return [
-    { label: "Salon",       value: "channel", description: "Rechercher par ID de salon",      default: def === "channel" },
-    { label: "Serveur",     value: "guild",   description: "Rechercher par ID de serveur",    default: def === "guild" },
-    { label: "Utilisateur", value: "user",    description: "Rechercher par ID d'utilisateur", default: def === "user" },
-  ];
-}
-
 /** Statut en ligne Discord. */
 export function statusOptions(current: string): SelectOption[] {
   return [

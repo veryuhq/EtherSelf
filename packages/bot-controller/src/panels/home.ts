@@ -18,7 +18,6 @@ export function build(data: HomeData = {}): V2MessagePayload {
       textDisplay("**Choisis un module :**"),
       selectMenu("panel:nav", "📂 Sélectionne un module...", [
         { label: "⚙️  Configuration",                      value: "config",       description: "Préfixe et informations système" },
-        { label: "🔍  Snipe / MessageLogger / Snapshots",    value: "snipe",        description: "Whitelist, consultation des messages et snapshots de salon" },
         { label: "🏷️  Tags",                                value: "tags",         description: "Gérer tes messages prédéfinis" },
         { label: "📌  Bookmarks salons",                     value: "bookmarks",    description: "Salons favoris" },
         { label: "💬  Bookmarks messages",                   value: "msgbookmarks", description: "Messages importants sauvegardés" },

@@ -3,8 +3,6 @@
 Endpoints côté controller (voir packages/bot-controller/src/index.ts) :
   POST /log              { text }
   POST /progress         { jobId, ... }               (purge)
-  POST /snapshot-result  { jobId, ... }               (résultat snapshot)
-  POST /file             { filename, filepath|base64, meta?, channelId? }
 
 Tous signés avec le même HMAC que /action.
 """
@@ -48,22 +46,6 @@ async def post_log(text: str) -> bool:
 
 async def post_progress(job_id: str, data: dict) -> bool:
     return await _post_json("/progress", {"jobId": job_id, **data})
-
-async def post_snapshot_result(job_id: str, result: dict) -> bool:
-    if not job_id:
-        return False
-    return await _post_json("/snapshot-result", {"jobId": job_id, **result})
-
-
-async def post_file(filename: str, filepath: str, meta: dict | None,
-                    channel_id: str | None = None) -> bool:
-    return await _post_json("/file", {
-        "filename": filename,
-        "filepath": filepath,
-        "meta": meta,
-        "channelId": channel_id,
-    })
-
 
 async def close_session() -> None:
     global _session

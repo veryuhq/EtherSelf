@@ -5,13 +5,12 @@ import type { MessageComponentInteraction } from "discord.js";
 import { sendAction } from "../bridge/client";
 import { modal, NO_MENTIONS } from "../utils/components";
 import { NAV_MAP, makeJobId, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
-import { snipeTypeOptions, snipeModeOptions, statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions } from "./modal-options";
+import { statusOptions, activityTypeOptions, buttonActionOptions, platformOptions, purgeExclKindOptions, moveDirectionOptions } from "./modal-options";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getRolesConfig } from "../store/roles-config";
 import { registerProgressJob } from "../store/jobs";
 
 // Panels
-import * as snipe     from "../panels/snipe";
 import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
 import * as purge     from "../panels/purge";
@@ -25,16 +24,6 @@ import * as roles     from "../panels/roles";
 const execFileAsync = promisify(execFile);
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Modal de recherche snipe — partagé entre le menu et les boutons
- *  « Autre recherche » des résultats (seuls les défauts des radios changent). */
-function snipeViewModal(type = "deleted", mode = "channel") {
-  return modal("modal:snipe_view", "Rechercher des messages", [
-    { id: "type",  label: "Type de messages",  radio: snipeTypeOptions(type) },
-    { id: "mode",  label: "Mode de recherche", radio: snipeModeOptions(mode) },
-    { id: "query", label: "ID du salon, serveur ou utilisateur", placeholder: "123456789012345678" },
-  ]);
-}
 
 /** Modals de recherche du panel Rôles — l'ID du serveur est prérempli quand on
  *  en a un (serveur ciblé, ou serveur du résultat d'où l'on relance une recherche). */
@@ -115,70 +104,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     return interaction.showModal(modal("modal:prefix", "Changer le préfixe", [
       { id: "prefix", label: "Nouveau préfixe (1–3 caractères)", placeholder: ".", value: res?.data?.prefix ?? ".", maxLength: 3 },
     ]));
-  }
-
-  // ── SNIPE ─────────────────────────────────────────────────────────────────
-  if (id === "snipe:add") {
-    return interaction.showModal(modal("modal:snipe_add", "Ajouter un serveur", [
-      { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "snipe:remove") {
-    return interaction.showModal(modal("modal:snipe_remove", "Retirer un serveur", [
-      { id: "guildId", label: "ID du serveur", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "snipe:view") {
-    return interaction.showModal(snipeViewModal());
-  }
-  if (id.startsWith("snipe:page:")) {
-    const parts = id.split(":");
-    const type = parts[2];
-    const page = parseInt(parts[3], 10);
-    const searchMode = parts[4];
-    const scopeId = parts[5];
-    let res;
-    if (searchMode === "guild") res = await sendAction("snipe.getMessagesByGuild", { guildId: scopeId, type });
-    else if (searchMode === "user") res = await sendAction("snipe.getMessagesByUser", { userId: scopeId, type });
-    else res = await sendAction("snipe.getMessages", { channelId: scopeId, type });
-    return interaction.update(snipe.buildResults({ ...(res?.data ?? {}), page }));
-  }
-  if (id.startsWith("snipe:inputChannel:") || id.startsWith("snipe:inputGuild:") || id.startsWith("snipe:inputUser:")) {
-    const [, kind, type] = id.split(":");
-    const mode = kind === "inputGuild" ? "guild" : kind === "inputUser" ? "user" : "channel";
-    return interaction.showModal(snipeViewModal(type, mode));
-  }
-  if (id === "snipe:snapshot") {
-    return interaction.showModal(modal("modal:snipe_snapshot", "Snapshot d'un salon", [
-      { id: "channelId",       label: "ID du salon à archiver",                    placeholder: "123456789012345678" },
-      { id: "limit",           label: "Limite (0 = tous les messages)",            placeholder: "0", value: "0", required: false, maxLength: 6 },
-      { id: "dm",              label: "Recevoir le fichier en DM",                 description: "Décoche pour l'envoyer dans le salon indiqué ci-dessous", checkbox: true, checked: true },
-      { id: "sendToChannelId", label: "ID salon de réception (si DM décoché)",     placeholder: "123456789012345678", required: false },
-    ]));
-  }
-  if (id === "snipe:snapshotPeriodicAdd") {
-    return interaction.showModal(modal("modal:snipe_snapshot_periodic_add", "Snapshot périodique", [
-      { id: "channelId",       label: "ID du salon à archiver",                    placeholder: "123456789012345678" },
-      { id: "interval",        label: "Intervalle (1w, 7d, 24h, 60m)",             placeholder: "1w", value: "1w", maxLength: 20 },
-      { id: "limit",           label: "Limite (0 = tous les messages)",            placeholder: "0", value: "0", required: false, maxLength: 6 },
-      { id: "dm",              label: "Recevoir les fichiers en DM",               description: "Décoche pour les envoyer dans le salon indiqué ci-dessous", checkbox: true, checked: true },
-      { id: "sendToChannelId", label: "ID salon de réception (si DM décoché)",     placeholder: "123456789012345678", required: false },
-    ]));
-  }
-  if (id === "snipe:snapshotPeriodicRemove") {
-    return interaction.showModal(modal("modal:snipe_snapshot_periodic_remove", "Retirer un périodique", [
-      { id: "channelId", label: "ID du salon à retirer", placeholder: "123456789012345678" },
-    ]));
-  }
-  if (id === "snipe:snapshotPeriodicToggle") {
-    const state = await sendAction("snapshot.periodic.list");
-    if (!state?.success) return _error(interaction, state?.error);
-    const action = state?.data?.running ? "snapshot.periodic.stop" : "snapshot.periodic.start";
-    const res = await sendAction(action);
-    if (!res?.success) return _error(interaction, res?.error);
-    // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
-    const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel!);
   }
 
   // ── TAGS ──────────────────────────────────────────────────────────────────

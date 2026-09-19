@@ -6,7 +6,6 @@ import type { V2MessagePayload } from "../utils/components";
 import * as home      from "../panels/home";
 import * as config    from "../panels/config";
 import * as prefix    from "../panels/prefix";
-import * as snipe     from "../panels/snipe";
 import * as tags      from "../panels/tags";
 import * as bookmarks from "../panels/bookmarks";
 import * as msgbm     from "../panels/msgbookmarks";
@@ -32,17 +31,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     home:         () => sendAction("prefix.get"),
     config:       () => null,
     prefix:       () => sendAction("prefix.get"),
-    snipe:        async () => {
-      const [whitelistRes, schedulesRes] = await Promise.all([
-        sendAction("snipe.getWhitelist"),
-        sendAction("snapshot.periodic.list"),
-      ]);
-      return {
-        ...(whitelistRes?.data ?? {}),
-        snapshotSchedules: schedulesRes?.data?.jobs ?? [],
-        snapshotSchedulesRunning: schedulesRes?.data?.running ?? false,
-      };
-    },
     tags:         async () => {
       const [tagsRes, prefixRes] = await Promise.all([sendAction("tag.list"), sendAction("prefix.get")]);
       return { tags: tagsRes?.data?.tags ?? {}, prefix: prefixRes?.data?.prefix ?? "." };
@@ -85,7 +73,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     home:         (d) => home.build(d),
     config:       ()  => config.build(),
     prefix:       (d) => prefix.build(d),
-    snipe:        (d) => snipe.build(d),
     tags:         (d) => tags.build(d),
     bookmarks:    (d) => bookmarks.build(d),
     msgbookmarks: (d) => msgbm.build(d),
@@ -107,7 +94,7 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
   let data: PanelData = {};
   if (fetchers[panelKey]) {
     const res = await fetchers[panelKey]();
-    if (panelKey === "tags" || panelKey === "backups" || panelKey === "snipe" || panelKey === "roles") {
+    if (panelKey === "tags" || panelKey === "backups" || panelKey === "roles") {
       data = res ?? {};
     } else if (res === null) {
       data = {};

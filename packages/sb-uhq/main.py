@@ -25,16 +25,14 @@ platform_identity.install()
 
 from app.bridge.server import run_bridge_server  # noqa: E402
 from app.commands.fun import mock, spoiler  # noqa: E402
-from app.commands.gestion import antigroup, msglog, prefix  # noqa: E402
-from app.commands.utilitaires import quests, rpc, snapshot, tag  # noqa: E402
+from app.commands.gestion import antigroup, prefix  # noqa: E402
+from app.commands.utilitaires import quests, rpc, tag  # noqa: E402
 from app.func import shutdown  # noqa: E402
 from app.func.logbus import enable_broadcast, log, logerr  # noqa: E402
 
 PREFIX_COMMANDS = {"tag": tag, "mock": mock, "spoiler": spoiler}
 
-# Cache élargi (défaut : 1000, global à tous les salons) pour que le snipe retrouve le
-# plus souvent possible les messages supprimés/édités. Coût : ~20-60 Mo de RAM.
-client = discord.Client(max_messages=20000)
+client = discord.Client()
 
 _ready_once = False
 _bridge_runner = None
@@ -54,9 +52,6 @@ async def on_ready():
         rpc.on_ready(client)
         # Quests
         quests.on_ready(client)
-        # Snapshots périodiques
-        snapshot.on_ready(client)
-
         # À partir d'ici, log() est relayé au bot-controller via /log.
         enable_broadcast()
 
@@ -83,24 +78,6 @@ async def on_message(message):
             await cmd.callback(client, message, args)
         except Exception as err:  # noqa: BLE001
             logerr(f"[CMD] Erreur '{command_name}': {err}")
-
-
-# Événements raw : ils couvrent aussi les messages absents du cache interne, sans quoi
-# la plupart des suppressions en serveur ne seraient jamais loggées.
-@client.event
-async def on_raw_message_delete(payload):
-    try:
-        await msglog.handle_raw_message_delete(payload, client)
-    except Exception as err:  # noqa: BLE001
-        logerr(f"[MSGLOG] delete : {err}")
-
-
-@client.event
-async def on_raw_message_edit(payload):
-    try:
-        await msglog.handle_raw_message_edit(payload, client)
-    except Exception as err:  # noqa: BLE001
-        logerr(f"[MSGLOG] edit : {err}")
 
 
 @client.event

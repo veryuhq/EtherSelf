@@ -2,7 +2,7 @@ import type { MessageComponentInteraction, ModalSubmitInteraction } from "discor
 import type { V2MessagePayload } from "../utils/components";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  STORES — jobs asynchrones (purge, clonage, snapshot)
+//  STORES — jobs asynchrones (purge, clonage)
 //  Le selfbot pousse la progression via le serveur HTTP local (voir index.ts),
 //  qui retrouve ici l'interaction d'origine pour éditer le panel en place.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,20 +34,4 @@ export async function updateProgressJob(jobId: string, panelPayload: V2MessagePa
 
 export function cleanProgressJob(jobId: string): void {
   progressJobs.delete(jobId);
-}
-
-// ── Jobs de snapshot ─────────────────────────────────────────────────────────
-
-const snapshotJobs = new Map<string, { interaction: JobInteraction }>();
-
-export function registerSnapshotJob(jobId: string, interaction: JobInteraction): void {
-  snapshotJobs.set(jobId, { interaction });
-}
-
-export function getSnapshotJob(jobId: string): { interaction: JobInteraction } | undefined {
-  return snapshotJobs.get(jobId);
-}
-
-export function cleanSnapshotJob(jobId: string): void {
-  snapshotJobs.delete(jobId);
 }

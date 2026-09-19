@@ -2,14 +2,12 @@ import type { ModalMessageModalSubmitInteraction, ModalSubmitInteraction } from 
 
 import { sendAction } from "../bridge/client";
 import { NO_MENTIONS } from "../utils/components";
-import { NAV_MAP, makeJobId, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
+import { NAV_MAP, fetchMemberRolesPanel, fetchRoleMembersPanel } from "./common";
 import { fetchAndBuild } from "./fetch-and-build";
 import { getRolesConfig } from "../store/roles-config";
-import { registerSnapshotJob } from "../store/jobs";
 
 // Panels
 import * as prefix      from "../panels/prefix";
-import * as snipe       from "../panels/snipe";
 import * as tags        from "../panels/tags";
 import * as bookmarks   from "../panels/bookmarks";
 import * as msgbm       from "../panels/msgbookmarks";
@@ -65,76 +63,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const res = await sendAction("prefix.set", { prefix: newPrefix });
     if (!res?.success) return _error(interaction, res?.error ?? "Erreur lors du changement de préfixe.");
     return interaction.update(prefix.build(res?.data ?? {}));
-  }
-
-  // ── SNIPE ─────────────────────────────────────────────────────────────────
-  if (id === "modal:snipe_add") {
-    const guildId = interaction.fields.getTextInputValue("guildId").trim();
-    const res = await sendAction("snipe.addGuild", { guildId });
-    if (!res?.success) return _error(interaction, res?.error);
-    // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
-    const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel!);
-  }
-  if (id === "modal:snipe_remove") {
-    const guildId = interaction.fields.getTextInputValue("guildId").trim();
-    const res = await sendAction("snipe.removeGuild", { guildId });
-    if (!res?.success) return _error(interaction, res?.error);
-    // On passe par fetchAndBuild pour avoir les noms de serveurs ET les schedules
-    const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel!);
-  }
-  if (id === "modal:snipe_view") {
-    const type  = interaction.fields.getRadioGroup("type", true);
-    const mode  = interaction.fields.getRadioGroup("mode", true);
-    const query = interaction.fields.getTextInputValue("query").trim();
-
-    let res;
-    if (mode === "guild") {
-      res = await sendAction("snipe.getMessagesByGuild", { guildId: query, type });
-    } else if (mode === "user") {
-      res = await sendAction("snipe.getMessagesByUser", { userId: query, type });
-    } else {
-      res = await sendAction("snipe.getMessages", { channelId: query, type });
-    }
-
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(snipe.buildResults({ ...(res?.data ?? {}), page: 0 }));
-  }
-  if (id === "modal:snipe_snapshot") {
-    const channelId       = interaction.fields.getTextInputValue("channelId").trim();
-    const limitRaw        = interaction.fields.getTextInputValue("limit").trim();
-    const dm              = interaction.fields.getCheckbox("dm");
-    const sendToChannelId = dm ? null : (interaction.fields.getTextInputValue("sendToChannelId").trim() || null);
-    const limit           = parseInt(limitRaw, 10) || 0;
-    const jobId           = makeJobId("snapshot");
-
-    await interaction.update(snipe.buildSnapshotRunning({ channelId }));
-
-    registerSnapshotJob(jobId, interaction);
-
-    sendAction("snapshot.run", { channelId, limit, sendToChannelId, jobId }).catch(() => {});
-    return;
-  }
-  if (id === "modal:snipe_snapshot_periodic_add") {
-    const channelId       = interaction.fields.getTextInputValue("channelId").trim();
-    const interval        = interaction.fields.getTextInputValue("interval").trim();
-    const limitRaw        = interaction.fields.getTextInputValue("limit").trim();
-    const dm              = interaction.fields.getCheckbox("dm");
-    const sendToChannelId = dm ? null : (interaction.fields.getTextInputValue("sendToChannelId").trim() || null);
-    const limit           = parseInt(limitRaw, 10) || 0;
-
-    const res = await sendAction("snapshot.periodic.add", { channelId, interval, limit, sendToChannelId });
-    if (!res?.success) return _error(interaction, res?.error);
-    const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel!);
-  }
-  if (id === "modal:snipe_snapshot_periodic_remove") {
-    const channelId = interaction.fields.getTextInputValue("channelId").trim();
-    const res = await sendAction("snapshot.periodic.remove", { channelId });
-    if (!res?.success) return _error(interaction, res?.error);
-    const panel = await fetchAndBuild("snipe");
-    return interaction.update(panel!);
   }
 
   // ── TAGS ──────────────────────────────────────────────────────────────────

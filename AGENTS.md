@@ -69,7 +69,7 @@ packages/bot-controller/          # BOT PANEL (TypeScript, compilé vers dist/)
     │                             # + common.ts (NAV_MAP de navigation, makeJobId(), recherches du panel Rôles)
     │                             # + modal-options.ts (options des RadioGroup/CheckboxGroup, `value` alignées sur le bridge)
     ├── bridge/                   # client.ts (sendAction), auth.ts (HMAC)
-    ├── store/                    # jobs.ts (jobs purge/snapshot), roles-config.ts
+    ├── store/                    # jobs.ts (jobs longs), roles-config.ts
     └── utils/components.ts       # helpers Components V2 typés (container, btn, actionRow, replyV2…)
 
 packages/sb-uhq/data/             # état runtime JSON — gitignoré, ne jamais committer
@@ -83,8 +83,8 @@ Une fonctionnalité traverse presque toujours les deux packages, dans cet ordre 
 2. **Python** : enregistrer les actions dans `ACTIONS` de `app/router/action_router.py` (clé `"module.action"`).
 3. **Python** : câbler le module dans `main.py` si besoin — rien n'y est automatique, chaque point d'entrée hors bridge s'y déclare à la main :
    - commande préfixe → import + entrée dans le dict `PREFIX_COMMANDS` (sans ça le `callback()` ne sera jamais appelé) ;
-   - travail au démarrage → `def on_ready(client)` dans le module, appelé depuis le `on_ready` de `main.py` (modèles : `rpc`, `quests`, `snapshot`) ;
-   - réaction à un événement Discord → handler exporté par le module, appelé depuis un `@client.event` de `main.py` (modèles : `msglog`, `antigroup`).
+   - travail au démarrage → `def on_ready(client)` dans le module, appelé depuis le `on_ready` de `main.py` (modèles : `rpc`, `quests`) ;
+   - réaction à un événement Discord → handler exporté par le module, appelé depuis un `@client.event` de `main.py` (modèle : `antigroup`).
 4. **Node** : créer `src/panels/<module>.ts` avec `build(data)` en s'inspirant d'un panel existant
 5. **Node** : brancher les `customId` (`module:action`) dans `src/interactions/buttons.ts` / `selects.ts` / `modals.ts`.
 6. **Node** : rendre le panel atteignable — il faut les **trois** tables, sinon le bouton ne mène nulle part :
@@ -102,15 +102,12 @@ rate-limité à 100 requêtes/minute par IP et par route) :
 |---|---|---|
 | `POST /log` | `post_log(text)` | logs relayés en MP au propriétaire (texte expurgé puis tronqué à 3500 car.) |
 | `POST /progress` | `post_progress(job_id, data)` | re-render du panel purge via `purgePanel.buildProgress()` |
-| `POST /snapshot-result` | `post_snapshot_result(job_id, result)` | affiche le résultat du snapshot |
-| `POST /file` | `post_file(filename, filepath, meta, channel_id)` | envoie le fichier en pièce jointe |
 
 **Toute action longue passe par un `jobId`** — c'est le seul moyen de rendre la main à
 Discord sans laisser le panel figé :
 
 1. Côté Node, l'interaction génère l'identifiant avec `makeJobId()` (`interactions/common.ts`),
-   l'enregistre (`registerProgressJob` / `registerSnapshotJob` de
-   `store/jobs.ts`) et le passe dans le payload de `sendAction()`.
+   l'enregistre (`registerProgressJob` de `store/jobs.ts`) et le passe dans le payload de `sendAction()`.
 2. Côté Python, le module reçoit `jobId` dans son payload et pousse l'avancement avec le
    helper correspondant (modèle : `purge.py` et son `_notify()`).
 3. Le controller retrouve l'interaction d'origine dans `store/jobs.ts` et édite le panel en
@@ -125,17 +122,14 @@ Tout passe par `app/func/data_path.py`, jamais par des chemins relatifs (le work
 directory change sous pm2) :
 
 - `data_path("config", "prefix.json")` → chemin absolu ; l'arborescence est `data/config/`
-  (état des fonctionnalités), `data/logs/` (historiques), `data/msg_log_data/` (messages
-  snipés), `data/snapshots/` (exports HTML).
+  (état des fonctionnalités) et `data/logs/` (historiques).
 - `read_json(path, default)` / `write_json(path, data)` — `write_json` crée les dossiers
   parents et pose `0600` : `data/` contient des données privées (messages supprimés,
   liste d'amis, tokens de session). Ne pas contourner ce mode.
 - **`safe_id_segment(value, "label")` est obligatoire** dès qu'un ID venu du payload
   devient un segment de chemin : sans lui un `../..` sort de `data/` (`pathlib` repart de
   zéro sur un segment absolu et conserve les `..`). Utiliser `is_snowflake()` pour un
-  simple test booléen. Modèles : `snipe.py`, `msglog.py`.
-- Côté controller, `POST /file` confine sa lecture au `data/` du selfbot
-  (`assertInSbData`) : ne pas élargir ce périmètre.
+  simple test booléen.
 
 ## Référence discord.js — Display Components (Components V2) & Modals
 
@@ -211,7 +205,7 @@ des modals.
 
 - **Conventional Commits obligatoires** ([spécification 1.0.0](https://www.conventionalcommits.org/fr/v1.0.0/)) : chaque commit suit le format `type(scope): description`, et rien d'autre ne passe.
   - Types autorisés : `feat`, `fix`, `refactor`, `docs`, `chore`, `perf`, `style`, `test`, `build`, `ci`, `revert`.
-  - Mets un `scope` dès que tu peux (module ou package concerné : `snipe`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
+  - Mets un `scope` dès que tu peux (module ou package concerné : `purge`, `bridge`, `controller`…) ; la description est en français, à l'impératif ou au présent, sans majuscule initiale ni point final.
   - Breaking change : suffixe `!` après le type/scope (ex. `refactor(bridge)!: …`) et/ou footer `BREAKING CHANGE:` expliquant la rupture.
   - Ex. `fix(purge): respecter le délai anti rate-limit…`.
 - Diffs petits et ciblés ; mettre à jour le README quand une fonctionnalité visible change.
