@@ -25,6 +25,11 @@
 
 ---
 
+> ### 📌 Développement limité
+> Le développement d'EtherSelf est désormais **limité à la maintenance et aux corrections nécessaires**. Aucune nouvelle fonctionnalité ne sera ajoutée au projet.
+
+---
+
 ## 📖 Présentation
 
 EtherSelf est un **monorepo** composé de deux packages qui fonctionnent ensemble :
