@@ -26,7 +26,7 @@
 >
 > - **Anthropic** : Claude Fable 5, Sonnet 4.6, 5 et 5.5, Opus 4.8 et 5 (avec Claude Code)
 > - **OpenAI** : GPT-5.4, GPT-5.5 et GPT-5.6-Terra (avec Codex)
-> - **Meta** : Spark 1.3
+> - **Meta** : Spark 1.3 (avec OpenCode)
 >
 > Pour un projet similaire, **écris-le toi-même** : tu sauras ce qui tourne sur ton compte et comment le déboguer.
 
