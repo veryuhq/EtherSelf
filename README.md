@@ -24,8 +24,8 @@
 >
 > **Tout le code** vient de modèles d'IA :
 >
-> - **Anthropic** : Claude Fable 5, Sonnet 4.6, 5 et 5.5, Opus 4.8 et 5
-> - **OpenAI** : Codex, GPT-5.4, GPT-5.5 et GPT-5.6-Terra
+> - **Anthropic** : Claude Fable 5, Sonnet 4.6, 5 et 5.5, Opus 4.8 et 5 (avec Claude Code)
+> - **OpenAI** : GPT-5.4, GPT-5.5 et GPT-5.6-Terra (avec Codex)
 > - **Meta** : Spark 1.3
 >
 > Pour un projet similaire, **écris-le toi-même** : tu sauras ce qui tourne sur ton compte et comment le déboguer.
@@ -64,7 +64,6 @@ Toi  -->  /panel (bot classique)  -->  Bridge HTTP signé  -->  Selfbot  -->  Di
 | 💾 **Backups** | Sauvegarde de la liste d'amis et de la liste de serveurs (avec invitations permanentes) |
 | 🏷️ **Tags** | Messages prédéfinis envoyables via commande préfixe ou panel |
 | 📌 **Bookmarks salons** | Salons favoris sauvegardés |
-| 💬 **Bookmarks messages** | Messages importants sauvegardés avec notes |
 | 🎭 **Rôles** | Les rôles d'un membre et les membres d'un rôle, à partir des IDs — scan complet optionnel |
 
 ### ⚙️ Automatisation
