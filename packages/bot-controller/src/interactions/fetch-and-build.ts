@@ -8,7 +8,6 @@ import * as config    from "../panels/config";
 import * as prefix    from "../panels/prefix";
 import * as tags      from "../panels/tags";
 import * as bookmarks from "../panels/bookmarks";
-import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
 import * as purge     from "../panels/purge";
 import * as sysinfo   from "../panels/sysinfo";
@@ -36,7 +35,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
       return { tags: tagsRes?.data?.tags ?? {}, prefix: prefixRes?.data?.prefix ?? "." };
     },
     bookmarks:    () => sendAction("bookmark.list"),
-    msgbookmarks: () => sendAction("msgbm.list"),
     antigroup:    () => sendAction("antigroup.getState"),
     purge_exclusions: () => sendAction("purge.getExclusions"),
     rpc:          () => sendAction("rpc.getState"),
@@ -75,7 +73,6 @@ export async function fetchAndBuild(panelKey: string, userId?: string): Promise<
     prefix:       (d) => prefix.build(d),
     tags:         (d) => tags.build(d),
     bookmarks:    (d) => bookmarks.build(d),
-    msgbookmarks: (d) => msgbm.build(d),
     antigroup:    (d) => antigroup.build(d),
     purge:            ()  => purge.build(),
     purge_exclusions: (d) => purge.buildExclusions(d),

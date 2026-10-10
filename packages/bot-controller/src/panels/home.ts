@@ -20,7 +20,6 @@ export function build(data: HomeData = {}): V2MessagePayload {
         { label: "⚙️  Configuration",                      value: "config",       description: "Préfixe et informations système" },
         { label: "🏷️  Tags",                                value: "tags",         description: "Gérer tes messages prédéfinis" },
         { label: "📌  Bookmarks salons",                     value: "bookmarks",    description: "Salons favoris" },
-        { label: "💬  Bookmarks messages",                   value: "msgbookmarks", description: "Messages importants sauvegardés" },
         { label: "🔇  Anti-Group DM",                        value: "antigroup",    description: "Quitter auto les group DMs" },
         { label: "🎮  Rich Presence / Spotify / Custom Status", value: "rpc_hub",   description: "Rich Presence, Spotify RPC et Custom Status" },
         { label: "🎭  Rôles",                                value: "roles",        description: "Rôles d'un membre, membres d'un rôle" },

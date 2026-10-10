@@ -11,7 +11,7 @@ from __future__ import annotations
 from ..commands.fun import mock, spoiler
 from ..commands.gestion import antigroup, prefix, token
 from ..commands.informations import hostinfo, ping, roles, uptime
-from ..commands.utilitaires import (backups, bookmark, msgbookmarks,
+from ..commands.utilitaires import (backups, bookmark,
                                     purge, quests, rpc, tag)
 
 # action → async (client, payload) -> data
@@ -34,13 +34,6 @@ ACTIONS = {
     "bookmark.add": lambda c, p: bookmark.execute(c, {"action": "add", "channelId": p.get("channelId")}),
     "bookmark.remove": lambda c, p: bookmark.execute(c, {"action": "remove", "channelId": p.get("channelId")}),
     "bookmark.list": lambda c, p: bookmark.execute(c, {"action": "list"}),
-
-    # ── BOOKMARKS MESSAGES ──
-    "msgbm.list": lambda c, p: msgbookmarks.execute(c, {"action": "list"}),
-    "msgbm.add": lambda c, p: msgbookmarks.execute(c, {"action": "add", "url": p.get("url"), "note": p.get("note")}),
-    "msgbm.remove": lambda c, p: msgbookmarks.execute(c, {"action": "remove", "index": p.get("index")}),
-    "msgbm.note": lambda c, p: msgbookmarks.execute(c, {"action": "note", "index": p.get("index"), "note": p.get("note")}),
-    "msgbm.clear": lambda c, p: msgbookmarks.execute(c, {"action": "clear"}),
 
     # ── ANTIGROUP ──
     "antigroup.toggle": lambda c, p: antigroup.execute(c, {"action": "toggle"}),

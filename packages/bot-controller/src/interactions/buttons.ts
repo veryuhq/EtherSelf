@@ -11,7 +11,6 @@ import { getRolesConfig } from "../store/roles-config";
 import { registerProgressJob } from "../store/jobs";
 
 // Panels
-import * as msgbm     from "../panels/msgbookmarks";
 import * as antigroup from "../panels/antigroup";
 import * as purge     from "../panels/purge";
 import * as sysinfo   from "../panels/sysinfo";
@@ -140,29 +139,6 @@ export async function handle(interaction: MessageComponentInteraction): Promise<
     return interaction.showModal(modal("modal:bookmarks_remove", "Retirer un salon bookmark", [
       { id: "channelId", label: "ID du salon", placeholder: "123456789012345678" },
     ]));
-  }
-
-  // ── BOOKMARKS MESSAGES ────────────────────────────────────────────────────
-  if (id === "msgbm:add") {
-    return interaction.showModal(modal("modal:msgbm_add", "Ajouter un bookmark message", [
-      { id: "url",  label: "URL du message Discord", placeholder: "https://discord.com/channels/..." },
-      { id: "note", label: "Note (optionnel)",        placeholder: "Ma note…", required: false },
-    ]));
-  }
-  if (id === "msgbm:remove") {
-    return interaction.showModal(modal("modal:msgbm_remove", "Supprimer un bookmark message", [
-      { id: "index", label: "Numéro (index) du bookmark", placeholder: "ex: 1" },
-    ]));
-  }
-  if (id === "msgbm:note") {
-    return interaction.showModal(modal("modal:msgbm_note", "Ajouter/modifier une note", [
-      { id: "index", label: "Index du bookmark",  placeholder: "ex: 1" },
-      { id: "note",  label: "Note",               placeholder: "Ma note…", required: false },
-    ]));
-  }
-  if (id === "msgbm:clear") {
-    const res = await sendAction("msgbm.clear");
-    return interaction.update(msgbm.build(res?.data ?? {}));
   }
 
   // ── ANTIGROUP ─────────────────────────────────────────────────────────────

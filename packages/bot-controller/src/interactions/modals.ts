@@ -10,7 +10,6 @@ import { getRolesConfig } from "../store/roles-config";
 import * as prefix      from "../panels/prefix";
 import * as tags        from "../panels/tags";
 import * as bookmarks   from "../panels/bookmarks";
-import * as msgbm       from "../panels/msgbookmarks";
 import * as purge       from "../panels/purge";
 import * as rpc         from "../panels/rpc";
 import * as quests      from "../panels/quests";
@@ -110,28 +109,6 @@ export async function handle(interaction: ModalSubmitInteraction): Promise<unkno
     const res = await sendAction("bookmark.remove", { channelId });
     if (!res?.success) return _error(interaction, res?.error);
     return interaction.update(bookmarks.build(res?.data ?? {}));
-  }
-
-  // ── BOOKMARKS MESSAGES ────────────────────────────────────────────────────
-  if (id === "modal:msgbm_add") {
-    const url  = interaction.fields.getTextInputValue("url").trim();
-    const note = interaction.fields.getTextInputValue("note").trim() || null;
-    const res = await sendAction("msgbm.add", { url, note });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(msgbm.build(res?.data ?? {}));
-  }
-  if (id === "modal:msgbm_remove") {
-    const index = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const res = await sendAction("msgbm.remove", { index });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(msgbm.build(res?.data ?? {}));
-  }
-  if (id === "modal:msgbm_note") {
-    const index = parseInt(interaction.fields.getTextInputValue("index").trim(), 10);
-    const note  = interaction.fields.getTextInputValue("note").trim() || null;
-    const res = await sendAction("msgbm.note", { index, note });
-    if (!res?.success) return _error(interaction, res?.error);
-    return interaction.update(msgbm.build(res?.data ?? {}));
   }
 
   // ── PURGE ─────────────────────────────────────────────────────────────────
