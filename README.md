@@ -32,8 +32,8 @@
 
 ---
 
->📌 Projet arrêté 
-> Le développement d’EtherSelf est désormais arrêté. Aucune nouvelle fonctionnalité, maintenance ou correction ne sera apportée au projet.
+> ### 📌 Projet arrêté 
+> **Le développement d’EtherSelf est désormais arrêté. Aucune nouvelle fonctionnalité, maintenance ou correction ne sera apportée au projet.**
 
 ---
 
